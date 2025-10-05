@@ -33,7 +33,7 @@ export default function RegisterForm() {
           value={fullName}
           onChange={(e) => setFullName(e.target.value)}
           placeholder="Jane Doe"
-          className="mt-1 w-full rounded-lg border border-gray-300 px-3 py-2 shadow-sm focus:border-indigo-500 focus:outline-none focus:ring-indigo-500 sm:text-sm"
+          className="mt-1 w-full rounded-lg border border-gray-300 px-3 py-2 shadow-sm focus:border-indigo-500 focus:outline-none focus:ring-indigo-500 sm:text-sm text-black"
         />
       </div>
 
@@ -46,7 +46,7 @@ export default function RegisterForm() {
           value={email}
           onChange={(e) => setEmail(e.target.value)}
           placeholder="you@example.com"
-          className="mt-1 w-full rounded-lg border border-gray-300 px-3 py-2 shadow-sm focus:border-indigo-500 focus:outline-none focus:ring-indigo-500 sm:text-sm"
+          className="mt-1 w-full rounded-lg border border-gray-300 px-3 py-2 shadow-sm focus:border-indigo-500 focus:outline-none focus:ring-indigo-500 sm:text-sm text-black"
         />
       </div>
 
@@ -61,7 +61,7 @@ export default function RegisterForm() {
             onChange={(e) => setPassword(e.target.value)}
             placeholder="Create a strong password"
             className={cn(
-              "w-full rounded-lg border px-3 py-2 shadow-sm focus:outline-none sm:text-sm",
+              "w-full rounded-lg border px-3 py-2 shadow-sm focus:outline-none sm:text-sm text-black",
               strong ? "border-green-500 focus:ring-green-500" : "border-gray-300 focus:ring-indigo-500"
             )}
           />
@@ -82,7 +82,7 @@ export default function RegisterForm() {
           onChange={(e) => setConfirm(e.target.value)}
           placeholder="Re-enter your password"
           className={cn(
-            "mt-1 w-full rounded-lg border px-3 py-2 shadow-sm focus:outline-none sm:text-sm",
+            "mt-1 w-full rounded-lg border px-3 py-2 shadow-sm focus:outline-none sm:text-sm text-black",
             match && confirm ? "border-green-500 focus:ring-green-500" : "border-gray-300 focus:ring-indigo-500"
           )}
         />
