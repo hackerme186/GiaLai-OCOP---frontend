@@ -11,10 +11,10 @@ export default function HomePage() {
 
   return (
     <main className="min-h-screen grid lg:grid-cols-3 grid-rows-2 lg:grid-rows-1 bg-gray-50">
-      {/* ẢNH: chiếm 2/3, căn lề phải */}
+      
       <div className="relative row-span-1 lg:col-span-2 h-64 lg:h-full overflow-hidden">
         <Image
-          src="/hero.jpg" // ← đặt ảnh thật vào public
+          src="/hero.jpg" 
           alt="Hero"
           fill
           priority
@@ -23,36 +23,40 @@ export default function HomePage() {
         <div className="absolute inset-0 bg-black/20" />
       </div>
 
-      {/* FORM: chiếm 1/3 */}
+      
       <div className="row-span-1 lg:col-span-1 flex items-center justify-center px-4 py-10">
         <AuthCard>
           <h2 className="text-center text-2xl font-bold text-gray-900">
-            {mode === "login" ? "Login" : "Register"}
+            {mode === "login" ? "Chào mừng đến OCOP-Gia Lai" : "Đăng ký tài khoản"}
           </h2>
+
+          <div className="h-4" />
+          <div className="h-4" />
 
           {mode === "login" ? <LoginForm /> : <RegisterForm />}
 
           <SocialLogin />
 
           <p className="mt-6 text-center text-sm text-gray-600">
-            {mode === "login" ? "Don't have an account? " : "Already have an account? "}
+            {mode === "login" ? "Bạn chưa có tài khoản? " : "Bạn đã có tài khoản? "}
             <button
               type="button"
               onClick={() => setMode(mode === "login" ? "register" : "login")}
               className="font-medium text-indigo-600 hover:text-indigo-500"
             >
-              {mode === "login" ? "Create one" : "Sign in"}
+              {mode === "login" ? "Tạo tài khoản" : "Đăng nhập"}
             </button>
           </p>
 
           <p className="mt-4 text-center text-xs text-gray-500">
-            By continuing you agree to our{" "}
+            Bằng cách tiếp tục, bạn đồng ý với chúng tôi{" "}
+            <br />
             <a href="#" className="text-indigo-600 hover:underline">
-              Terms
+              Điều khoản và điều kiện
             </a>{" "}
-            and{" "}
+            và{" "}
             <a href="#" className="text-indigo-600 hover:underline">
-              Privacy Policy
+              Quyền riêng tư
             </a>
             .
           </p>

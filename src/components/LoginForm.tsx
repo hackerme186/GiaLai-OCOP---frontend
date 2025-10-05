@@ -27,14 +27,14 @@ export default function LoginForm() {
           required
           value={email}
           onChange={(e) => setEmail(e.target.value)}
-          placeholder="you@example.com"
+          placeholder="abc@example.com"
           className="mt-1 w-full rounded-lg border border-gray-300 px-3 py-2 shadow-sm focus:border-indigo-500 focus:outline-none focus:ring-indigo-500 sm:text-sm text-black"
         />
       </div>
 
       <div>
         <label htmlFor="password" className="block text-sm font-medium text-black">
-          Password
+          Mật khẩu
         </label>
         <input
           id="password"
@@ -44,7 +44,7 @@ export default function LoginForm() {
           required
           value={password}
           onChange={(e) => setPassword(e.target.value)}
-          placeholder="Enter your password"
+          placeholder="Nhập mật khẩu"
           className="mt-1 w-full rounded-lg border border-gray-300 px-3 py-2 shadow-sm focus:border-indigo-500 focus:outline-none focus:ring-indigo-500 sm:text-sm text-black"
         />
       </div>
@@ -60,13 +60,13 @@ export default function LoginForm() {
             className="h-4 w-4 rounded border-gray-300 text-indigo-600 focus:ring-indigo-500"
           />
           <label htmlFor="remember" className="ml-2 block text-sm text-black">
-            Remember me
+            Ghi nhớ đăng nhập
           </label>
         </div>
 
         <div className="text-sm">
           <Link href="/forgot" className="font-medium text-indigo-600 hover:text-indigo-500">
-            Forgot password?
+            Quên mật khẩu?
           </Link>
         </div>
       </div>
@@ -75,7 +75,7 @@ export default function LoginForm() {
         type="submit"
         className="w-full rounded-lg bg-indigo-600 px-4 py-2 text-sm font-semibold text-white shadow hover:bg-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-500"
       >
-        Sign In
+        Đăng nhập
       </button>
     </form>
   )

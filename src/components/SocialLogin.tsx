@@ -4,7 +4,7 @@ export default function SocialLogin() {
   return (
     <>
       <div className="relative my-6 text-center text-sm text-gray-500">
-        <span className="relative bg-white px-2">or continue with</span>
+        <span className="relative bg-white px-2">hoặc đăng nhập bằng</span>
         <div className="absolute inset-0 top-1/2 -z-10 border-t" />
       </div>
 
@@ -13,13 +13,13 @@ export default function SocialLogin() {
           type="button"
           className="inline-flex items-center justify-center rounded-lg border border-gray-300 bg-white px-4 py-2 text-sm font-medium text-gray-700 shadow-sm hover:bg-gray-50"
         >
-          Email link
+          Google
         </button>
         <button
           type="button"
           className="inline-flex items-center justify-center rounded-lg border border-gray-300 bg-white px-4 py-2 text-sm font-medium text-gray-700 shadow-sm hover:bg-gray-50"
         >
-          SMS
+          Facebook
         </button>
       </div>
     </>
