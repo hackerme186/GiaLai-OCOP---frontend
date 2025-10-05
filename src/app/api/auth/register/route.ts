@@ -1,0 +1,1 @@
+export { GET, POST } from "@auth"   // points to the handlers we just exported
