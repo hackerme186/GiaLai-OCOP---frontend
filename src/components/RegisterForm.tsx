@@ -27,7 +27,7 @@ export default function RegisterForm() {
     <form onSubmit={handleSubmit} className="space-y-4">
       {/* Full name */}
       <div>
-        <label className="block text-sm font-medium text-gray-700">Full name</label>
+        <label className="block text-sm font-medium text-black">Full name</label>
         <input
           required
           value={fullName}
@@ -39,7 +39,7 @@ export default function RegisterForm() {
 
       {/* Email */}
       <div>
-        <label className="block text-sm font-medium text-gray-700">Email</label>
+        <label className="block text-sm font-medium text-black">Email</label>
         <input
           required
           type="email"
@@ -52,7 +52,7 @@ export default function RegisterForm() {
 
       {/* Password */}
       <div>
-        <label className="block text-sm font-medium text-gray-700">Password</label>
+        <label className="block text-sm font-medium text-black">Password</label>
         <div className="relative mt-1">
           <input
             required
@@ -74,7 +74,7 @@ export default function RegisterForm() {
 
       {/* Confirm */}
       <div>
-        <label className="block text-sm font-medium text-gray-700">Confirm password</label>
+        <label className="block text-sm font-medium text-black">Confirm password</label>
         <input
           required
           type="password"

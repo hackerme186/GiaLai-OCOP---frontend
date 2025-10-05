@@ -16,7 +16,7 @@ export default function LoginForm() {
   return (
     <form onSubmit={handleSubmit} className="space-y-4">
       <div>
-        <label htmlFor="email" className="block text-sm font-medium text-gray-700">
+        <label htmlFor="email" className="block text-sm font-medium text-black">
           Email
         </label>
         <input
@@ -33,7 +33,7 @@ export default function LoginForm() {
       </div>
 
       <div>
-        <label htmlFor="password" className="block text-sm font-medium text-gray-700">
+        <label htmlFor="password" className="block text-sm font-medium text-black">
           Password
         </label>
         <input
@@ -59,7 +59,7 @@ export default function LoginForm() {
             onChange={(e) => setRemember(e.target.checked)}
             className="h-4 w-4 rounded border-gray-300 text-indigo-600 focus:ring-indigo-500"
           />
-          <label htmlFor="remember" className="ml-2 block text-sm text-gray-700">
+          <label htmlFor="remember" className="ml-2 block text-sm text-black">
             Remember me
           </label>
         </div>
