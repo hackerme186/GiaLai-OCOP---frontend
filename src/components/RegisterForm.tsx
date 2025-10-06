@@ -27,12 +27,12 @@ export default function RegisterForm() {
     <form onSubmit={handleSubmit} className="space-y-4">
       {/* Full name */}
       <div>
-        <label className="block text-sm font-medium text-black">Full name</label>
+        <label className="block text-sm font-medium text-black">Họ và tên</label>
         <input
           required
           value={fullName}
           onChange={(e) => setFullName(e.target.value)}
-          placeholder="Jane Doe"
+          placeholder="Nguyen Van A"
           className="mt-1 w-full rounded-lg border border-gray-300 px-3 py-2 shadow-sm focus:border-indigo-500 focus:outline-none focus:ring-indigo-500 sm:text-sm text-black"
         />
       </div>
@@ -45,21 +45,21 @@ export default function RegisterForm() {
           type="email"
           value={email}
           onChange={(e) => setEmail(e.target.value)}
-          placeholder="you@example.com"
+          placeholder="abc@example.com"
           className="mt-1 w-full rounded-lg border border-gray-300 px-3 py-2 shadow-sm focus:border-indigo-500 focus:outline-none focus:ring-indigo-500 sm:text-sm text-black"
         />
       </div>
 
       {/* Password */}
       <div>
-        <label className="block text-sm font-medium text-black">Password</label>
+        <label className="block text-sm font-medium text-black">Mật khẩu</label>
         <div className="relative mt-1">
           <input
             required
             type="password"
             value={password}
             onChange={(e) => setPassword(e.target.value)}
-            placeholder="Create a strong password"
+            placeholder="Tạo mật khẩu mạnh"
             className={cn(
               "w-full rounded-lg border px-3 py-2 shadow-sm focus:outline-none sm:text-sm text-black",
               strong ? "border-green-500 focus:ring-green-500" : "border-gray-300 focus:ring-indigo-500"
@@ -69,18 +69,18 @@ export default function RegisterForm() {
             ?
           </span>
         </div>
-        <p className="mt-1 text-xs text-gray-500">8+ characters, 1 number, 1 symbol</p>
+        <p className="mt-1 text-xs text-gray-500">8+ ký tự, 1 số, 1 ký tự đặc biệt</p>
       </div>
 
       {/* Confirm */}
       <div>
-        <label className="block text-sm font-medium text-black">Confirm password</label>
+        <label className="block text-sm font-medium text-black">Xác nhận mật khẩu</label>
         <input
           required
           type="password"
           value={confirm}
           onChange={(e) => setConfirm(e.target.value)}
-          placeholder="Re-enter your password"
+          placeholder="Nhập lại mật khẩu"
           className={cn(
             "mt-1 w-full rounded-lg border px-3 py-2 shadow-sm focus:outline-none sm:text-sm text-black",
             match && confirm ? "border-green-500 focus:ring-green-500" : "border-gray-300 focus:ring-indigo-500"
@@ -97,8 +97,8 @@ export default function RegisterForm() {
             ? "bg-indigo-600 hover:bg-indigo-500 focus:ring-indigo-500"
             : "bg-gray-300 cursor-not-allowed"
         )}
-      >
-        Create Account
+        >
+          Create Account
       </button>
     </form>
   )

@@ -12,7 +12,7 @@ export default function HomePage() {
     <main className="min-h-screen bg-gray-50 flex items-center justify-center px-4">
       <AuthCard>
         <h2 className="text-center text-2xl font-bold text-gray-900">
-          {mode === "login" ? "Login" : "Register"}
+          {mode === "login" ? "Đăng nhập" : "Đăng ký"}
         </h2>
 
         {mode === "login" ? <LoginForm /> : <RegisterForm />}
@@ -20,24 +20,24 @@ export default function HomePage() {
         <SocialLogin />
 
         <p className="mt-6 text-center text-sm text-gray-600">
-          {mode === "login" ? "Don't have an account? " : "Already have an account? "}
+          {mode === "login" ? "Bạn chưa có tài khoản? " : "Bạn đã có tài khoản? "}
           <button
             type="button"
             onClick={() => setMode(mode === "login" ? "register" : "login")}
             className="font-medium text-indigo-600 hover:text-indigo-500"
           >
-            {mode === "login" ? "Create one" : "Sign in"}
+            {mode === "login" ? "Tạo tài khoản" : "Đăng nhập"}
           </button>
         </p>
 
         <p className="mt-4 text-center text-xs text-gray-500">
-          By creating an account you agree to our{" "}
+          Bằng việc tạo tài khoản bạn đồng ý với{" "}
           <a href="#" className="text-indigo-600 hover:underline">
-            Terms
+            Điều khoản và điều kiện
           </a>{" "}
           and{" "}
           <a href="#" className="text-indigo-600 hover:underline">
-            Privacy Policy
+            Chính sách bảo mật
           </a>
           .
         </p>
