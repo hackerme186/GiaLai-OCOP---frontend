@@ -9,17 +9,12 @@ export const metadata = {
   description: "Next.js + React + Tailwind authentication page",
 }
 
-export default function RootLayout({
-  children,
-  login,
-}: {
-  children: React.ReactNode
-  login: React.ReactNode
-}) {
+// RootLayout chỉ nhận children
+export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
     <html lang="en">
       <body className={inter.className}>
-        <Providers>{login ?? children}</Providers>
+        <Providers>{children}</Providers>
       </body>
     </html>
   )
