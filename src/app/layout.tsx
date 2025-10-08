@@ -5,8 +5,8 @@ import { Providers } from "./providers"
 const inter = Inter({ subsets: ["latin"] })
 
 export const metadata = {
-  title: "Auth UI",
-  description: "Next.js + React + Tailwind authentication page",
+  title: "OCOP Gia Lai",
+  description: "Sàn thương mại điện tử sản phẩm OCOP Gia Lai",
 }
 
 // RootLayout chỉ nhận children
