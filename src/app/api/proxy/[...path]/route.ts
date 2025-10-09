@@ -2,11 +2,12 @@ import { NextRequest } from "next/server";
 
 const BACKEND_URL = process.env.BACKEND_URL || "https://gialai-ocop-be.onrender.com";
 
-async function handle(request: NextRequest, { params }: { params: { path: string[] } }) {
+async function handle(request: NextRequest, { params }: { params: Promise<{ path: string[] }> }) {
   if (request.method === "OPTIONS") {
     return new Response(null, { status: 204 });
   }
-  const targetPath = `/${(params.path || []).join("/")}`;
+  const resolvedParams = await params;
+  const targetPath = `/${(resolvedParams.path || []).join("/")}`;
   const targetUrl = `${BACKEND_URL}${targetPath}${request.nextUrl.search}`;
 
   // Clone headers, dropping hop-by-hop/forbidden ones
