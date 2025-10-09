@@ -1,16 +1,28 @@
 "use client"
 import Link from "next/link"
 import { useState } from "react"
+import { login } from "@/lib/api"
 
 export default function LoginForm() {
   const [email, setEmail] = useState("")
   const [password, setPassword] = useState("")
   const [remember, setRemember] = useState(false)
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const [loading, setLoading] = useState(false)
+  const [error, setError] = useState<string | null>(null)
+
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
-    console.log({ email, password, remember })
-    // TODO: wire up your login logic
+    setError(null)
+    setLoading(true)
+    try {
+      await login({ email, password })
+      // TODO: navigate or refresh after login success
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Đăng nhập thất bại")
+    } finally {
+      setLoading(false)
+    }
   }
 
   return (
@@ -71,11 +83,16 @@ export default function LoginForm() {
         </div>
       </div>
 
+      {error && (
+        <p className="text-sm text-red-600">{error}</p>
+      )}
+
       <button
         type="submit"
-        className="w-full rounded-lg bg-indigo-600 px-4 py-2 text-sm font-semibold text-white shadow hover:bg-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-500"
+        disabled={loading}
+        className="w-full rounded-lg bg-indigo-600 px-4 py-2 text-sm font-semibold text-white shadow hover:bg-indigo-500 disabled:opacity-60 focus:outline-none focus:ring-2 focus:ring-indigo-500"
       >
-        Đăng nhập
+        {loading ? "Đang đăng nhập..." : "Đăng nhập"}
       </button>
     </form>
   )

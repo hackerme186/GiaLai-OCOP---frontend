@@ -2,12 +2,15 @@
 
 import { useState } from "react"
 import { cn } from "@/lib/utils"
+import { register as registerApi } from "@/lib/api"
 
 export default function RegisterForm() {
   const [fullName, setFullName] = useState("")
   const [email, setEmail] = useState("")
   const [password, setPassword] = useState("")
   const [confirm, setConfirm] = useState("")
+  const [loading, setLoading] = useState(false)
+  const [error, setError] = useState<string | null>(null)
 
   const strong =
     password.length >= 8 &&
@@ -16,11 +19,19 @@ export default function RegisterForm() {
 
   const match = password && password === confirm
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     if (!strong || !match) return
-    console.log({ fullName, email, password })
-    // TODO: wire-up API call
+    setError(null)
+    setLoading(true)
+    try {
+      await registerApi({ fullName, email, password })
+      // TODO: navigate after successful registration
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Đăng ký thất bại")
+    } finally {
+      setLoading(false)
+    }
   }
 
   return (
@@ -88,17 +99,19 @@ export default function RegisterForm() {
         />
       </div>
 
+      {error && <p className="text-sm text-red-600">{error}</p>}
+
       <button
         type="submit"
-        disabled={!strong || !match}
+        disabled={!strong || !match || loading}
         className={cn(
-          "w-full rounded-lg px-4 py-2 text-sm font-semibold text-white shadow focus:outline-none focus:ring-2",
+          "w-full rounded-lg px-4 py-2 text-sm font-semibold text-white shadow focus:outline-none focus:ring-2 disabled:opacity-60",
           strong && match
             ? "bg-indigo-600 hover:bg-indigo-500 focus:ring-indigo-500"
             : "bg-gray-300 cursor-not-allowed"
         )}
         >
-          Create Account
+          {loading ? "Đang tạo tài khoản..." : "Create Account"}
       </button>
     </form>
   )
