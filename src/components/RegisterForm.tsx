@@ -2,7 +2,7 @@
 
 import { useState } from "react"
 import { cn } from "@/lib/utils"
-import { register as registerApi } from "@/lib/api"
+import { api } from "@/lib/api"
 
 export default function RegisterForm() {
   const [fullName, setFullName] = useState("")
@@ -25,7 +25,7 @@ export default function RegisterForm() {
     setError(null)
     setLoading(true)
     try {
-      await registerApi({ fullName, email, password })
+      await api.register({ fullName, email, password })
       // TODO: navigate after successful registration
     } catch (err) {
       setError(err instanceof Error ? err.message : "Đăng ký thất bại")
