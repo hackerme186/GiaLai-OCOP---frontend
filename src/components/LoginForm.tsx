@@ -1,7 +1,7 @@
 "use client"
 import Link from "next/link"
 import { useState } from "react"
-import { login } from "@/lib/api"
+import { api } from "@/lib/api"
 
 export default function LoginForm() {
   const [email, setEmail] = useState("")
@@ -16,7 +16,7 @@ export default function LoginForm() {
     setError(null)
     setLoading(true)
     try {
-      await login({ email, password })
+      await api.login({ email, password })
       // TODO: navigate or refresh after login success
     } catch (err) {
       setError(err instanceof Error ? err.message : "Đăng nhập thất bại")
