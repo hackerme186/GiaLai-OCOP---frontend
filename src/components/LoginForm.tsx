@@ -2,8 +2,11 @@
 import Link from "next/link"
 import { useState } from "react"
 import { login } from "@/lib/api"
+import { setAuthToken } from "@/lib/auth"
+import { useRouter } from "next/navigation"
 
 export default function LoginForm() {
+  const router = useRouter()
   const [email, setEmail] = useState("")
   const [password, setPassword] = useState("")
   const [remember, setRemember] = useState(false)
@@ -16,8 +19,10 @@ export default function LoginForm() {
     setError(null)
     setLoading(true)
     try {
-      await login({ email, password })
-      // TODO: navigate or refresh after login success
+      const res = await login({ email, password }) as any
+      if (res?.token) setAuthToken(res.token)
+      else setAuthToken("1")
+      router.replace("/home")
     } catch (err) {
       setError(err instanceof Error ? err.message : "Đăng nhập thất bại")
     } finally {

@@ -2,6 +2,7 @@
 import Image from 'next/image'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
+import { isLoggedIn } from '@/lib/auth'
 
 const Navbar = () => {
   const router = useRouter()
@@ -13,7 +14,7 @@ const Navbar = () => {
           <div className="flex">
             {/* Logo */}
             <div className="flex-shrink-0 flex items-center">
-              <Link href="/">
+              <Link href={isLoggedIn() ? '/home' : '/'}>
                 <Image
                   src="/Logo.png"
                   alt="OCOP Logo"
@@ -27,7 +28,7 @@ const Navbar = () => {
             {/* Navigation Links */}
             <div className="hidden sm:ml-6 sm:flex sm:space-x-8">
               <Link 
-                href="/"
+                href={isLoggedIn() ? '/home' : '/'}
                 className="text-gray-900 inline-flex items-center px-1 pt-1 text-sm font-medium"
               >
                 Trang chủ

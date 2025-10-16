@@ -1,4 +1,7 @@
 "use client"
+import { useEffect } from 'react'
+import { useRouter } from 'next/navigation'
+import { isLoggedIn } from '@/lib/auth'
 import Navbar from '@/components/layout/Navbar'
 import Footer from '@/components/layout/Footer'
 import HeroSlider from '@/components/home/HeroSlider'
@@ -8,6 +11,16 @@ import MapSection from '@/components/home/MapSection'
 import NewsSection from '@/components/home/NewsSection'
 
 export default function HomePage() {
+  const router = useRouter()
+
+  useEffect(() => {
+    if (isLoggedIn()) {
+      router.replace('/home')
+    }
+  }, [router])
+
+  if (isLoggedIn()) return null
+
   return (
     <div className="min-h-screen bg-white" suppressHydrationWarning>
       <Navbar />
