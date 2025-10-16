@@ -1,6 +1,6 @@
 "use client"
 import AuthGuard from "@/components/AuthGuard"
-import Navbar from '@/components/layout/Navbar'
+import Header from '@/components/layout/Header'
 import Footer from '@/components/layout/Footer'
 import HeroSlider from '@/components/home/HeroSlider'
 import ProductVus from '@/components/home/ProductVus'
@@ -12,7 +12,7 @@ export default function HomeLoggedInPage() {
   return (
     <AuthGuard>
       <div className="min-h-screen bg-white" suppressHydrationWarning>
-        <Navbar />
+        <Header />
         <main>
           <HeroSlider />
           <ProductVus />
