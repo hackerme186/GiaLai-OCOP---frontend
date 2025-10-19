@@ -1,82 +1,66 @@
 "use client"
+import { useState, useEffect } from 'react'
 import Image from 'next/image'
-
-const products = [
-  {
-    id: 1,
-    name: 'Cà phê Gia Lai',
-    description: 'Cà phê rang xay nguyên chất từ Gia Lai',
-    price: '120.00',
-    rating: 5,
-    image: '/products/ocop/coffee-gialai.jpg',
-    category: 'Đồ uống'
-  },
-  {
-    id: 2,
-    name: 'Hạt điều rang muối',
-    description: 'Hạt điều rang muối Gia Lai',
-    price: '180.00',
-    rating: 5,
-    image: '/products/ocop/cashew-nut.jpg',
-    category: 'Thực phẩm'
-  },
-  {
-    id: 3,
-    name: 'Tiêu đen Gia Lai',
-    description: 'Tiêu đen hữu cơ Gia Lai',
-    price: '250.00',
-    rating: 5,
-    image: '/products/ocop/black-pepper.jpg',
-    category: 'Gia vị'
-  },
-  {
-    id: 4,
-    name: 'Mật ong rừng',
-    description: 'Mật ong rừng nguyên chất Gia Lai',
-    price: '385.00',
-    rating: 5,
-    image: '/products/ocop/honey.jpg',
-    category: 'Thực phẩm'
-  },
-  {
-    id: 5,
-    name: 'Nem chợ Huyện',
-    description: 'Nem chua đặc sản Bình Định',
-    price: '45.00',
-    rating: 5,
-    image: '/products/ocop/nem-chua.jpg',
-    category: 'Thực phẩm'
-  },
-  {
-    id: 6,
-    name: 'Bánh tráng Bình Định',
-    description: 'Bánh tráng dẻo An Thái',
-    price: '25.00',
-    rating: 5,
-    image: '/products/ocop/banh-trang.jpg',
-    category: 'Thực phẩm'
-  },
-  {
-    id: 7,
-    name: 'Rượu Bàu Đá',
-    description: 'Rượu đặc sản Bình Định',
-    price: '180.00',
-    rating: 5,
-    image: '/products/ocop/ruou-bauda.jpg',
-    category: 'Đồ uống'
-  },
-  {
-    id: 8,
-    name: 'Gạo An Nhơn',
-    description: 'Gạo sạch An Nhơn Bình Định',
-    price: '35.00',
-    rating: 5,
-    image: '/products/ocop/gao-annhon.jpg',
-    category: 'Thực phẩm'
-  }
-]
+import { getFeaturedProducts, Product } from '@/lib/api'
 
 const FeaturedProducts = () => {
+  const [products, setProducts] = useState<Product[]>([])
+  const [loading, setLoading] = useState(true)
+  const [error, setError] = useState<string | null>(null)
+
+  useEffect(() => {
+    const fetchProducts = async () => {
+      try {
+        setLoading(true)
+        const data = await getFeaturedProducts()
+        // Handle different response formats from API
+        const productList = Array.isArray(data) ? data : (data as any)?.products || []
+        setProducts(productList)
+      } catch (err) {
+        console.error('Failed to fetch featured products:', err)
+        setError(err instanceof Error ? err.message : 'Không thể tải sản phẩm')
+        // Fallback to empty array or show default products
+        setProducts([])
+      } finally {
+        setLoading(false)
+      }
+    }
+
+    fetchProducts()
+  }, [])
+
+  if (loading) {
+    return (
+      <section className="py-16 bg-gray-50">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+          <h2 className="text-3xl font-bold text-gray-900 mb-2">
+            Sản phẩm OCOP nổi bật
+          </h2>
+          <p className="text-gray-600 mb-8">Các sản phẩm đặc trưng từ Gia Lai và Bình Định</p>
+          <div className="flex justify-center items-center h-64">
+            <div className="text-gray-500">Đang tải sản phẩm...</div>
+          </div>
+        </div>
+      </section>
+    )
+  }
+
+  if (error) {
+    return (
+      <section className="py-16 bg-gray-50">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+          <h2 className="text-3xl font-bold text-gray-900 mb-2">
+            Sản phẩm OCOP nổi bật
+          </h2>
+          <p className="text-gray-600 mb-8">Các sản phẩm đặc trưng từ Gia Lai và Bình Định</p>
+          <div className="flex justify-center items-center h-64">
+            <div className="text-red-500">Lỗi: {error}</div>
+          </div>
+        </div>
+      </section>
+    )
+  }
+
   return (
     <section className="py-16 bg-gray-50">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
@@ -96,7 +80,7 @@ const FeaturedProducts = () => {
                   {product.category}
                 </div>
                 <Image
-                  src={product.image}
+                  src={product.image || '/placeholder-product.jpg'}
                   alt={product.name}
                   fill
                   className="object-cover"

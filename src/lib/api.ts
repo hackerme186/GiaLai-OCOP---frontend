@@ -36,8 +36,11 @@ async function request<TResponse>(
   }
 
   if (!response.ok) {
-    const bodyMessage = (isJson && data && typeof data === "object" && (data as any).message) || "";
-    const message = `${response.status} ${response.statusText} ${bodyMessage ? "- " + bodyMessage : ""} @ ${url}`.trim();
+    let bodyMessage = (isJson && data && typeof data === "object" && (data as any).message) || "";
+    if (!bodyMessage && !isJson && typeof data === 'string') {
+      bodyMessage = data as string;
+    }
+    const message = `${response.status} ${response.statusText} ${bodyMessage ? "- " + bodyMessage : ""}`.trim();
     throw new Error(message);
   }
 
@@ -53,6 +56,26 @@ export interface LoginPayload {
 export interface AuthResponse {
   token?: string;
   user?: Record<string, unknown>;
+  [key: string]: unknown;
+}
+
+export interface Product {
+  id: number;
+  name: string;
+  description?: string;
+  price?: number;
+  image?: string;
+  category?: string;
+  rating?: number;
+  // Add more fields based on your backend API
+  [key: string]: unknown;
+}
+
+export interface ProductResponse {
+  products?: Product[];
+  total?: number;
+  page?: number;
+  limit?: number;
   [key: string]: unknown;
 }
 
@@ -78,10 +101,46 @@ export function register(payload: RegisterPayload) {
   });
 }
 
+// Product API functions
+export function getProducts(params?: {
+  page?: number;
+  limit?: number;
+  category?: string;
+  search?: string;
+}) {
+  const searchParams = new URLSearchParams();
+  if (params?.page) searchParams.append('page', params.page.toString());
+  if (params?.limit) searchParams.append('limit', params.limit.toString());
+  if (params?.category) searchParams.append('category', params.category);
+  if (params?.search) searchParams.append('search', params.search);
+  
+  const queryString = searchParams.toString();
+  const path = queryString ? `/products?${queryString}` : '/products';
+  
+  return request<ProductResponse>(path, {
+    method: "GET",
+  });
+}
+
+export function getProductById(id: number) {
+  return request<Product>(`/products/${id}`, {
+    method: "GET",
+  });
+}
+
+export function getFeaturedProducts() {
+  return request<Product[]>(`/products/featured`, {
+    method: "GET",
+  });
+}
+
 export const api = {
   request,
   login,
   register,
+  getProducts,
+  getProductById,
+  getFeaturedProducts,
 };
 
 

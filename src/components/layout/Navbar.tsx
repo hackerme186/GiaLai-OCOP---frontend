@@ -3,13 +3,20 @@ import Image from 'next/image'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { getUserProfile, isLoggedIn, logout } from '@/lib/auth'
-import { FormEvent, useState } from 'react'
+import { FormEvent, useEffect, useState } from 'react'
 
 const Navbar = () => {
   const router = useRouter()
   const [searchQuery, setSearchQuery] = useState('')
-  const loggedIn = isLoggedIn()
-  const profile = getUserProfile() || {}
+  const [mounted, setMounted] = useState(false)
+  const [loggedIn, setLoggedIn] = useState(false)
+  const [profile, setProfile] = useState(getUserProfile() || {})
+
+  useEffect(() => {
+    setMounted(true)
+    setLoggedIn(isLoggedIn())
+    setProfile(getUserProfile() || {})
+  }, [])
 
   const handleSearchSubmit = (e: FormEvent) => {
     e.preventDefault()
@@ -25,7 +32,7 @@ const Navbar = () => {
           <div className="flex">
             {/* Logo */}
             <div className="flex-shrink-0 flex items-center">
-              <Link href={isLoggedIn() ? '/home' : '/'}>
+              <Link href={mounted && loggedIn ? '/home' : '/'}>
                 <Image
                   src="/Logo.png"
                   alt="OCOP Logo"
@@ -39,7 +46,7 @@ const Navbar = () => {
             {/* Navigation Links */}
             <div className="hidden sm:ml-6 sm:flex sm:space-x-8">
               <Link 
-                href={isLoggedIn() ? '/home' : '/'}
+                href={mounted && loggedIn ? '/home' : '/'}
                 className="text-gray-900 inline-flex items-center px-1 pt-1 text-sm font-medium"
               >
                 Trang chủ
