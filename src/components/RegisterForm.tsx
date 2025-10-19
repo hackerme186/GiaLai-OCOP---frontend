@@ -1,10 +1,13 @@
 "use client"
 
 import { useState } from "react"
+import { useRouter } from "next/navigation"
 import { cn } from "@/lib/utils"
 import { register } from "@/lib/api"
+import { setAuthToken, setUserProfile } from "@/lib/auth"
 
 export default function RegisterForm() {
+  const router = useRouter()
   const [fullName, setFullName] = useState("")
   const [email, setEmail] = useState("")
   const [password, setPassword] = useState("")
@@ -25,8 +28,24 @@ export default function RegisterForm() {
     setError(null)
     setLoading(true)
     try {
-      await register({ fullName, email, password })
-      // TODO: navigate after successful registration
+      const normalizedEmail = email.trim().toLowerCase()
+      const res = await register({ fullName: fullName.trim(), email: normalizedEmail, password }) as any
+      
+      // Set authentication token (similar to login flow)
+      if (res?.token) {
+        setAuthToken(res.token)
+      } else {
+        setAuthToken("1") // Default token for authenticated user
+      }
+      
+      // Set user profile with the registered user's information
+      setUserProfile({
+        name: fullName.trim(),
+        avatarUrl: undefined
+      })
+      
+      // Navigate to home page after successful registration
+      router.replace("/home")
     } catch (err) {
       setError(err instanceof Error ? err.message : "Đăng ký thất bại")
     } finally {

@@ -1,56 +1,85 @@
 "use client"
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import Image from 'next/image'
-
-const products = [
-  {
-    id: 1,
-    title: 'Cà phê Gia Lai Premium',
-    description: 'Hương vị đậm đà, độc đáo',
-    image: '/products/coffee-premium.jpg'
-  },
-  {
-    id: 2,
-    title: 'Tiêu Gia Lai Organic',
-    description: 'Hạt tiêu hữu cơ chất lượng cao',
-    image: '/products/pepper-organic.jpg'
-  },
-  {
-    id: 3,
-    title: 'Mắc khén Gia Lai',
-    description: 'Gia vị đặc trưng Tây Nguyên',
-    image: '/products/mackhen.jpg'
-  },
-  {
-    id: 4,
-    title: 'Nem chợ Huyện Bình Định',
-    description: 'Đặc sản truyền thống',
-    image: '/products/nem-binhdinh.jpg'
-  },
-  {
-    id: 5,
-    title: 'Bánh tráng nướng Bình Định',
-    description: 'Món ăn vặt được yêu thích',
-    image: '/products/banhtrang-nuong.jpg'
-  },
-  {
-    id: 6,
-    title: 'Rượu Bàu Đá',
-    description: 'Đặc sản nổi tiếng Bình Định',
-    image: '/products/ruou-bauda.jpg'
-  }
-]
+import { getProducts, Product } from '@/lib/api'
 
 const ProductVus = () => {
   const [currentIndex, setCurrentIndex] = useState(0)
+  const [products, setProducts] = useState<Product[]>([])
+  const [loading, setLoading] = useState(true)
+  const [error, setError] = useState<string | null>(null)
+
+  useEffect(() => {
+    const fetchProducts = async () => {
+      try {
+        setLoading(true)
+        const data = await getProducts({ limit: 8 }) // Limit to 8 products for slider
+        // Handle different response formats from API
+        const productList = Array.isArray(data) ? data : (data as any)?.products || []
+        setProducts(productList)
+      } catch (err) {
+        console.error('Failed to fetch products:', err)
+        setError(err instanceof Error ? err.message : 'Không thể tải sản phẩm')
+        // Fallback to empty array
+        setProducts([])
+      } finally {
+        setLoading(false)
+      }
+    }
+
+    fetchProducts()
+  }, [])
 
   const nextSlide = () => {
-    setCurrentIndex((prev) => (prev + 1) % Math.ceil(products.length / 4))
+    if (products.length === 0) return
+    const maxIndex = Math.ceil(products.length / 4)
+    setCurrentIndex((prev) => (prev + 1) % maxIndex)
   }
 
   const prevSlide = () => {
+    if (products.length === 0) return
+    const maxIndex = Math.ceil(products.length / 4)
     setCurrentIndex((prev) =>
-      prev === 0 ? Math.ceil(products.length / 4) - 1 : prev - 1
+      prev === 0 ? maxIndex - 1 : prev - 1
+    )
+  }
+
+  if (loading) {
+    return (
+      <section className="py-16 bg-white">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+          <h2 className="text-3xl font-bold text-gray-900 mb-8">Sản phẩm nổi bật</h2>
+          <div className="flex justify-center items-center h-64">
+            <div className="text-gray-500">Đang tải sản phẩm...</div>
+          </div>
+        </div>
+      </section>
+    )
+  }
+
+  if (error) {
+    return (
+      <section className="py-16 bg-white">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+          <h2 className="text-3xl font-bold text-gray-900 mb-8">Sản phẩm nổi bật</h2>
+          <div className="flex justify-center items-center h-64">
+            <div className="text-red-500">Lỗi: {error}</div>
+          </div>
+        </div>
+      </section>
+    )
+  }
+
+  if (products.length === 0) {
+    return (
+      <section className="py-16 bg-white">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+          <h2 className="text-3xl font-bold text-gray-900 mb-8">Sản phẩm nổi bật</h2>
+          <div className="flex justify-center items-center h-64">
+            <div className="text-gray-500">Không có sản phẩm nào</div>
+          </div>
+        </div>
+      </section>
     )
   }
 
@@ -75,15 +104,15 @@ const ProductVus = () => {
                   <div className="bg-white rounded-lg shadow-md overflow-hidden hover:shadow-xl transition-shadow">
                     <div className="relative h-56">
                       <Image
-                        src={product.image}
-                        alt={product.title}
+                        src={product.image || '/placeholder-product.jpg'}
+                        alt={product.name || 'Sản phẩm'}
                         fill
                         className="object-cover"
                       />
                     </div>
                     <div className="p-4">
                       <h3 className="text-lg font-semibold text-gray-900 mb-2">
-                        {product.title}
+                        {product.name}
                       </h3>
                       <p className="text-gray-600 text-sm mb-4">
                         {product.description}

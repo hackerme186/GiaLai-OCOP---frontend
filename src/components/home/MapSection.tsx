@@ -1,38 +1,62 @@
 "use client"
+import { useState, useEffect } from 'react'
 import Image from 'next/image'
-
-const products = [
-  {
-    id: 1,
-    name: 'Cà phê Gia Lai - Vùng đất Tây Nguyên',
-    date: '12/10/2023',
-    description: 'Vùng trồng: Pleiku, Gia Lai',
-    image: '/products/coffee-region.jpg'
-  },
-  {
-    id: 2,
-    name: 'Tiêu Gia Lai - Đặc sản Tây Nguyên',
-    date: '11/10/2023',
-    description: 'Vùng trồng: Chư Sê, Gia Lai',
-    image: '/products/pepper-region.jpg'
-  },
-  {
-    id: 3,
-    name: 'Nem chợ Huyện - Đặc sản Bình Định',
-    date: '10/10/2023',
-    description: 'Xuất xứ: An Nhơn, Bình Định',
-    image: '/products/nem-region.jpg'
-  },
-  {
-    id: 4,
-    name: 'Rượu Bàu Đá - Di sản Bình Định',
-    date: '09/10/2023',
-    description: 'Làng nghề: Bàu Đá, Bình Định',
-    image: '/products/ruou-region.jpg'
-  }
-]
+import { getProducts, Product } from '@/lib/api'
 
 const MapSection = () => {
+  const [products, setProducts] = useState<Product[]>([])
+  const [loading, setLoading] = useState(true)
+  const [error, setError] = useState<string | null>(null)
+
+  useEffect(() => {
+    const fetchProducts = async () => {
+      try {
+        setLoading(true)
+        const data = await getProducts({ limit: 4 }) // Limit to 4 products for map section
+        // Handle different response formats from API
+        const productList = Array.isArray(data) ? data : (data as any)?.products || []
+        setProducts(productList)
+      } catch (err) {
+        console.error('Failed to fetch products:', err)
+        setError(err instanceof Error ? err.message : 'Không thể tải sản phẩm')
+        setProducts([])
+      } finally {
+        setLoading(false)
+      }
+    }
+
+    fetchProducts()
+  }, [])
+  if (loading) {
+    return (
+      <section className="py-16 bg-white">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+          <h2 className="text-3xl font-bold text-gray-900 mb-8">
+            Sản phẩm OCOP theo vùng miền
+          </h2>
+          <div className="flex justify-center items-center h-64">
+            <div className="text-gray-500">Đang tải sản phẩm...</div>
+          </div>
+        </div>
+      </section>
+    )
+  }
+
+  if (error) {
+    return (
+      <section className="py-16 bg-white">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+          <h2 className="text-3xl font-bold text-gray-900 mb-8">
+            Sản phẩm OCOP theo vùng miền
+          </h2>
+          <div className="flex justify-center items-center h-64">
+            <div className="text-red-500">Lỗi: {error}</div>
+          </div>
+        </div>
+      </section>
+    )
+  }
+
   return (
     <section className="py-16 bg-white">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
@@ -56,28 +80,36 @@ const MapSection = () => {
 
           {/* Product List */}
           <div className="space-y-6">
-            {products.map((product) => (
-              <div
-                key={product.id}
-                className="flex items-center space-x-6 bg-gray-50 p-6 rounded-lg hover:bg-gray-100 transition-colors"
-              >
-                <div className="relative w-32 h-32 flex-shrink-0">
-                  <Image
-                    src={product.image}
-                    alt={product.name}
-                    fill
-                    className="object-cover rounded-lg"
-                  />
+            {products.length > 0 ? (
+              products.map((product) => (
+                <div
+                  key={product.id}
+                  className="flex items-center space-x-6 bg-gray-50 p-6 rounded-lg hover:bg-gray-100 transition-colors"
+                >
+                  <div className="relative w-32 h-32 flex-shrink-0">
+                    <Image
+                      src={product.image || '/placeholder-product.jpg'}
+                      alt={product.name || 'Sản phẩm'}
+                      fill
+                      className="object-cover rounded-lg"
+                    />
+                  </div>
+                  <div>
+                    <h3 className="text-xl font-semibold text-gray-900 mb-2">
+                      {product.name}
+                    </h3>
+                    <p className="text-gray-600 mb-2">{product.description}</p>
+                    <p className="text-sm text-gray-500">
+                      {product.category && `Danh mục: ${product.category}`}
+                    </p>
+                  </div>
                 </div>
-                <div>
-                  <h3 className="text-xl font-semibold text-gray-900 mb-2">
-                    {product.name}
-                  </h3>
-                  <p className="text-gray-600 mb-2">{product.description}</p>
-                  <p className="text-sm text-gray-500">{product.date}</p>
-                </div>
+              ))
+            ) : (
+              <div className="text-gray-500 text-center py-8">
+                Không có sản phẩm nào
               </div>
-            ))}
+            )}
           </div>
         </div>
       </div>
