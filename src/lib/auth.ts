@@ -1,3 +1,5 @@
+import { getSession } from "next-auth/react"
+
 const AUTH_KEY = "ocop_auth_token";
 const PROFILE_KEY = "ocop_user_profile";
 
@@ -11,7 +13,18 @@ export function getAuthToken(): string | null {
   return localStorage.getItem(AUTH_KEY);
 }
 
-export function isLoggedIn(): boolean {
+export async function isLoggedIn(): Promise<boolean> {
+  if (typeof window === "undefined") return false;
+  
+  // Check NextAuth session first
+  try {
+    const session = await getSession();
+    if (session) return true;
+  } catch {
+    // Ignore session errors
+  }
+  
+  // Fallback to local storage token
   return !!getAuthToken();
 }
 
