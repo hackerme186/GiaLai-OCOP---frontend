@@ -3,18 +3,24 @@
 import { useState } from "react"
 import AuthGuard from "@/components/AuthGuard"
 import OCOPForm from "@/components/OCOPForm"
+import { OcopRegistrationDto, submitOcopRegistration } from "@/lib/api"
 
 export default function OCOPSRegisterPage() {
   const [submitted, setSubmitted] = useState(false)
+  const [submitting, setSubmitting] = useState(false)
+  const [error, setError] = useState<string | null>(null)
 
-  const handleSubmit = async (formData: any) => {
+  const handleSubmit = async (formData: OcopRegistrationDto) => {
     try {
-      // TODO: Implement API call to submit OCOP registration
-      console.log("OCOP Registration Data:", formData)
+      setSubmitting(true)
+      setError(null)
+      await submitOcopRegistration(formData)
       setSubmitted(true)
-      // Here you would typically make an API call to submit the form
     } catch (error) {
       console.error("Error submitting OCOP registration:", error)
+      setError(error instanceof Error ? error.message : "Đã xảy ra lỗi")
+    } finally {
+      setSubmitting(false)
     }
   }
 
@@ -52,7 +58,14 @@ export default function OCOPSRegisterPage() {
               </p>
             </div>
             
-            <OCOPForm onSubmit={handleSubmit} />
+            {error && (
+              <div className="mb-4 p-3 rounded bg-red-50 text-red-700 border border-red-200">
+                {error}
+              </div>
+            )}
+            <div className={submitting ? 'opacity-75 pointer-events-none' : ''}>
+              <OCOPForm onSubmit={handleSubmit} />
+            </div>
           </div>
         </div>
       )}

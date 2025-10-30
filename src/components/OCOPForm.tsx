@@ -1,851 +1,377 @@
 "use client"
 
 import { useState } from "react"
-
-interface OCOPFormData {
-  // 1. Thông tin chủ thể
-  subjectName: string
-  subjectType: string
-  taxCode: string
-  address: string
-  representative: string
-  phone: string
-  email: string
-  website: string
-  establishmentYear: number
-  workforceSize: number
-
-  // 2. Thông tin sản phẩm
-  productName: string
-  productGroup: string
-  shortDescription: string
-  packagingSpec: string
-  mainMaterials: string
-  materialOrigin: string
-  productionProcess: string
-  annualOutput: number
-  sellingPrice: number
-  productImages: File[]
-  brandLogo: File[]
-  packagingLabels: File[]
-  currentCertifications: string[]
-  consumerMarket: string
-
-  // 3. Cơ sở sản xuất
-  facilityLocation: string
-  workshopArea: number
-  equipmentMachinery: string
-  productionCapacity: string
-  wasteTreatmentSystem: string
-  hygieneStandards: string
-
-  // 4. Hồ sơ đính kèm
-  businessLicense: File
-  testReports: File
-  certifications: File
-  productPhotos: File
-  trademarkCertificate: File
-
-  // 5. Đề xuất & hỗ trợ
-  desiredLevel: string
-  desiredSupport: string[]
-  notes: string
-
-  // 6. Xác nhận và gửi
-  infoCommitment: boolean
-  submitterName: string
-  submissionDate: string
-}
+import { OcopRegistrationDto } from "@/lib/api"
 
 interface OCOPFormProps {
-  onSubmit: (data: OCOPFormData) => void
+  onSubmit: (data: OcopRegistrationDto) => void
 }
 
 export default function OCOPForm({ onSubmit }: OCOPFormProps) {
-  const [currentStep, setCurrentStep] = useState(1)
-  const [formData, setFormData] = useState<Partial<OCOPFormData>>({
-    subjectType: "",
-    productGroup: "",
-    wasteTreatmentSystem: "",
-    hygieneStandards: "",
-    desiredLevel: "",
-    currentCertifications: [],
-    desiredSupport: [],
-    infoCommitment: false,
-    productImages: [],
-    brandLogo: [],
-    packagingLabels: []
-  })
+  const [step, setStep] = useState(1)
+  const totalSteps = 3
 
-  const totalSteps = 6
+  const [name, setName] = useState("")
+  const [description, setDescription] = useState("")
+  const [address, setAddress] = useState("")
+  const [phone, setPhone] = useState("")
+  const [email, setEmail] = useState("")
+  const [website, setWebsite] = useState("")
+  const [certificateNumber, setCertificateNumber] = useState("")
+  const [logoFile, setLogoFile] = useState<File | null>(null)
+  // Extended DTO fields
+  const [businessType, setBusinessType] = useState("")
+  const [taxCode, setTaxCode] = useState("")
+  const [businessLicenseNumber, setBusinessLicenseNumber] = useState("")
+  const [licenseIssuedDate, setLicenseIssuedDate] = useState("")
+  const [licenseIssuedBy, setLicenseIssuedBy] = useState("")
+  const [ward, setWard] = useState("")
+  const [district, setDistrict] = useState("")
+  const [province, setProvince] = useState("")
+  const [representativeName, setRepresentativeName] = useState("")
+  const [representativePosition, setRepresentativePosition] = useState("")
+  const [representativeIdNumber, setRepresentativeIdNumber] = useState("")
+  const [representativeIdIssuedDate, setRepresentativeIdIssuedDate] = useState("")
+  const [representativeIdIssuedBy, setRepresentativeIdIssuedBy] = useState("")
+  const [productionLocation, setProductionLocation] = useState("")
+  const [numberOfEmployees, setNumberOfEmployees] = useState<string>("")
+  const [productionScale, setProductionScale] = useState("")
+  const [businessField, setBusinessField] = useState("")
+  const [productCategory, setProductCategory] = useState("")
+  const [productOrigin, setProductOrigin] = useState("")
+  const [productCertifications, setProductCertifications] = useState<string[]>([])
+  const [attachedDocuments, setAttachedDocuments] = useState<File[]>([])
+  const [additionalNotes, setAdditionalNotes] = useState("")
+  type ProductFormItem = { name: string; description: string; priceText: string }
+  const [products, setProducts] = useState<ProductFormItem[]>([
+    { name: "", description: "", priceText: "" }
+  ])
+  const [errors, setErrors] = useState<Record<string, string>>({})
 
-  const handleInputChange = (field: keyof OCOPFormData, value: any) => {
-    setFormData(prev => ({
-      ...prev,
-      [field]: value
-    }))
+  const addProduct = () => {
+    setProducts(prev => ([...prev, { name: "", description: "", priceText: "" }]))
   }
 
-  const handleFileUpload = (field: keyof OCOPFormData, files: FileList | null) => {
-    if (!files) return
-    
-    if (field === 'productImages' || field === 'brandLogo' || field === 'packagingLabels') {
-      const fileArray = Array.from(files)
-      setFormData(prev => ({
-        ...prev,
-        [field]: [...(prev[field] as File[] || []), ...fileArray]
-      }))
-    } else {
-      setFormData(prev => ({
-        ...prev,
-        [field]: files[0]
-      }))
-    }
+  const removeProduct = (index: number) => {
+    setProducts(prev => prev.filter((_, i) => i !== index))
   }
 
-  const handleCheckboxChange = (field: keyof OCOPFormData, value: string) => {
-    const currentValues = formData[field] as string[] || []
-    const newValues = currentValues.includes(value)
-      ? currentValues.filter(v => v !== value)
-      : [...currentValues, value]
-    
-    setFormData(prev => ({
-      ...prev,
-      [field]: newValues
-    }))
+  const updateProduct = (index: number, field: keyof ProductFormItem, value: any) => {
+    setProducts(prev => prev.map((p, i) => i === index ? { ...p, [field]: value } : p))
+    setErrors(prev => {
+      const copy = { ...prev }
+      delete copy[`product_${index}_${field}`]
+      return copy
+    })
+  }
+
+  const validateStep1 = () => {
+    const nextErrors: Record<string, string> = {}
+    if (!name.trim()) nextErrors.name = "Vui lòng nhập tên doanh nghiệp"
+    if (!description.trim()) nextErrors.description = "Vui lòng nhập mô tả"
+    if (!address.trim()) nextErrors.address = "Vui lòng nhập địa chỉ"
+    if (!phone.trim()) nextErrors.phone = "Vui lòng nhập số điện thoại"
+    if (!email.trim()) nextErrors.email = "Vui lòng nhập email"
+    setErrors(nextErrors)
+    return Object.keys(nextErrors).length === 0
+  }
+
+  const validateStep2 = () => {
+    const nextErrors: Record<string, string> = {}
+    products.forEach((p, i) => {
+      if (!p.name.trim()) nextErrors[`product_${i}_name`] = "Vui lòng nhập tên sản phẩm"
+      if (!p.description.trim()) nextErrors[`product_${i}_description`] = "Vui lòng nhập mô tả sản phẩm"
+      if (!p.priceText.trim()) nextErrors[`product_${i}_priceText`] = "Vui lòng nhập giá"
+    })
+    setErrors(nextErrors)
+    return Object.keys(nextErrors).length === 0
   }
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault()
-    onSubmit(formData as OCOPFormData)
-  }
 
-  const nextStep = () => {
-    if (currentStep < totalSteps) {
-      setCurrentStep(currentStep + 1)
+    const payload: OcopRegistrationDto = {
+      enterpriseName: name,
+      businessType: businessType || undefined,
+      taxCode: taxCode || undefined,
+      businessLicenseNumber: businessLicenseNumber || undefined,
+      licenseIssuedDate: licenseIssuedDate || undefined,
+      licenseIssuedBy: licenseIssuedBy || undefined,
+      address: address || undefined,
+      ward: ward || undefined,
+      district: district || undefined,
+      province: province || undefined,
+      phoneNumber: phone || undefined,
+      emailContact: email || undefined,
+      website: website || undefined,
+      representativeName: representativeName || undefined,
+      representativePosition: representativePosition || undefined,
+      representativeIdNumber: representativeIdNumber || undefined,
+      representativeIdIssuedDate: representativeIdIssuedDate || undefined,
+      representativeIdIssuedBy: representativeIdIssuedBy || undefined,
+      productionLocation: productionLocation || undefined,
+      numberOfEmployees: numberOfEmployees ? parseInt(numberOfEmployees) : undefined,
+      productionScale: productionScale || undefined,
+      businessField: businessField || undefined,
+      productName: products[0]?.name || undefined,
+      productCategory: productCategory || undefined,
+      productDescription: products[0]?.description || undefined,
+      productOrigin: productOrigin || undefined,
+      productCertifications: productCertifications.length ? productCertifications : undefined,
+      productImages: undefined,
+      attachedDocuments: undefined,
+      additionalNotes: additionalNotes || undefined,
+      status: undefined,
     }
+
+    onSubmit(payload)
   }
 
-  const prevStep = () => {
-    if (currentStep > 1) {
-      setCurrentStep(currentStep - 1)
-    }
-  }
-
-  const renderStep = () => {
-    switch (currentStep) {
-      case 1:
         return (
-          <div className="space-y-6">
-            <h3 className="text-xl font-semibold text-gray-900 mb-6">1. Thông tin chủ thể</h3>
-            
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Tên chủ thể *
-                </label>
-                <input
-                  type="text"
-                  required
-                  value={formData.subjectName || ""}
-                  onChange={(e) => handleInputChange('subjectName', e.target.value)}
-                  className="w-full rounded-lg border border-gray-300 px-3 py-2 focus:border-indigo-500 focus:outline-none focus:ring-indigo-500"
-                  placeholder="Nhập tên chủ thể"
-                />
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Loại hình chủ thể *
-                </label>
-                <select
-                  required
-                  value={formData.subjectType || ""}
-                  onChange={(e) => handleInputChange('subjectType', e.target.value)}
-                  className="w-full rounded-lg border border-gray-300 px-3 py-2 focus:border-indigo-500 focus:outline-none focus:ring-indigo-500"
-                >
-                  <option value="">Chọn loại hình</option>
-                  <option value="doanh-nghiep">Doanh nghiệp</option>
-                  <option value="htx">HTX</option>
-                  <option value="ho-kd">Hộ KD</option>
-                  <option value="ca-nhan">Cá nhân</option>
-                </select>
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Mã số thuế *
-                </label>
-                <input
-                  type="text"
-                  required
-                  value={formData.taxCode || ""}
-                  onChange={(e) => handleInputChange('taxCode', e.target.value)}
-                  className="w-full rounded-lg border border-gray-300 px-3 py-2 focus:border-indigo-500 focus:outline-none focus:ring-indigo-500"
-                  placeholder="Nhập mã số thuế"
-                />
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Địa chỉ *
-                </label>
-                <input
-                  type="text"
-                  required
-                  value={formData.address || ""}
-                  onChange={(e) => handleInputChange('address', e.target.value)}
-                  className="w-full rounded-lg border border-gray-300 px-3 py-2 focus:border-indigo-500 focus:outline-none focus:ring-indigo-500"
-                  placeholder="Nhập địa chỉ"
-                />
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Người đại diện *
-                </label>
-                <input
-                  type="text"
-                  required
-                  value={formData.representative || ""}
-                  onChange={(e) => handleInputChange('representative', e.target.value)}
-                  className="w-full rounded-lg border border-gray-300 px-3 py-2 focus:border-indigo-500 focus:outline-none focus:ring-indigo-500"
-                  placeholder="Nhập tên người đại diện"
-                />
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Số điện thoại *
-                </label>
-                <input
-                  type="tel"
-                  required
-                  value={formData.phone || ""}
-                  onChange={(e) => handleInputChange('phone', e.target.value)}
-                  className="w-full rounded-lg border border-gray-300 px-3 py-2 focus:border-indigo-500 focus:outline-none focus:ring-indigo-500"
-                  placeholder="Nhập số điện thoại"
-                />
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Email *
-                </label>
-                <input
-                  type="email"
-                  required
-                  value={formData.email || ""}
-                  onChange={(e) => handleInputChange('email', e.target.value)}
-                  className="w-full rounded-lg border border-gray-300 px-3 py-2 focus:border-indigo-500 focus:outline-none focus:ring-indigo-500"
-                  placeholder="Nhập email"
-                />
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Website/Fanpage
-                </label>
-                <input
-                  type="text"
-                  value={formData.website || ""}
-                  onChange={(e) => handleInputChange('website', e.target.value)}
-                  className="w-full rounded-lg border border-gray-300 px-3 py-2 focus:border-indigo-500 focus:outline-none focus:ring-indigo-500"
-                  placeholder="Nhập website hoặc fanpage"
-                />
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Năm thành lập *
-                </label>
-                <input
-                  type="number"
-                  required
-                  value={formData.establishmentYear || ""}
-                  onChange={(e) => handleInputChange('establishmentYear', parseInt(e.target.value) || 0)}
-                  className="w-full rounded-lg border border-gray-300 px-3 py-2 focus:border-indigo-500 focus:outline-none focus:ring-indigo-500"
-                  placeholder="Nhập năm thành lập"
-                  min="1900"
-                  max="2030"
-                />
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Quy mô lao động *
-                </label>
-                <input
-                  type="number"
-                  required
-                  value={formData.workforceSize || ""}
-                  onChange={(e) => handleInputChange('workforceSize', parseInt(e.target.value) || 0)}
-                  className="w-full rounded-lg border border-gray-300 px-3 py-2 focus:border-indigo-500 focus:outline-none focus:ring-indigo-500"
-                  placeholder="Nhập số lượng lao động"
-                  min="1"
-                />
-              </div>
-            </div>
-          </div>
-        )
-
-      case 2:
-        return (
-          <div className="space-y-6">
-            <h3 className="text-xl font-semibold text-gray-900 mb-6">2. Thông tin sản phẩm</h3>
-            
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-              <div className="md:col-span-2">
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Tên sản phẩm *
-                </label>
-                <input
-                  type="text"
-                  required
-                  value={formData.productName || ""}
-                  onChange={(e) => handleInputChange('productName', e.target.value)}
-                  className="w-full rounded-lg border border-gray-300 px-3 py-2 focus:border-indigo-500 focus:outline-none focus:ring-indigo-500"
-                  placeholder="Nhập tên sản phẩm"
-                />
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Nhóm sản phẩm *
-                </label>
-                <select
-                  required
-                  value={formData.productGroup || ""}
-                  onChange={(e) => handleInputChange('productGroup', e.target.value)}
-                  className="w-full rounded-lg border border-gray-300 px-3 py-2 focus:border-indigo-500 focus:outline-none focus:ring-indigo-500"
-                >
-                  <option value="">Chọn nhóm sản phẩm</option>
-                  <option value="nong-san">Nông sản</option>
-                  <option value="thu-cong-my-nghe">Thủ công mỹ nghệ</option>
-                  <option value="thuc-pham">Thực phẩm</option>
-                  <option value="duoc-lieu">Dược liệu</option>
-                  <option value="khac">Khác</option>
-                </select>
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Quy cách đóng gói
-                </label>
-                <input
-                  type="text"
-                  value={formData.packagingSpec || ""}
-                  onChange={(e) => handleInputChange('packagingSpec', e.target.value)}
-                  className="w-full rounded-lg border border-gray-300 px-3 py-2 focus:border-indigo-500 focus:outline-none focus:ring-indigo-500"
-                  placeholder="Ví dụ: 500g/hộp, 1kg/túi"
-                />
-              </div>
-
-              <div className="md:col-span-2">
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Mô tả ngắn *
-                </label>
-                <textarea
-                  required
-                  rows={3}
-                  value={formData.shortDescription || ""}
-                  onChange={(e) => handleInputChange('shortDescription', e.target.value)}
-                  className="w-full rounded-lg border border-gray-300 px-3 py-2 focus:border-indigo-500 focus:outline-none focus:ring-indigo-500"
-                  placeholder="Mô tả ngắn gọn về sản phẩm"
-                />
-              </div>
-
-              <div className="md:col-span-2">
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Nguyên liệu chính *
-                </label>
-                <textarea
-                  required
-                  rows={3}
-                  value={formData.mainMaterials || ""}
-                  onChange={(e) => handleInputChange('mainMaterials', e.target.value)}
-                  className="w-full rounded-lg border border-gray-300 px-3 py-2 focus:border-indigo-500 focus:outline-none focus:ring-indigo-500"
-                  placeholder="Liệt kê các nguyên liệu chính sử dụng"
-                />
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Nguồn gốc nguyên liệu
-                </label>
-                <input
-                  type="text"
-                  value={formData.materialOrigin || ""}
-                  onChange={(e) => handleInputChange('materialOrigin', e.target.value)}
-                  className="w-full rounded-lg border border-gray-300 px-3 py-2 focus:border-indigo-500 focus:outline-none focus:ring-indigo-500"
-                  placeholder="Nguồn gốc nguyên liệu"
-                />
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Sản lượng/năm
-                </label>
-                <input
-                  type="number"
-                  value={formData.annualOutput || ""}
-                  onChange={(e) => handleInputChange('annualOutput', parseInt(e.target.value) || 0)}
-                  className="w-full rounded-lg border border-gray-300 px-3 py-2 focus:border-indigo-500 focus:outline-none focus:ring-indigo-500"
-                  placeholder="Nhập sản lượng hàng năm"
-                />
-              </div>
-
-              <div className="md:col-span-2">
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Quy trình sản xuất
-                </label>
-                <textarea
-                  rows={4}
-                  value={formData.productionProcess || ""}
-                  onChange={(e) => handleInputChange('productionProcess', e.target.value)}
-                  className="w-full rounded-lg border border-gray-300 px-3 py-2 focus:border-indigo-500 focus:outline-none focus:ring-indigo-500"
-                  placeholder="Mô tả quy trình sản xuất"
-                />
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Giá bán (VND)
-                </label>
-                <input
-                  type="number"
-                  value={formData.sellingPrice || ""}
-                  onChange={(e) => handleInputChange('sellingPrice', parseInt(e.target.value) || 0)}
-                  className="w-full rounded-lg border border-gray-300 px-3 py-2 focus:border-indigo-500 focus:outline-none focus:ring-indigo-500"
-                  placeholder="Nhập giá bán"
-                />
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Thị trường tiêu thụ
-                </label>
-                <input
-                  type="text"
-                  value={formData.consumerMarket || ""}
-                  onChange={(e) => handleInputChange('consumerMarket', e.target.value)}
-                  className="w-full rounded-lg border border-gray-300 px-3 py-2 focus:border-indigo-500 focus:outline-none focus:ring-indigo-500"
-                  placeholder="Thị trường tiêu thụ chính"
-                />
-              </div>
-
-              <div className="md:col-span-2">
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Hình ảnh sản phẩm (3-5 ảnh)
-                </label>
-                <input
-                  type="file"
-                  multiple
-                  accept="image/*"
-                  onChange={(e) => handleFileUpload('productImages', e.target.files)}
-                  className="w-full rounded-lg border border-gray-300 px-3 py-2 focus:border-indigo-500 focus:outline-none focus:ring-indigo-500"
-                />
-                <p className="text-xs text-gray-500 mt-1">Chọn 3-5 hình ảnh sản phẩm</p>
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Logo thương hiệu
-                </label>
-                <input
-                  type="file"
-                  accept="image/*"
-                  onChange={(e) => handleFileUpload('brandLogo', e.target.files)}
-                  className="w-full rounded-lg border border-gray-300 px-3 py-2 focus:border-indigo-500 focus:outline-none focus:ring-indigo-500"
-                />
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Nhãn mác bao bì
-                </label>
-                <input
-                  type="file"
-                  accept="image/*"
-                  onChange={(e) => handleFileUpload('packagingLabels', e.target.files)}
-                  className="w-full rounded-lg border border-gray-300 px-3 py-2 focus:border-indigo-500 focus:outline-none focus:ring-indigo-500"
-                />
-              </div>
-
-              <div className="md:col-span-2">
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Chứng nhận hiện có
-                </label>
-                <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
-                  {['VietGAP', 'GlobalGAP', 'HACCP', 'ISO 9001', 'ISO 22000', 'Khác'].map((cert) => (
-                    <label key={cert} className="flex items-center space-x-2">
-                      <input
-                        type="checkbox"
-                        checked={(formData.currentCertifications || []).includes(cert)}
-                        onChange={() => handleCheckboxChange('currentCertifications', cert)}
-                        className="rounded border-gray-300 text-indigo-600 focus:ring-indigo-500"
-                      />
-                      <span className="text-sm text-gray-700">{cert}</span>
-                    </label>
-                  ))}
-                </div>
-              </div>
-            </div>
-          </div>
-        )
-
-      case 3:
-        return (
-          <div className="space-y-6">
-            <h3 className="text-xl font-semibold text-gray-900 mb-6">3. Cơ sở sản xuất</h3>
-            
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-              <div className="md:col-span-2">
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Địa điểm cơ sở *
-                </label>
-                <input
-                  type="text"
-                  required
-                  value={formData.facilityLocation || ""}
-                  onChange={(e) => handleInputChange('facilityLocation', e.target.value)}
-                  className="w-full rounded-lg border border-gray-300 px-3 py-2 focus:border-indigo-500 focus:outline-none focus:ring-indigo-500"
-                  placeholder="Nhập địa điểm cơ sở sản xuất"
-                />
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Diện tích nhà xưởng (m²)
-                </label>
-                <input
-                  type="number"
-                  value={formData.workshopArea || ""}
-                  onChange={(e) => handleInputChange('workshopArea', parseFloat(e.target.value) || 0)}
-                  className="w-full rounded-lg border border-gray-300 px-3 py-2 focus:border-indigo-500 focus:outline-none focus:ring-indigo-500"
-                  placeholder="Nhập diện tích"
-                />
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Công suất sản xuất
-                </label>
-                <input
-                  type="text"
-                  value={formData.productionCapacity || ""}
-                  onChange={(e) => handleInputChange('productionCapacity', e.target.value)}
-                  className="w-full rounded-lg border border-gray-300 px-3 py-2 focus:border-indigo-500 focus:outline-none focus:ring-indigo-500"
-                  placeholder="Ví dụ: 1000 tấn/năm"
-                />
-              </div>
-
-              <div className="md:col-span-2">
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Thiết bị / máy móc
-                </label>
-                <textarea
-                  rows={3}
-                  value={formData.equipmentMachinery || ""}
-                  onChange={(e) => handleInputChange('equipmentMachinery', e.target.value)}
-                  className="w-full rounded-lg border border-gray-300 px-3 py-2 focus:border-indigo-500 focus:outline-none focus:ring-indigo-500"
-                  placeholder="Mô tả thiết bị, máy móc hiện có"
-                />
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Hệ thống xử lý chất thải
-                </label>
-                <div className="space-y-2">
-                  {['Có', 'Không'].map((option) => (
-                    <label key={option} className="flex items-center space-x-2">
-                      <input
-                        type="radio"
-                        name="wasteTreatmentSystem"
-                        value={option}
-                        checked={formData.wasteTreatmentSystem === option}
-                        onChange={(e) => handleInputChange('wasteTreatmentSystem', e.target.value)}
-                        className="border-gray-300 text-indigo-600 focus:ring-indigo-500"
-                      />
-                      <span className="text-sm text-gray-700">{option}</span>
-                    </label>
-                  ))}
-                </div>
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Tiêu chuẩn vệ sinh ATTP
-                </label>
-                <select
-                  value={formData.hygieneStandards || ""}
-                  onChange={(e) => handleInputChange('hygieneStandards', e.target.value)}
-                  className="w-full rounded-lg border border-gray-300 px-3 py-2 focus:border-indigo-500 focus:outline-none focus:ring-indigo-500"
-                >
-                  <option value="">Chọn trạng thái</option>
-                  <option value="dat">Đạt</option>
-                  <option value="chua-dat">Chưa đạt</option>
-                  <option value="dang-xin-cap">Đang xin cấp</option>
-                </select>
-              </div>
-            </div>
-          </div>
-        )
-
-      case 4:
-        return (
-          <div className="space-y-6">
-            <h3 className="text-xl font-semibold text-gray-900 mb-6">4. Hồ sơ đính kèm</h3>
-            
-            <div className="space-y-6">
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Giấy phép kinh doanh
-                </label>
-                <input
-                  type="file"
-                  accept=".pdf,.jpg,.jpeg,.png"
-                  onChange={(e) => handleFileUpload('businessLicense', e.target.files)}
-                  className="w-full rounded-lg border border-gray-300 px-3 py-2 focus:border-indigo-500 focus:outline-none focus:ring-indigo-500"
-                />
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Hồ sơ kiểm nghiệm
-                </label>
-                <input
-                  type="file"
-                  accept=".pdf,.jpg,.jpeg,.png"
-                  onChange={(e) => handleFileUpload('testReports', e.target.files)}
-                  className="w-full rounded-lg border border-gray-300 px-3 py-2 focus:border-indigo-500 focus:outline-none focus:ring-indigo-500"
-                />
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Chứng nhận VietGAP / ATTP
-                </label>
-                <input
-                  type="file"
-                  accept=".pdf,.jpg,.jpeg,.png"
-                  onChange={(e) => handleFileUpload('certifications', e.target.files)}
-                  className="w-full rounded-lg border border-gray-300 px-3 py-2 focus:border-indigo-500 focus:outline-none focus:ring-indigo-500"
-                />
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Hình ảnh sản phẩm
-                </label>
-                <input
-                  type="file"
-                  multiple
-                  accept="image/*"
-                  onChange={(e) => handleFileUpload('productPhotos', e.target.files)}
-                  className="w-full rounded-lg border border-gray-300 px-3 py-2 focus:border-indigo-500 focus:outline-none focus:ring-indigo-500"
-                />
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Giấy chứng nhận nhãn hiệu
-                </label>
-                <input
-                  type="file"
-                  accept=".pdf,.jpg,.jpeg,.png"
-                  onChange={(e) => handleFileUpload('trademarkCertificate', e.target.files)}
-                  className="w-full rounded-lg border border-gray-300 px-3 py-2 focus:border-indigo-500 focus:outline-none focus:ring-indigo-500"
-                />
-              </div>
-            </div>
-          </div>
-        )
-
-      case 5:
-        return (
-          <div className="space-y-6">
-            <h3 className="text-xl font-semibold text-gray-900 mb-6">5. Đề xuất & hỗ trợ</h3>
-            
-            <div className="space-y-6">
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Cấp đánh giá mong muốn
-                </label>
-                <select
-                  value={formData.desiredLevel || ""}
-                  onChange={(e) => handleInputChange('desiredLevel', e.target.value)}
-                  className="w-full rounded-lg border border-gray-300 px-3 py-2 focus:border-indigo-500 focus:outline-none focus:ring-indigo-500"
-                >
-                  <option value="">Chọn cấp đánh giá</option>
-                  <option value="huyen">Huyện</option>
-                  <option value="tinh">Tỉnh</option>
-                  <option value="quoc-gia">Quốc gia</option>
-                </select>
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Hỗ trợ mong muốn
-                </label>
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                  {['Đào tạo', 'Quảng bá', 'Thiết kế bao bì', 'Tiếp thị', 'Xuất khẩu', 'Khác'].map((support) => (
-                    <label key={support} className="flex items-center space-x-2">
-                      <input
-                        type="checkbox"
-                        checked={(formData.desiredSupport || []).includes(support)}
-                        onChange={() => handleCheckboxChange('desiredSupport', support)}
-                        className="rounded border-gray-300 text-indigo-600 focus:ring-indigo-500"
-                      />
-                      <span className="text-sm text-gray-700">{support}</span>
-                    </label>
-                  ))}
-                </div>
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Ghi chú
-                </label>
-                <textarea
-                  rows={4}
-                  value={formData.notes || ""}
-                  onChange={(e) => handleInputChange('notes', e.target.value)}
-                  className="w-full rounded-lg border border-gray-300 px-3 py-2 focus:border-indigo-500 focus:outline-none focus:ring-indigo-500"
-                  placeholder="Nhập ghi chú bổ sung hoặc yêu cầu đặc biệt"
-                />
-              </div>
-            </div>
-          </div>
-        )
-
-      case 6:
-        return (
-          <div className="space-y-6">
-            <h3 className="text-xl font-semibold text-gray-900 mb-6">6. Xác nhận và gửi</h3>
-            
-            <div className="space-y-6">
-              <div>
-                <label className="flex items-center space-x-2">
-                  <input
-                    type="checkbox"
-                    required
-                    checked={formData.infoCommitment || false}
-                    onChange={(e) => handleInputChange('infoCommitment', e.target.checked)}
-                    className="rounded border-gray-300 text-indigo-600 focus:ring-indigo-500"
-                  />
-                  <span className="text-sm font-medium text-gray-700">
-                    Cam kết thông tin chính xác *
-                  </span>
-                </label>
-              </div>
-
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
-                    Họ tên người nộp hồ sơ *
-                  </label>
-                  <input
-                    type="text"
-                    required
-                    value={formData.submitterName || ""}
-                    onChange={(e) => handleInputChange('submitterName', e.target.value)}
-                    className="w-full rounded-lg border border-gray-300 px-3 py-2 focus:border-indigo-500 focus:outline-none focus:ring-indigo-500"
-                    placeholder="Nhập họ tên người nộp hồ sơ"
-                  />
-                </div>
-
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
-                    Ngày nộp hồ sơ *
-                  </label>
-                  <input
-                    type="date"
-                    required
-                    value={formData.submissionDate || ""}
-                    onChange={(e) => handleInputChange('submissionDate', e.target.value)}
-                    className="w-full rounded-lg border border-gray-300 px-3 py-2 focus:border-indigo-500 focus:outline-none focus:ring-indigo-500"
-                  />
-                </div>
-              </div>
-            </div>
-          </div>
-        )
-
-      default:
-        return null
-    }
-  }
-
-  return (
     <form onSubmit={handleSubmit} className="bg-white rounded-lg shadow-lg p-8">
-      {/* Step indicator */}
       <div className="mb-8">
         <div className="flex items-center justify-between mb-4">
-          {Array.from({ length: totalSteps }, (_, i) => i + 1).map((step) => (
-            <div key={step} className="flex items-center">
-              <div
-                className={`w-8 h-8 rounded-full flex items-center justify-center text-sm font-medium ${
-                  step <= currentStep
-                    ? 'bg-indigo-600 text-white'
-                    : 'bg-gray-200 text-gray-600'
-                }`}
-              >
-                {step}
+          {Array.from({ length: totalSteps }, (_, i) => i + 1).map(s => (
+            <div key={s} className="flex items-center">
+              <div className={`w-8 h-8 rounded-full flex items-center justify-center text-sm font-medium ${s <= step ? 'bg-indigo-600 text-white' : 'bg-gray-200 text-gray-600'}`}>
+                {s}
               </div>
-              {step < totalSteps && (
-                <div
-                  className={`w-12 h-1 mx-2 ${
-                    step < currentStep ? 'bg-indigo-600' : 'bg-gray-200'
-                  }`}
-                />
+              {s < totalSteps && (
+                <div className={`w-12 h-1 mx-2 ${s < step ? 'bg-indigo-600' : 'bg-gray-200'}`} />
               )}
             </div>
           ))}
         </div>
         <div className="text-center">
-          <p className="text-sm text-gray-600">
-            Bước {currentStep} / {totalSteps}
-          </p>
-        </div>
-      </div>
+          <p className="text-sm text-gray-600">Bước {step} / {totalSteps}</p>
+            </div>
+          </div>
 
-      {/* Form content */}
       <div className="mb-8">
-        {renderStep()}
+        {step === 1 && (
+          <div className="space-y-6">
+            <h3 className="text-xl font-semibold text-gray-900 mb-6">1. Thông tin doanh nghiệp </h3>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+              <div className="md:col-span-2">
+                <label className="block text-sm font-medium text-gray-700 mb-2">Tên doanh nghiệp *</label>
+                <input
+                  type="text"
+                  required
+                  value={name}
+                  onChange={(e) => setName(e.target.value)}
+                  className="w-full rounded-lg border border-gray-300 px-3 py-2 focus:border-indigo-500 focus:outline-none focus:ring-indigo-500"
+                  placeholder="Nhập tên doanh nghiệp"
+                />
+                {errors.name && <p className="text-sm text-red-600 mt-1">{errors.name}</p>}
+              </div>
+              <div className="md:col-span-2">
+                <label className="block text-sm font-medium text-gray-700 mb-2">Mô tả</label>
+                <textarea
+                  rows={4}
+                  value={description}
+                  onChange={(e) => setDescription(e.target.value)}
+                  className="w-full rounded-lg border border-gray-300 px-3 py-2 focus:border-indigo-500 focus:outline-none focus:ring-indigo-500"
+                  placeholder="Mô tả doanh nghiệp"
+                />
+                {errors.description && <p className="text-sm text-red-600 mt-1">{errors.description}</p>}
+              </div>
+              <div className="md:col-span-2">
+                <label className="block text-sm font-medium text-gray-700 mb-2">Địa điểm sản xuất</label>
+                <input
+                  type="text"
+                  value={productionLocation}
+                  onChange={(e) => setProductionLocation(e.target.value)}
+                  className="w-full rounded-lg border border-gray-300 px-3 py-2 focus:border-indigo-500 focus:outline-none focus:ring-indigo-500"
+                  placeholder="Địa điểm sản xuất"
+                />
+              </div>
+              <div className="md:col-span-2">
+                <label className="block text-sm font-medium text-gray-700 mb-2">Địa chỉ *</label>
+                <input
+                  type="text"
+                  required
+                  value={address}
+                  onChange={(e) => setAddress(e.target.value)}
+                  className="w-full rounded-lg border border-gray-300 px-3 py-2 focus:border-indigo-500 focus:outline-none focus:ring-indigo-500"
+                  placeholder="Nhập địa chỉ trụ sở / sản xuất"
+                />
+                {errors.address && <p className="text-sm text-red-600 mt-1">{errors.address}</p>}
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">Số điện thoại *</label>
+                <input
+                  type="text"
+                  required
+                  value={phone}
+                  onChange={(e) => setPhone(e.target.value)}
+                  className="w-full rounded-lg border border-gray-300 px-3 py-2 focus:border-indigo-500 focus:outline-none focus:ring-indigo-500"
+                  placeholder="Số điện thoại liên hệ"
+                />
+                {errors.phone && <p className="text-sm text-red-600 mt-1">{errors.phone}</p>}
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">Email *</label>
+                <input
+                  type="email"
+                  required
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
+                  className="w-full rounded-lg border border-gray-300 px-3 py-2 focus:border-indigo-500 focus:outline-none focus:ring-indigo-500"
+                  placeholder="Email doanh nghiệp"
+                />
+                {errors.email && <p className="text-sm text-red-600 mt-1">{errors.email}</p>}
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">Website</label>
+                <input
+                  type="text"
+                  value={website}
+                  onChange={(e) => setWebsite(e.target.value)}
+                  className="w-full rounded-lg border border-gray-300 px-3 py-2 focus:border-indigo-500 focus:outline-none focus:ring-indigo-500"
+                  placeholder="Trang web (nếu có)"
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">Logo (ảnh)</label>
+                <input
+                  type="file"
+                  accept="image/*"
+                  onChange={(e) => setLogoFile(e.target.files?.[0] || null)}
+                  className="w-full rounded-lg border border-gray-300 px-3 py-2 focus:border-indigo-500 focus:outline-none focus:ring-indigo-500"
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">Mã chứng nhận / Giấy phép</label>
+                <input
+                  type="text"
+                  value={certificateNumber}
+                  onChange={(e) => setCertificateNumber(e.target.value)}
+                  className="w-full rounded-lg border border-gray-300 px-3 py-2 focus:border-indigo-500 focus:outline-none focus:ring-indigo-500"
+                  placeholder="Số chứng nhận OCOP / GPKD (nếu có)"
+                />
+              </div>
+            </div>
+          </div>
+        )}
+
+        {step === 2 && (
+          <div className="space-y-6">
+            <h3 className="text-xl font-semibold text-gray-900 mb-6">2. Sản phẩm </h3>
+            <div className="space-y-6">
+              {products.map((product, index) => (
+                <div key={index} className="border rounded-lg p-6">
+                  <div className="flex items-center justify-between mb-4">
+                    <h4 className="font-semibold text-gray-900">Sản phẩm #{index + 1}</h4>
+                    {products.length > 1 && (
+                      <button type="button" onClick={() => removeProduct(index)} className="text-red-600 hover:text-red-800 text-sm">Xóa</button>
+                    )}
+                  </div>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+              <div className="md:col-span-2">
+                      <label className="block text-sm font-medium text-gray-700 mb-2">Tên sản phẩm *</label>
+                <input
+                  type="text"
+                  required
+                        value={product.name}
+                        onChange={(e) => updateProduct(index, 'name', e.target.value)}
+                  className="w-full rounded-lg border border-gray-300 px-3 py-2 focus:border-indigo-500 focus:outline-none focus:ring-indigo-500"
+                        placeholder="Nhập tên sản phẩm"
+                      />
+                      {errors[`product_${index}_name`] && <p className="text-sm text-red-600 mt-1">{errors[`product_${index}_name`]}</p>}
+              </div>
+              <div className="md:col-span-2">
+                      <label className="block text-sm font-medium text-gray-700 mb-2">Mô tả</label>
+                <textarea
+                  rows={3}
+                        value={product.description}
+                        onChange={(e) => updateProduct(index, 'description', e.target.value)}
+                  className="w-full rounded-lg border border-gray-300 px-3 py-2 focus:border-indigo-500 focus:outline-none focus:ring-indigo-500"
+                        placeholder="Mô tả sản phẩm"
+                />
+                      {errors[`product_${index}_description`] && <p className="text-sm text-red-600 mt-1">{errors[`product_${index}_description`]}</p>}
+              </div>
+              <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-2">Giá (VND)</label>
+                      <input
+                        type="text"
+                        inputMode="numeric"
+                        pattern="[0-9]*"
+                        value={product.priceText}
+                        onChange={(e) => {
+                          const v = e.target.value.replace(/[^0-9]/g, '')
+                          updateProduct(index, 'priceText', v)
+                        }}
+                        className="w-full rounded-lg border border-gray-300 px-3 py-2 focus:border-indigo-500 focus:outline-none focus:ring-indigo-500"
+                        placeholder="Nhập giá"
+                      />
+                      {errors[`product_${index}_priceText`] && <p className="text-sm text-red-600 mt-1">{errors[`product_${index}_priceText`]}</p>}
+              </div>
+            </div>
+          </div>
+              ))}
+              <button type="button" onClick={addProduct} className="px-4 py-2 bg-gray-100 hover:bg-gray-200 rounded-lg font-medium">+ Thêm sản phẩm</button>
+            </div>
+          </div>
+        )}
+
+        {step === 3 && (
+          <div className="space-y-6">
+            <h3 className="text-xl font-semibold text-gray-900 mb-6">3. Xác nhận</h3>
+            <div className="space-y-4">
+              <div>
+                <h4 className="font-semibold text-gray-900">Doanh nghiệp</h4>
+                <p className="text-gray-700"><span className="font-medium">Tên:</span> {name || '(chưa nhập)'}
+                </p>
+                <p className="text-gray-700"><span className="font-medium">Mô tả:</span> {description || '(chưa nhập)'}
+                </p>
+                <p className="text-gray-700"><span className="font-medium">Địa chỉ:</span> {address || '(chưa nhập)'}
+                </p>
+                <p className="text-gray-700"><span className="font-medium">Điện thoại:</span> {phone || '(chưa nhập)'}
+                </p>
+                <p className="text-gray-700"><span className="font-medium">Email:</span> {email || '(chưa nhập)'}
+                </p>
+                {!!website && (
+                  <p className="text-gray-700"><span className="font-medium">Website:</span> {website}</p>
+                )}
+                {!!certificateNumber && (
+                  <p className="text-gray-700"><span className="font-medium">Mã chứng nhận:</span> {certificateNumber}</p>
+                )}
+                {logoFile && (
+                  <p className="text-gray-700"><span className="font-medium">Logo:</span> {logoFile.name}</p>
+                )}
+              </div>
+              <div>
+                <h4 className="font-semibold text-gray-900">Sản phẩm</h4>
+                <div className="space-y-3">
+                  {products.map((p, i) => (
+                    <div key={i} className="bg-gray-50 rounded p-3">
+                      <p className="text-gray-700"><span className="font-medium">Tên:</span> {p.name || '(chưa nhập)'} </p>
+                      <p className="text-gray-700"><span className="font-medium">Giá:</span> {p.priceText ? Number(p.priceText).toLocaleString('vi-VN') : '(chưa nhập)'} ₫</p>
+                      <p className="text-gray-700"><span className="font-medium">Mô tả:</span> {p.description || '(chưa nhập)'} </p>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
       </div>
 
-      {/* Navigation buttons */}
       <div className="flex justify-between">
-        <button
-          type="button"
-          onClick={prevStep}
-          disabled={currentStep === 1}
-          className={`px-6 py-2 rounded-lg font-medium ${
-            currentStep === 1
-              ? 'bg-gray-200 text-gray-400 cursor-not-allowed'
-              : 'bg-gray-600 text-white hover:bg-gray-700'
-          }`}
-        >
-          Quay lại
-        </button>
-
-        {currentStep < totalSteps ? (
+        <button type="button" onClick={() => setStep(Math.max(1, step - 1))} disabled={step === 1} className={`px-6 py-2 rounded-lg font-medium ${step === 1 ? 'bg-gray-2 00 text-gray-400 cursor-not-allowed' : 'bg-gray-600 text-white hover:bg-gray-700'}`}>Quay lại</button>
+        {step < totalSteps ? (
           <button
             type="button"
-            onClick={nextStep}
+            onClick={() => {
+              const ok = step === 1 ? validateStep1() : step === 2 ? validateStep2() : true
+              if (ok) setStep(Math.min(totalSteps, step + 1))
+            }}
             className="px-6 py-2 bg-indigo-600 text-white rounded-lg font-medium hover:bg-indigo-700"
           >
             Tiếp theo
           </button>
         ) : (
-          <button
-            type="submit"
-            className="px-6 py-2 bg-green-600 text-white rounded-lg font-medium hover:bg-green-700"
-          >
-            GỬI ĐĂNG KÝ
-          </button>
+          <button type="submit" className="px-6 py-2 bg-green-600 text-white rounded-lg font-medium hover:bg-green-700">GỬI ĐĂNG KÝ</button>
         )}
       </div>
     </form>
