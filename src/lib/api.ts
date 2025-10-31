@@ -1,4 +1,5 @@
 // Use server proxy to avoid CORS in browser
+import { getAuthToken } from "@/lib/auth"
 export const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE || "/api/proxy";
 
 type Json = unknown;
@@ -13,6 +14,16 @@ async function request<TResponse>(
     "Content-Type": "application/json",
     ...(options.headers || {}),
   };
+
+  // Attach bearer token if available
+  try {
+    const token = getAuthToken?.();
+    if (token) {
+      (headers as any)["Authorization"] = `Bearer ${token}`;
+    }
+  } catch {
+    // ignore token access errors
+  }
 
   const response = await fetch(url, {
     method: options.method || "GET",
