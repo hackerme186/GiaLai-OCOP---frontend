@@ -41,6 +41,7 @@ export default function RegisterForm() {
       // Set user profile with the registered user's information
       setUserProfile({
         name: fullName.trim(),
+        email: normalizedEmail,
         avatarUrl: undefined
       })
       

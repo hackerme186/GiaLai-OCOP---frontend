@@ -36,6 +36,7 @@ export function logout() {
 
 export type UserProfile = {
   name?: string;
+  email?: string;
   avatarUrl?: string;
 }
 
