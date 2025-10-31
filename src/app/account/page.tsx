@@ -4,7 +4,6 @@ import { useEffect, useState } from "react"
 import { getUserProfile, isLoggedIn } from "@/lib/auth"
 import { getCurrentUser } from "@/lib/api"
 import Header from "@/components/layout/Header"
-import Footer from "@/components/layout/Footer"
 import { useRouter } from "next/navigation"
 
 export default function AccountPage() {
@@ -55,7 +54,6 @@ export default function AccountPage() {
           </div>
         </div>
       </main>
-      <Footer />
     </div>
   )
 }

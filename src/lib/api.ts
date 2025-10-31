@@ -259,7 +259,6 @@ export interface MeResponse {
   fullName?: string;
   email?: string;
   username?: string;
-  role?: string;
   [key: string]: unknown;
 }
 
