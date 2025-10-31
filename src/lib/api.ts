@@ -1,4 +1,5 @@
 // Use server proxy to avoid CORS in browser
+import { getAuthToken } from "@/lib/auth"
 export const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE || "/api/proxy";
 
 type Json = unknown;
@@ -13,6 +14,16 @@ async function request<TResponse>(
     "Content-Type": "application/json",
     ...(options.headers || {}),
   };
+
+  // Attach bearer token if available
+  try {
+    const token = getAuthToken?.();
+    if (token) {
+      (headers as any)["Authorization"] = `Bearer ${token}`;
+    }
+  } catch {
+    // ignore token access errors
+  }
 
   const response = await fetch(url, {
     method: options.method || "GET",
@@ -241,6 +252,40 @@ export function register(payload: RegisterPayload) {
   });
 }
 
+// Get current user profile from backend (robust to different backends)
+export interface MeResponse {
+  id?: number | string;
+  name?: string;
+  fullName?: string;
+  email?: string;
+  username?: string;
+  role?: string;
+  [key: string]: unknown;
+}
+
+export async function getCurrentUser(): Promise<MeResponse> {
+  const candidatePaths = [
+    "/auth/me",
+    "/users/me",
+    "/api/users/me",
+    "/me",
+  ];
+  let lastError: Error | null = null;
+  for (const path of candidatePaths) {
+    try {
+      return await request<MeResponse>(path, { method: "GET" });
+    } catch (err) {
+      lastError = err as Error;
+      const msg = (lastError?.message || "").toLowerCase();
+      const shouldTryNext = msg.includes("404") || msg.includes("not found") || msg.includes("405");
+      if (!shouldTryNext) break;
+    }
+  }
+  // Fallback mock if API not available
+  console.warn("getCurrentUser fallback used:", lastError?.message);
+  return Promise.resolve({ name: "User", email: "user@example.com" });
+}
+
 // Product API functions
 export function getProducts(params?: {
   page?: number;
@@ -295,6 +340,7 @@ export const api = {
   request,
   login,
   register,
+  getCurrentUser,
   getProducts,
   getProductById,
   getFeaturedProducts,

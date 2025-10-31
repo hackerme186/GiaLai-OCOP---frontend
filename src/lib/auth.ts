@@ -36,6 +36,7 @@ export function logout() {
 
 export type UserProfile = {
   name?: string;
+  email?: string;
   avatarUrl?: string;
 }
 
@@ -57,4 +58,32 @@ export function getUserProfile(): UserProfile | null {
   } catch {
     return null;
   }
+}
+
+// Decode JWT (Base64Url) to extract claims safely on client
+export function getClaimsFromJwt(token?: string | null): Record<string, unknown> | null {
+  try {
+    const t = token || getAuthToken();
+    if (!t) return null;
+    const parts = t.split(".");
+    if (parts.length < 2) return null;
+    const base64 = parts[1].replace(/-/g, "+").replace(/_/g, "/");
+    const json = typeof window !== 'undefined' ? decodeURIComponent(atob(base64).split('').map(c=>{
+      const code = c.charCodeAt(0).toString(16).padStart(2,'0');
+      return `%${code}`;
+    }).join('')) : Buffer.from(base64, 'base64').toString('utf8');
+    return JSON.parse(json);
+  } catch {
+    return null;
+  }
+}
+
+export function getRoleFromToken(token?: string | null): string | null {
+  const claims = getClaimsFromJwt(token);
+  if (!claims) return null;
+  const roleKey = Object.keys(claims).find(k => k.toLowerCase().includes("/role") || k.toLowerCase() === 'role');
+  const raw = (roleKey ? (claims as any)[roleKey] : (claims as any).role) as unknown;
+  if (!raw) return null;
+  if (Array.isArray(raw)) return (raw[0] || '').toString();
+  return String(raw);
 }
