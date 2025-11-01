@@ -285,24 +285,44 @@ export async function getEnterprises(params?: {
     if (params?.field) searchParams.append('field', params.field);
     if (params?.status) searchParams.append('status', params.status);
     
-    const response = await fetch(`/api/enterprises?${searchParams.toString()}`, {
+    const url = `/api/enterprises?${searchParams.toString()}`;
+    console.log('Calling API route:', url);
+    
+    const response = await fetch(url, {
       method: 'GET',
       headers: {
         'Content-Type': 'application/json',
       },
     });
     
+    console.log('API route response status:', response.status);
+    
     if (response.ok) {
       const data = await response.json();
+      console.log('API route response data:', data);
       return {
         items: data.items || data.data || data.enterprises || [],
         total: data.total || 0,
         page: data.page || params?.page || 1,
         limit: data.limit || params?.limit || 10,
       };
+    } else {
+      const errorText = await response.text();
+      console.error('API route error:', response.status, errorText);
+      // If API route exists but returns error, don't fallback to proxy
+      // Return empty result instead
+      if (response.status !== 404) {
+        return { items: [], total: 0, page: params?.page || 1, limit: params?.limit || 10 };
+      }
     }
   } catch (err) {
-    console.warn('API route call failed, trying direct backend:', err);
+    console.error('API route call failed:', err);
+    // Only fallback if it's a network error or 404
+    const errorMsg = err instanceof Error ? err.message : String(err);
+    if (!errorMsg.includes('404') && !errorMsg.includes('Failed to fetch')) {
+      // Don't fallback for other errors, return empty
+      return { items: [], total: 0, page: params?.page || 1, limit: params?.limit || 10 };
+    }
   }
   
   // Fallback to direct backend API via proxy

@@ -57,9 +57,16 @@ export default function AdminPage() {
     const load = async () => {
       setLoading(true)
       try {
+        console.log('Loading enterprises with filters:', { ...filters, page, limit })
         const res = await getEnterprises({ ...filters, page, limit })
+        console.log('Enterprises response:', res)
         setItems(res.items || [])
         setTotal(res.total || 0)
+        if (res.items && res.items.length > 0) {
+          console.log('Loaded enterprises:', res.items)
+        } else {
+          console.warn('No enterprises found in response')
+        }
       } catch (err) {
         console.error('Failed to load enterprises:', err)
         setItems([])
