@@ -126,8 +126,8 @@ export default function OCOPForm({ onSubmit }: OCOPFormProps) {
       productDescription,
       productOrigin,
       productCertifications: productCertifications.length ? productCertifications : undefined,
-      productImages,
-      attachedDocuments: attachedDocs,
+      productImages: undefined, // TODO: Upload files and get URLs
+      attachedDocuments: undefined, // TODO: Upload files and get URLs
       additionalNotes,
       status: undefined
     }
