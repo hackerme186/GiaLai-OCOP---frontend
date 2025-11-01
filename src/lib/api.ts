@@ -202,6 +202,238 @@ export function submitOcopRegistration(payload: OcopRegistrationDto) {
   });
 }
 
+// -------- Enterprises (Admin) --------
+export interface EnterpriseSummary {
+  id: number | string;
+  name?: string;
+  Name?: string;
+  description?: string;
+  Description?: string;
+  address?: string;
+  Address?: string;
+  businessField?: string;
+  BusinessField?: string;
+  taxCode?: string;
+  businessLicenseNumber?: string;
+  representative?: string;
+  ward?: string;
+  district?: string;
+  province?: string;
+  phone?: string;
+  email?: string;
+  website?: string;
+  logoUrl?: string;
+  shortDescription?: string;
+  capabilityProfileUrl?: string;
+  status?: string;
+  locked?: boolean;
+  [key: string]: unknown;
+}
+
+export interface EnterpriseListResponse {
+  items?: EnterpriseSummary[];
+  data?: EnterpriseSummary[];
+  enterprises?: EnterpriseSummary[];
+  total?: number;
+  page?: number;
+  limit?: number;
+  [key: string]: unknown;
+}
+
+export interface EnterpriseDetail extends EnterpriseSummary {
+  products?: Product[];
+  rating?: number;
+  rank?: string;
+  ocopHistory?: Array<{ year: number; result: string }>;
+}
+
+export interface EnterpriseCreateUpdatePayload {
+  name: string;
+  taxCode?: string;
+  businessLicenseNumber?: string;
+  representative?: string;
+  ward?: string;
+  district?: string;
+  province?: string;
+  address?: string;
+  phone?: string;
+  email?: string;
+  website?: string;
+  field?: string;
+  logoUrl?: string;
+  shortDescription?: string;
+  capabilityProfileUrl?: string;
+}
+
+export async function getEnterprises(params?: {
+  page?: number;
+  limit?: number;
+  search?: string;
+  province?: string;
+  district?: string;
+  field?: string;
+  status?: string;
+}): Promise<EnterpriseListResponse> {
+  // Try Next.js API route first (which handles Supabase)
+  try {
+    const searchParams = new URLSearchParams();
+    if (params?.page) searchParams.append('page', String(params.page));
+    if (params?.limit) searchParams.append('limit', String(params.limit));
+    if (params?.search) searchParams.append('search', params.search);
+    if (params?.province) searchParams.append('province', params.province);
+    if (params?.district) searchParams.append('district', params.district);
+    if (params?.field) searchParams.append('field', params.field);
+    if (params?.status) searchParams.append('status', params.status);
+    
+    const response = await fetch(`/api/enterprises?${searchParams.toString()}`, {
+      method: 'GET',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+    });
+    
+    if (response.ok) {
+      const data = await response.json();
+      return {
+        items: data.items || data.data || data.enterprises || [],
+        total: data.total || 0,
+        page: data.page || params?.page || 1,
+        limit: data.limit || params?.limit || 10,
+      };
+    }
+  } catch (err) {
+    console.warn('API route call failed, trying direct backend:', err);
+  }
+  
+  // Fallback to direct backend API via proxy
+  const searchParams = new URLSearchParams();
+  if (params?.page) searchParams.append('page', String(params.page));
+  if (params?.limit) searchParams.append('limit', String(params.limit));
+  if (params?.search) searchParams.append('search', params.search);
+  if (params?.province) searchParams.append('province', params.province);
+  if (params?.district) searchParams.append('district', params.district);
+  if (params?.field) searchParams.append('field', params.field);
+  if (params?.status) searchParams.append('status', params.status);
+  const qs = searchParams.toString();
+  
+  const candidateBases = [
+    '/enterprises',
+    '/api/enterprises',
+    '/enterprise',
+    '/api/enterprise',
+  ];
+  
+  let lastError: Error | null = null;
+  for (const base of candidateBases) {
+    const path = qs ? `${base}?${qs}` : base;
+    try {
+      const res = await request<any>(path, { method: 'GET' });
+      // Normalize response format
+      if (Array.isArray(res)) {
+        return { items: res, total: res.length, page: params?.page || 1, limit: params?.limit || 10 };
+      }
+      if (res.items || res.data || res.enterprises) {
+        return {
+          items: res.items || res.data || res.enterprises || [],
+          total: res.total || 0,
+          page: res.page || params?.page || 1,
+          limit: res.limit || params?.limit || 10,
+        };
+      }
+      return res;
+    } catch (err) {
+      lastError = err as Error;
+      const msg = (lastError?.message || '').toLowerCase();
+      const shouldTryNext = msg.includes('404') || msg.includes('not found') || msg.includes('405');
+      if (!shouldTryNext) break;
+    }
+  }
+  console.warn('getEnterprises fallback used:', lastError?.message);
+  return { items: [], total: 0, page: params?.page || 1, limit: params?.limit || 10 };
+}
+
+export function getEnterpriseById(id: number | string) {
+  const candidates = [`/enterprises/${id}`, `/api/enterprises/${id}`, `/enterprise/${id}`, `/api/enterprise/${id}`];
+  let lastError: Error | null = null;
+  for (const path of candidates) {
+    try {
+      return request<EnterpriseDetail>(path, { method: 'GET' });
+    } catch (err) {
+      lastError = err as Error;
+      const msg = (lastError?.message || '').toLowerCase();
+      const shouldTryNext = msg.includes('404') || msg.includes('not found') || msg.includes('405');
+      if (!shouldTryNext) throw err;
+    }
+  }
+  throw lastError || new Error('Enterprise not found');
+}
+
+export function createEnterprise(payload: EnterpriseCreateUpdatePayload) {
+  const candidates = ['/enterprises', '/api/enterprises', '/enterprise', '/api/enterprise'];
+  let lastError: Error | null = null;
+  for (const path of candidates) {
+    try {
+      return request<EnterpriseDetail>(path, { method: 'POST', json: payload });
+    } catch (err) {
+      lastError = err as Error;
+      const msg = (lastError?.message || '').toLowerCase();
+      const shouldTryNext = msg.includes('404') || msg.includes('not found') || msg.includes('405');
+      if (!shouldTryNext) throw err;
+    }
+  }
+  throw lastError || new Error('Failed to create enterprise');
+}
+
+export function updateEnterprise(id: number | string, payload: EnterpriseCreateUpdatePayload) {
+  const candidates = [`/enterprises/${id}`, `/api/enterprises/${id}`, `/enterprise/${id}`, `/api/enterprise/${id}`];
+  let lastError: Error | null = null;
+  for (const path of candidates) {
+    try {
+      return request<EnterpriseDetail>(path, { method: 'PUT', json: payload });
+    } catch (err) {
+      lastError = err as Error;
+      const msg = (lastError?.message || '').toLowerCase();
+      const shouldTryNext = msg.includes('404') || msg.includes('not found') || msg.includes('405');
+      if (!shouldTryNext) throw err;
+    }
+  }
+  throw lastError || new Error('Failed to update enterprise');
+}
+
+export function deleteEnterprise(id: number | string) {
+  const candidates = [`/enterprises/${id}`, `/api/enterprises/${id}`, `/enterprise/${id}`, `/api/enterprise/${id}`];
+  let lastError: Error | null = null;
+  for (const path of candidates) {
+    try {
+      return request<void>(path, { method: 'DELETE' });
+    } catch (err) {
+      lastError = err as Error;
+      const msg = (lastError?.message || '').toLowerCase();
+      const shouldTryNext = msg.includes('404') || msg.includes('not found') || msg.includes('405');
+      if (!shouldTryNext) throw err;
+    }
+  }
+  throw lastError || new Error('Failed to delete enterprise');
+}
+
+export function setEnterpriseLock(id: number | string, locked: boolean) {
+  const lockPaths = [`/enterprises/${id}/lock`, `/api/enterprises/${id}/lock`, `/enterprise/${id}/lock`, `/api/enterprise/${id}/lock`];
+  const unlockPaths = [`/enterprises/${id}/unlock`, `/api/enterprises/${id}/unlock`, `/enterprise/${id}/unlock`, `/api/enterprise/${id}/unlock`];
+  const candidates = locked ? lockPaths : unlockPaths;
+  let lastError: Error | null = null;
+  for (const path of candidates) {
+    try {
+      return request<EnterpriseDetail>(path, { method: 'POST' });
+    } catch (err) {
+      lastError = err as Error;
+      const msg = (lastError?.message || '').toLowerCase();
+      const shouldTryNext = msg.includes('404') || msg.includes('not found') || msg.includes('405');
+      if (!shouldTryNext) throw err;
+    }
+  }
+  throw lastError || new Error('Failed to lock/unlock enterprise');
+}
+
 // Submit OCOP Enterprise registration
 export async function submitEnterpriseRegistration(payload: EnterpriseRegistrationPayload) {
   const candidatePaths = [
@@ -344,6 +576,12 @@ export const api = {
   getProductById,
   getFeaturedProducts,
   submitEnterpriseRegistration,
+  getEnterprises,
+  getEnterpriseById,
+  createEnterprise,
+  updateEnterprise,
+  deleteEnterprise,
+  setEnterpriseLock,
 };
 
 
