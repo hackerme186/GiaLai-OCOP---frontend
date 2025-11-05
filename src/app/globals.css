@@ -24,3 +24,43 @@ body {
   color: var(--foreground);
   font-family: Arial, Helvetica, sans-serif;
 }
+
+/* Ensure input and textarea text is visible */
+input[type="text"],
+input[type="email"],
+input[type="number"],
+input[type="tel"],
+input[type="date"],
+input[type="password"],
+input[type="url"],
+textarea,
+select {
+  color: #111827 !important; /* text-gray-900 - dark gray for better visibility */
+}
+
+/* Placeholder styling - darker for better visibility */
+input[type="text"]::placeholder,
+input[type="email"]::placeholder,
+input[type="number"]::placeholder,
+input[type="tel"]::placeholder,
+input[type="date"]::placeholder,
+input[type="password"]::placeholder,
+input[type="url"]::placeholder,
+textarea::placeholder {
+  color: #374151 !important; /* gray-700 - even darker for better contrast */
+  opacity: 1 !important; /* Ensure full opacity */
+}
+
+/* Universal selector for all inputs and textareas */
+input::placeholder,
+textarea::placeholder {
+  color: #374151 !important;
+  opacity: 1 !important;
+}
+
+/* Specific targeting for form inputs */
+input.border-gray-300::placeholder,
+textarea.border-gray-300::placeholder {
+  color: #374151 !important;
+  opacity: 1 !important;
+}
