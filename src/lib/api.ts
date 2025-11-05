@@ -75,6 +75,21 @@ export interface Product {
   name: string;
   description?: string;
   price?: number;
+  enterpriseId?: number;
+  enterprise?: {
+    id: number;
+    name: string;
+    products?: string[];
+    users?: Array<{
+      id: number;
+      name: string;
+      email: string;
+      role: string;
+      enterpriseId: number;
+      enterprise: string;
+    }>;
+    description?: string;
+  };
   image?: string;
   category?: string;
   rating?: number;
@@ -587,6 +602,101 @@ export function getFeaturedProducts() {
   });
 }
 
+// Product CRUD functions for EnterpriseAdmin
+export interface CreateProductPayload {
+  name: string;
+  description?: string;
+  price?: number;
+  enterpriseId?: number;
+  image?: string;
+  category?: string;
+  [key: string]: unknown;
+}
+
+export interface UpdateProductPayload {
+  name?: string;
+  description?: string;
+  price?: number;
+  enterpriseId?: number;
+  image?: string;
+  category?: string;
+  [key: string]: unknown;
+}
+
+export function createProduct(payload: CreateProductPayload) {
+  const candidates = ['/products', '/api/products', '/enterprises/products', '/api/enterprises/products'];
+  let lastError: Error | null = null;
+  for (const path of candidates) {
+    try {
+      return request<Product>(path, { method: 'POST', json: payload });
+    } catch (err) {
+      lastError = err as Error;
+      const msg = (lastError?.message || '').toLowerCase();
+      const shouldTryNext = msg.includes('404') || msg.includes('not found') || msg.includes('405');
+      if (!shouldTryNext) throw err;
+    }
+  }
+  throw lastError || new Error('Failed to create product');
+}
+
+export function updateProduct(id: number | string, payload: UpdateProductPayload) {
+  const candidates = [`/products/${id}`, `/api/products/${id}`, `/enterprises/products/${id}`, `/api/enterprises/products/${id}`];
+  let lastError: Error | null = null;
+  for (const path of candidates) {
+    try {
+      return request<Product>(path, { method: 'PUT', json: payload });
+    } catch (err) {
+      lastError = err as Error;
+      const msg = (lastError?.message || '').toLowerCase();
+      const shouldTryNext = msg.includes('404') || msg.includes('not found') || msg.includes('405');
+      if (!shouldTryNext) throw err;
+    }
+  }
+  throw lastError || new Error('Failed to update product');
+}
+
+export function deleteProduct(id: number | string) {
+  const candidates = [`/products/${id}`, `/api/products/${id}`, `/enterprises/products/${id}`, `/api/enterprises/products/${id}`];
+  let lastError: Error | null = null;
+  for (const path of candidates) {
+    try {
+      return request<void>(path, { method: 'DELETE' });
+    } catch (err) {
+      lastError = err as Error;
+      const msg = (lastError?.message || '').toLowerCase();
+      const shouldTryNext = msg.includes('404') || msg.includes('not found') || msg.includes('405');
+      if (!shouldTryNext) throw err;
+    }
+  }
+  throw lastError || new Error('Failed to delete product');
+}
+
+export function getProductsByEnterprise(enterpriseId: number | string) {
+  const candidates = [
+    `/enterprises/${enterpriseId}/products`,
+    `/api/enterprises/${enterpriseId}/products`,
+    `/products?enterpriseId=${enterpriseId}`,
+    `/api/products?enterpriseId=${enterpriseId}`
+  ];
+  let lastError: Error | null = null;
+  for (const path of candidates) {
+    try {
+      return request<ProductResponse>(path, { method: 'GET' });
+    } catch (err) {
+      lastError = err as Error;
+      const msg = (lastError?.message || '').toLowerCase();
+      const shouldTryNext = msg.includes('404') || msg.includes('not found') || msg.includes('405');
+      if (!shouldTryNext) throw err;
+    }
+  }
+  // Fallback: get all products and filter client-side
+  return getProducts().then(res => {
+    const products = res.products || [];
+    const filtered = products.filter((p: Product) => (p as any).enterpriseId == enterpriseId);
+    return { products: filtered, total: filtered.length };
+  });
+}
+
 export const api = {
   request,
   login,
@@ -595,6 +705,10 @@ export const api = {
   getProducts,
   getProductById,
   getFeaturedProducts,
+  createProduct,
+  updateProduct,
+  deleteProduct,
+  getProductsByEnterprise,
   submitEnterpriseRegistration,
   getEnterprises,
   getEnterpriseById,
