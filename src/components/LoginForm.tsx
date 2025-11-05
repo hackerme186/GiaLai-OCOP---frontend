@@ -1,8 +1,8 @@
 "use client"
 import Link from "next/link"
 import { useState } from "react"
-import { login } from "@/lib/api"
-import { setAuthToken } from "@/lib/auth"
+import { login, getCurrentUser } from "@/lib/api"
+import { setAuthToken, getRoleFromToken } from "@/lib/auth"
 import { useRouter } from "next/navigation"
 
 export default function LoginForm() {
@@ -22,7 +22,34 @@ export default function LoginForm() {
       const res = await login({ email, password }) as any
       if (res?.token) setAuthToken(res.token)
       else setAuthToken("1")
-      router.replace("/home")
+      // Determine role from login response first, then fallback to /me
+      const extractRole = (obj: any): string => {
+        if (!obj) return ""
+        // Common shapes: { role }, { roles: ['ADMIN'] }, { user: { role } }, { data: { role } }
+        const u = obj.user || obj.data || obj
+        const direct = u.role || u.userRole || u.authorities || u.permission || u.permissions
+        if (Array.isArray(direct)) return (direct[0] || "").toString()
+        if (typeof direct === 'string') return direct
+        if (Array.isArray(u.roles)) return (u.roles[0] || "").toString()
+        if (u.roles && typeof u.roles === 'object') return Object.values(u.roles)[0]?.toString?.() || ""
+        return ""
+      }
+      // Try decode from JWT if present
+      let role = getRoleFromToken(res?.token) || extractRole(res)
+      if (!role) {
+        try {
+          const me = await getCurrentUser()
+          role = extractRole(me) || (me.role || (me as any).roles)?.toString?.() || ""
+        } catch {}
+      }
+      const norm = role.toString().toLowerCase()
+      if (norm === 'admin' || norm === 'administrator' || norm === 'role_admin' || norm === 'admin_role' || norm === 'sysadmin') {
+        router.replace("/admin")
+      } else if (norm.includes('admin')) {
+        router.replace("/admin")
+      } else {
+        router.replace("/home")
+      }
     } catch (err) {
       setError(err instanceof Error ? err.message : "Đăng nhập thất bại")
     } finally {

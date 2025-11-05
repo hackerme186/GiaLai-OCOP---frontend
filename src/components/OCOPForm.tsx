@@ -48,6 +48,13 @@ export default function OCOPForm({ onSubmit }: OCOPFormProps) {
   ])
   const [errors, setErrors] = useState<Record<string, string>>({})
 
+  // --- 0. THÊM STATE MỚI (dưới dòng 44) ---
+  const [productName, setProductName] = useState("");
+  const [productDescription, setProductDescription] = useState("");
+  const [productImages, setProductImages] = useState<File[]>([]); // allow multiple
+  // Multi-file upload for attached docs
+  const [attachedDocs, setAttachedDocs] = useState<File[]>([]); // replace attachedDocuments
+
   const addProduct = () => {
     setProducts(prev => ([...prev, { name: "", description: "", priceText: "" }]))
   }
@@ -90,38 +97,39 @@ export default function OCOPForm({ onSubmit }: OCOPFormProps) {
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault()
 
+    // --- SUBMIT: ĐƯA ĐẦY ĐỦ DỮ LIỆU VÀO PAYLOAD ---
     const payload: OcopRegistrationDto = {
       enterpriseName: name,
-      businessType: businessType || undefined,
-      taxCode: taxCode || undefined,
-      businessLicenseNumber: businessLicenseNumber || undefined,
-      licenseIssuedDate: licenseIssuedDate || undefined,
-      licenseIssuedBy: licenseIssuedBy || undefined,
-      address: address || undefined,
-      ward: ward || undefined,
-      district: district || undefined,
-      province: province || undefined,
-      phoneNumber: phone || undefined,
-      emailContact: email || undefined,
-      website: website || undefined,
-      representativeName: representativeName || undefined,
-      representativePosition: representativePosition || undefined,
-      representativeIdNumber: representativeIdNumber || undefined,
-      representativeIdIssuedDate: representativeIdIssuedDate || undefined,
-      representativeIdIssuedBy: representativeIdIssuedBy || undefined,
-      productionLocation: productionLocation || undefined,
+      businessType,
+      taxCode,
+      businessLicenseNumber,
+      licenseIssuedDate,
+      licenseIssuedBy,
+      address,
+      ward,
+      district,
+      province,
+      phoneNumber: phone,
+      emailContact: email,
+      website,
+      representativeName,
+      representativePosition,
+      representativeIdNumber,
+      representativeIdIssuedDate,
+      representativeIdIssuedBy,
+      productionLocation,
       numberOfEmployees: numberOfEmployees ? parseInt(numberOfEmployees) : undefined,
-      productionScale: productionScale || undefined,
-      businessField: businessField || undefined,
-      productName: products[0]?.name || undefined,
-      productCategory: productCategory || undefined,
-      productDescription: products[0]?.description || undefined,
-      productOrigin: productOrigin || undefined,
+      productionScale,
+      businessField,
+      productName,
+      productCategory,
+      productDescription,
+      productOrigin,
       productCertifications: productCertifications.length ? productCertifications : undefined,
-      productImages: undefined,
-      attachedDocuments: undefined,
-      additionalNotes: additionalNotes || undefined,
-      status: undefined,
+      productImages: undefined, // TODO: Upload files and get URLs
+      attachedDocuments: undefined, // TODO: Upload files and get URLs
+      additionalNotes,
+      status: undefined
     }
 
     onSubmit(payload)
@@ -150,186 +158,162 @@ export default function OCOPForm({ onSubmit }: OCOPFormProps) {
       <div className="mb-8">
         {step === 1 && (
           <div className="space-y-6">
-            <h3 className="text-xl font-semibold text-gray-900 mb-6">1. Thông tin doanh nghiệp </h3>
+            <h3 className="text-xl font-semibold text-gray-900 mb-6">1. Thông tin doanh nghiệp</h3>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-              <div className="md:col-span-2">
+              {/* tên DN, loại hình KD, mã số thuế,... */}
+              <div>
                 <label className="block text-sm font-medium text-gray-700 mb-2">Tên doanh nghiệp *</label>
-                <input
-                  type="text"
-                  required
-                  value={name}
-                  onChange={(e) => setName(e.target.value)}
-                  className="w-full rounded-lg border border-gray-300 px-3 py-2 focus:border-indigo-500 focus:outline-none focus:ring-indigo-500"
-                  placeholder="Nhập tên doanh nghiệp"
-                />
+                <input type="text" required value={name} onChange={e=>setName(e.target.value)} className="w-full rounded-lg border border-gray-300 px-3 py-2 focus:border-indigo-500 focus:outline-none focus:ring-indigo-500" placeholder="Nhập tên doanh nghiệp" />
                 {errors.name && <p className="text-sm text-red-600 mt-1">{errors.name}</p>}
               </div>
-              <div className="md:col-span-2">
-                <label className="block text-sm font-medium text-gray-700 mb-2">Mô tả</label>
-                <textarea
-                  rows={4}
-                  value={description}
-                  onChange={(e) => setDescription(e.target.value)}
-                  className="w-full rounded-lg border border-gray-300 px-3 py-2 focus:border-indigo-500 focus:outline-none focus:ring-indigo-500"
-                  placeholder="Mô tả doanh nghiệp"
-                />
-                {errors.description && <p className="text-sm text-red-600 mt-1">{errors.description}</p>}
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">Loại hình doanh nghiệp</label>
+                <input type="text" value={businessType} onChange={e=>setBusinessType(e.target.value)} className="w-full rounded-lg border border-gray-300 px-3 py-2 focus:border-indigo-500 focus:outline-none focus:ring-indigo-500" placeholder="Nhập loại hình doanh nghiệp" />
               </div>
-              <div className="md:col-span-2">
-                <label className="block text-sm font-medium text-gray-700 mb-2">Địa điểm sản xuất</label>
-                <input
-                  type="text"
-                  value={productionLocation}
-                  onChange={(e) => setProductionLocation(e.target.value)}
-                  className="w-full rounded-lg border border-gray-300 px-3 py-2 focus:border-indigo-500 focus:outline-none focus:ring-indigo-500"
-                  placeholder="Địa điểm sản xuất"
-                />
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">Mã số thuế</label>
+                <input type="text" value={taxCode} onChange={e=>setTaxCode(e.target.value)} className="w-full rounded-lg border border-gray-300 px-3 py-2 focus:border-indigo-500 focus:outline-none focus:ring-indigo-500" placeholder="Nhập mã số thuế" />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">Số giấy phép kinh doanh</label>
+                <input type="text" value={businessLicenseNumber} onChange={e=>setBusinessLicenseNumber(e.target.value)} className="w-full rounded-lg border border-gray-300 px-3 py-2 focus:border-indigo-500 focus:outline-none focus:ring-indigo-500" placeholder="Nhập số giấy phép kinh doanh" />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">Ngày cấp giấy phép</label>
+                <input type="date" value={licenseIssuedDate} onChange={e=>setLicenseIssuedDate(e.target.value)} className="w-full rounded-lg border border-gray-300 px-3 py-2 focus:border-indigo-500 focus:outline-none focus:ring-indigo-500" />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">Nơi cấp giấy phép</label>
+                <input type="text" value={licenseIssuedBy} onChange={e=>setLicenseIssuedBy(e.target.value)} className="w-full rounded-lg border border-gray-300 px-3 py-2 focus:border-indigo-500 focus:outline-none focus:ring-indigo-500" placeholder="Nhập nơi cấp giấy phép" />
+              </div>
+              {/* địa chỉ */}
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">Tỉnh/Thành phố</label>
+                <input type="text" value={province} onChange={e=>setProvince(e.target.value)} className="w-full rounded-lg border border-gray-300 px-3 py-2 focus:border-indigo-500 focus:outline-none focus:ring-indigo-500" placeholder="Nhập tỉnh/thành phố" />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">Quận/Huyện</label>
+                <input type="text" value={district} onChange={e=>setDistrict(e.target.value)} className="w-full rounded-lg border border-gray-300 px-3 py-2 focus:border-indigo-500 focus:outline-none focus:ring-indigo-500" placeholder="Nhập quận/huyện" />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">Phường/Xã</label>
+                <input type="text" value={ward} onChange={e=>setWard(e.target.value)} className="w-full rounded-lg border border-gray-300 px-3 py-2 focus:border-indigo-500 focus:outline-none focus:ring-indigo-500" placeholder="Nhập phường/xã" />
               </div>
               <div className="md:col-span-2">
                 <label className="block text-sm font-medium text-gray-700 mb-2">Địa chỉ *</label>
-                <input
-                  type="text"
-                  required
-                  value={address}
-                  onChange={(e) => setAddress(e.target.value)}
-                  className="w-full rounded-lg border border-gray-300 px-3 py-2 focus:border-indigo-500 focus:outline-none focus:ring-indigo-500"
-                  placeholder="Nhập địa chỉ trụ sở / sản xuất"
-                />
+                <input type="text" required value={address} onChange={e=>setAddress(e.target.value)} className="w-full rounded-lg border border-gray-300 px-3 py-2 focus:border-indigo-500 focus:outline-none focus:ring-indigo-500" placeholder="Nhập địa chỉ trụ sở / sản xuất" />
                 {errors.address && <p className="text-sm text-red-600 mt-1">{errors.address}</p>}
               </div>
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-2">Số điện thoại *</label>
-                <input
-                  type="text"
-                  required
-                  value={phone}
-                  onChange={(e) => setPhone(e.target.value)}
-                  className="w-full rounded-lg border border-gray-300 px-3 py-2 focus:border-indigo-500 focus:outline-none focus:ring-indigo-500"
-                  placeholder="Số điện thoại liên hệ"
-                />
+                <input type="text" required value={phone} onChange={e=>setPhone(e.target.value)} className="w-full rounded-lg border border-gray-300 px-3 py-2 focus:border-indigo-500 focus:outline-none focus:ring-indigo-500" placeholder="Số điện thoại liên hệ" />
                 {errors.phone && <p className="text-sm text-red-600 mt-1">{errors.phone}</p>}
               </div>
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">Email *</label>
-                <input
-                  type="email"
-                  required
-                  value={email}
-                  onChange={(e) => setEmail(e.target.value)}
-                  className="w-full rounded-lg border border-gray-300 px-3 py-2 focus:border-indigo-500 focus:outline-none focus:ring-indigo-500"
-                  placeholder="Email doanh nghiệp"
-                />
+                <label className="block text-sm font-medium text-gray-700 mb-2">Email liên hệ *</label>
+                <input type="email" required value={email} onChange={e=>setEmail(e.target.value)} className="w-full rounded-lg border border-gray-300 px-3 py-2 focus:border-indigo-500 focus:outline-none focus:ring-indigo-500" placeholder="Email doanh nghiệp" />
                 {errors.email && <p className="text-sm text-red-600 mt-1">{errors.email}</p>}
               </div>
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-2">Website</label>
-                <input
-                  type="text"
-                  value={website}
-                  onChange={(e) => setWebsite(e.target.value)}
-                  className="w-full rounded-lg border border-gray-300 px-3 py-2 focus:border-indigo-500 focus:outline-none focus:ring-indigo-500"
-                  placeholder="Trang web (nếu có)"
-                />
+                <input type="text" value={website} onChange={e=>setWebsite(e.target.value)} className="w-full rounded-lg border border-gray-300 px-3 py-2 focus:border-indigo-500 focus:outline-none focus:ring-indigo-500" placeholder="Trang web (nếu có)" />
               </div>
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">Logo (ảnh)</label>
-                <input
-                  type="file"
-                  accept="image/*"
-                  onChange={(e) => setLogoFile(e.target.files?.[0] || null)}
-                  className="w-full rounded-lg border border-gray-300 px-3 py-2 focus:border-indigo-500 focus:outline-none focus:ring-indigo-500"
-                />
+                <label className="block text-sm font-medium text-gray-700 mb-2">Quy mô sản xuất</label>
+                <input type="text" value={productionScale} onChange={e=>setProductionScale(e.target.value)} className="w-full rounded-lg border border-gray-300 px-3 py-2 focus:border-indigo-500 focus:outline-none focus:ring-indigo-500" placeholder="Nhập quy mô sản xuất" />
               </div>
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">Mã chứng nhận / Giấy phép</label>
-                <input
-                  type="text"
-                  value={certificateNumber}
-                  onChange={(e) => setCertificateNumber(e.target.value)}
-                  className="w-full rounded-lg border border-gray-300 px-3 py-2 focus:border-indigo-500 focus:outline-none focus:ring-indigo-500"
-                  placeholder="Số chứng nhận OCOP / GPKD (nếu có)"
-                />
+                <label className="block text-sm font-medium text-gray-700 mb-2">Địa điểm sản xuất</label>
+                <input type="text" value={productionLocation} onChange={e=>setProductionLocation(e.target.value)} className="w-full rounded-lg border border-gray-300 px-3 py-2 focus:border-indigo-500 focus:outline-none focus:ring-indigo-500" placeholder="Địa điểm sản xuất" />
               </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">Số lao động</label>
+                <input type="number" value={numberOfEmployees} onChange={e=>setNumberOfEmployees(e.target.value)} className="w-full rounded-lg border border-gray-300 px-3 py-2 focus:border-indigo-500 focus:outline-none focus:ring-indigo-500" placeholder="Nhập số lao động" />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">Lĩnh vực kinh doanh</label>
+                <input type="text" value={businessField} onChange={e=>setBusinessField(e.target.value)} className="w-full rounded-lg border border-gray-300 px-3 py-2 focus:border-indigo-500 focus:outline-none focus:ring-indigo-500" placeholder="Nhập lĩnh vực kinh doanh" />
+              </div>
+            </div>
+            <h4 className="text-lg font-medium mt-6">2. Thông tin đại diện pháp luật</h4>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">Họ tên đại diện</label>
+                <input type="text" value={representativeName} onChange={e=>setRepresentativeName(e.target.value)} className="w-full rounded-lg border border-gray-300 px-3 py-2 focus:border-indigo-500 focus:outline-none focus:ring-indigo-500" placeholder="Nhập họ tên đại diện" />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">Chức vụ đại diện</label>
+                <input type="text" value={representativePosition} onChange={e=>setRepresentativePosition(e.target.value)} className="w-full rounded-lg border border-gray-300 px-3 py-2 focus:border-indigo-500 focus:outline-none focus:ring-indigo-500" placeholder="Nhập chức vụ đại diện" />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">CMND/CCCD</label>
+                <input type="text" value={representativeIdNumber} onChange={e=>setRepresentativeIdNumber(e.target.value)} className="w-full rounded-lg border border-gray-300 px-3 py-2 focus:border-indigo-500 focus:outline-none focus:ring-indigo-500" placeholder="Nhập CMND/CCCD" />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">Ngày cấp</label>
+                <input type="date" value={representativeIdIssuedDate} onChange={e=>setRepresentativeIdIssuedDate(e.target.value)} className="w-full rounded-lg border border-gray-300 px-3 py-2 focus:border-indigo-500 focus:outline-none focus:ring-indigo-500" />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">Nơi cấp</label>
+                <input type="text" value={representativeIdIssuedBy} onChange={e=>setRepresentativeIdIssuedBy(e.target.value)} className="w-full rounded-lg border border-gray-300 px-3 py-2 focus:border-indigo-500 focus:outline-none focus:ring-indigo-500" placeholder="Nhập nơi cấp" />
+              </div>
+            </div>
+            <div className="mt-6">
+              <label className="block text-sm font-medium text-gray-700 mb-2">Ghi chú bổ sung</label>
+              <textarea rows={2} value={additionalNotes} onChange={e=>setAdditionalNotes(e.target.value)} className="w-full rounded-lg border border-gray-300 px-3 py-2 focus:border-indigo-500 focus:outline-none focus:ring-indigo-500" placeholder="Ghi chú bổ sung (nếu có)" />
             </div>
           </div>
         )}
 
         {step === 2 && (
           <div className="space-y-6">
-            <h3 className="text-xl font-semibold text-gray-900 mb-6">2. Sản phẩm </h3>
-            <div className="space-y-6">
-              {products.map((product, index) => (
-                <div key={index} className="border rounded-lg p-6">
-                  <div className="flex items-center justify-between mb-4">
-                    <h4 className="font-semibold text-gray-900">Sản phẩm #{index + 1}</h4>
-                    {products.length > 1 && (
-                      <button type="button" onClick={() => removeProduct(index)} className="text-red-600 hover:text-red-800 text-sm">Xóa</button>
-                    )}
-                  </div>
+            <h3 className="text-xl font-semibold text-gray-900 mb-6">3. Thông tin sản phẩm</h3>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-              <div className="md:col-span-2">
-                      <label className="block text-sm font-medium text-gray-700 mb-2">Tên sản phẩm *</label>
-                <input
-                  type="text"
-                  required
-                        value={product.name}
-                        onChange={(e) => updateProduct(index, 'name', e.target.value)}
-                  className="w-full rounded-lg border border-gray-300 px-3 py-2 focus:border-indigo-500 focus:outline-none focus:ring-indigo-500"
-                        placeholder="Nhập tên sản phẩm"
-                      />
-                      {errors[`product_${index}_name`] && <p className="text-sm text-red-600 mt-1">{errors[`product_${index}_name`]}</p>}
-              </div>
-              <div className="md:col-span-2">
-                      <label className="block text-sm font-medium text-gray-700 mb-2">Mô tả</label>
-                <textarea
-                  rows={3}
-                        value={product.description}
-                        onChange={(e) => updateProduct(index, 'description', e.target.value)}
-                  className="w-full rounded-lg border border-gray-300 px-3 py-2 focus:border-indigo-500 focus:outline-none focus:ring-indigo-500"
-                        placeholder="Mô tả sản phẩm"
-                />
-                      {errors[`product_${index}_description`] && <p className="text-sm text-red-600 mt-1">{errors[`product_${index}_description`]}</p>}
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">Tên sản phẩm</label>
+                <input type="text" value={productName} onChange={e=>setProductName(e.target.value)} className="w-full rounded-lg border border-gray-300 px-3 py-2 focus:border-indigo-500 focus:outline-none focus:ring-indigo-500" placeholder="Nhập tên sản phẩm" />
               </div>
               <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-2">Giá (VND)</label>
-                      <input
-                        type="text"
-                        inputMode="numeric"
-                        pattern="[0-9]*"
-                        value={product.priceText}
-                        onChange={(e) => {
-                          const v = e.target.value.replace(/[^0-9]/g, '')
-                          updateProduct(index, 'priceText', v)
-                        }}
-                        className="w-full rounded-lg border border-gray-300 px-3 py-2 focus:border-indigo-500 focus:outline-none focus:ring-indigo-500"
-                        placeholder="Nhập giá"
-                      />
-                      {errors[`product_${index}_priceText`] && <p className="text-sm text-red-600 mt-1">{errors[`product_${index}_priceText`]}</p>}
+                <label className="block text-sm font-medium text-gray-700 mb-2">Danh mục sản phẩm</label>
+                <input type="text" value={productCategory} onChange={e=>setProductCategory(e.target.value)} className="w-full rounded-lg border border-gray-300 px-3 py-2 focus:border-indigo-500 focus:outline-none focus:ring-indigo-500" placeholder="Nhập danh mục sản phẩm" />
               </div>
-            </div>
-          </div>
-              ))}
-              <button type="button" onClick={addProduct} className="px-4 py-2 bg-gray-100 hover:bg-gray-200 rounded-lg font-medium">+ Thêm sản phẩm</button>
+              <div className="md:col-span-2">
+                <label className="block text-sm font-medium text-gray-700 mb-2">Mô tả sản phẩm</label>
+                <textarea rows={3} value={productDescription} onChange={e=>setProductDescription(e.target.value)} className="w-full rounded-lg border border-gray-300 px-3 py-2 focus:border-indigo-500 focus:outline-none focus:ring-indigo-500" placeholder="Mô tả sản phẩm" />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">Xuất xứ sản phẩm</label>
+                <input type="text" value={productOrigin} onChange={e=>setProductOrigin(e.target.value)} className="w-full rounded-lg border border-gray-300 px-3 py-2 focus:border-indigo-500 focus:outline-none focus:ring-indigo-500" placeholder="Nhập xuất xứ sản phẩm" />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">Chứng nhận sản phẩm</label>
+                <input type="text" value={productCertifications} onChange={e=>setProductCertifications(e.target.value.split(','))} className="w-full rounded-lg border border-gray-300 px-3 py-2 focus:border-indigo-500 focus:outline-none focus:ring-indigo-500" placeholder="Mỗi chứng nhận ngăn cách bởi dấu phẩy" />
+              </div>
+              <div className="md:col-span-2">
+                <label className="block text-sm font-medium text-gray-700 mb-2">Hình ảnh sản phẩm</label>
+                <input type="file" accept="image/*" multiple onChange={e=>setProductImages(Array.from(e.target.files||[]))} className="w-full rounded-lg border border-gray-300 px-3 py-2 focus:border-indigo-500 focus:outline-none focus:ring-indigo-500" />
+                {!!productImages.length && <ul className="text-xs mt-1">{productImages.map(f=><li key={f.name}>{f.name}</li>)}</ul>}
+              </div>
+              <div className="md:col-span-2">
+                <label className="block text-sm font-medium text-gray-700 mb-2">Tài liệu đính kèm</label>
+                <input type="file" multiple onChange={e=>setAttachedDocs(Array.from(e.target.files||[]))} className="w-full rounded-lg border border-gray-300 px-3 py-2 focus:border-indigo-500 focus:outline-none focus:ring-indigo-500" />
+                {!!attachedDocs.length && <ul className="text-xs mt-1">{attachedDocs.map(f=><li key={f.name}>{f.name}</li>)}</ul>}
+              </div>
             </div>
           </div>
         )}
 
         {step === 3 && (
           <div className="space-y-6">
-            <h3 className="text-xl font-semibold text-gray-900 mb-6">3. Xác nhận</h3>
+            <h3 className="text-xl font-semibold text-gray-900 mb-6">4. Xác nhận đăng ký</h3>
             <div className="space-y-4">
+              <h4 className="font-semibold text-gray-900">Thông tin doanh nghiệp</h4>
               <div>
-                <h4 className="font-semibold text-gray-900">Doanh nghiệp</h4>
-                <p className="text-gray-700"><span className="font-medium">Tên:</span> {name || '(chưa nhập)'}
-                </p>
-                <p className="text-gray-700"><span className="font-medium">Mô tả:</span> {description || '(chưa nhập)'}
-                </p>
-                <p className="text-gray-700"><span className="font-medium">Địa chỉ:</span> {address || '(chưa nhập)'}
-                </p>
-                <p className="text-gray-700"><span className="font-medium">Điện thoại:</span> {phone || '(chưa nhập)'}
-                </p>
-                <p className="text-gray-700"><span className="font-medium">Email:</span> {email || '(chưa nhập)'}
-                </p>
+                <p className="text-gray-700"><span className="font-medium">Tên:</span> {name || '(chưa nhập)'}</p>
+                <p className="text-gray-700"><span className="font-medium">Mô tả:</span> {description || '(chưa nhập)'}</p>
+                <p className="text-gray-700"><span className="font-medium">Địa chỉ:</span> {address || '(chưa nhập)'}</p>
+                <p className="text-gray-700"><span className="font-medium">Điện thoại:</span> {phone || '(chưa nhập)'}</p>
+                <p className="text-gray-700"><span className="font-medium">Email:</span> {email || '(chưa nhập)'}</p>
                 {!!website && (
                   <p className="text-gray-700"><span className="font-medium">Website:</span> {website}</p>
                 )}
@@ -340,17 +324,30 @@ export default function OCOPForm({ onSubmit }: OCOPFormProps) {
                   <p className="text-gray-700"><span className="font-medium">Logo:</span> {logoFile.name}</p>
                 )}
               </div>
+              <h4 className="font-semibold text-gray-900">Thông tin đại diện pháp luật</h4>
               <div>
-                <h4 className="font-semibold text-gray-900">Sản phẩm</h4>
-                <div className="space-y-3">
-                  {products.map((p, i) => (
-                    <div key={i} className="bg-gray-50 rounded p-3">
-                      <p className="text-gray-700"><span className="font-medium">Tên:</span> {p.name || '(chưa nhập)'} </p>
-                      <p className="text-gray-700"><span className="font-medium">Giá:</span> {p.priceText ? Number(p.priceText).toLocaleString('vi-VN') : '(chưa nhập)'} ₫</p>
-                      <p className="text-gray-700"><span className="font-medium">Mô tả:</span> {p.description || '(chưa nhập)'} </p>
-                    </div>
-                  ))}
-                </div>
+                <p className="text-gray-700"><span className="font-medium">Họ tên:</span> {representativeName || '(chưa nhập)'}</p>
+                <p className="text-gray-700"><span className="font-medium">Chức vụ:</span> {representativePosition || '(chưa nhập)'}</p>
+                <p className="text-gray-700"><span className="font-medium">CMND/CCCD:</span> {representativeIdNumber || '(chưa nhập)'}</p>
+                <p className="text-gray-700"><span className="font-medium">Ngày cấp:</span> {representativeIdIssuedDate || '(chưa nhập)'}</p>
+                <p className="text-gray-700"><span className="font-medium">Nơi cấp:</span> {representativeIdIssuedBy || '(chưa nhập)'}</p>
+              </div>
+              <h4 className="font-semibold text-gray-900">Thông tin sản phẩm</h4>
+              <div>
+                <p className="text-gray-700"><span className="font-medium">Tên sản phẩm:</span> {productName || '(chưa nhập)'}</p>
+                <p className="text-gray-700"><span className="font-medium">Danh mục:</span> {productCategory || '(chưa nhập)'}</p>
+                <p className="text-gray-700"><span className="font-medium">Mô tả:</span> {productDescription || '(chưa nhập)'}</p>
+                <p className="text-gray-700"><span className="font-medium">Xuất xứ:</span> {productOrigin || '(chưa nhập)'}</p>
+                <p className="text-gray-700"><span className="font-medium">Chứng nhận:</span> {productCertifications.length ? productCertifications.join(', ') : '(chưa nhập)'}</p>
+                <p className="text-gray-700"><span className="font-medium">Hình ảnh:</span> {productImages.length ? productImages.map(f=>f.name).join(', ') : '(chưa nhập)'}</p>
+              </div>
+              <h4 className="font-semibold text-gray-900">Tài liệu đính kèm</h4>
+              <div>
+                <p className="text-gray-700">Tài liệu đính kèm: {attachedDocs.length ? attachedDocs.map(f=>f.name).join(', ') : '(chưa nhập)'}</p>
+              </div>
+              <h4 className="font-semibold text-gray-900">Ghi chú bổ sung</h4>
+              <div>
+                <p className="text-gray-700">Ghi chú bổ sung: {additionalNotes || '(chưa nhập)'}</p>
               </div>
             </div>
           </div>
@@ -358,7 +355,7 @@ export default function OCOPForm({ onSubmit }: OCOPFormProps) {
       </div>
 
       <div className="flex justify-between">
-        <button type="button" onClick={() => setStep(Math.max(1, step - 1))} disabled={step === 1} className={`px-6 py-2 rounded-lg font-medium ${step === 1 ? 'bg-gray-2 00 text-gray-400 cursor-not-allowed' : 'bg-gray-600 text-white hover:bg-gray-700'}`}>Quay lại</button>
+        <button type="button" onClick={() => setStep(Math.max(1, step - 1))} disabled={step === 1} className={`px-6 py-2 rounded-lg font-medium ${step === 1 ? 'bg-gray-200 text-gray-400 cursor-not-allowed' : 'bg-gray-600 text-white hover:bg-gray-700'}`}>Quay lại</button>
         {step < totalSteps ? (
           <button
             type="button"

@@ -3,6 +3,7 @@ import Image from 'next/image'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { getUserProfile, isLoggedIn, logout } from '@/lib/auth'
+import { getCurrentUser } from '@/lib/api'
 import { useCart } from '@/lib/cart-context'
 import { FormEvent, useEffect, useState } from 'react'
 
@@ -14,6 +15,7 @@ const Navbar = () => {
   const [loggedIn, setLoggedIn] = useState(false)
   const [profile, setProfile] = useState(getUserProfile() || {})
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false)
+  const [isAdmin, setIsAdmin] = useState(false)
 
   useEffect(() => {
     setMounted(true)
@@ -22,6 +24,13 @@ const Navbar = () => {
       const authStatus = await isLoggedIn()
       setLoggedIn(authStatus)
       setProfile(getUserProfile() || {})
+      try {
+        const me = await getCurrentUser()
+        const role = (me.role || (me as any).roles)?.toString?.() || ''
+        setIsAdmin(role.toLowerCase() === 'admin')
+      } catch {
+        setIsAdmin(false)
+      }
     }
     
     checkAuthStatus()
@@ -148,6 +157,14 @@ const Navbar = () => {
                   >
                     Đăng ký OCOP
                   </Link>
+                  {isAdmin && (
+                    <Link 
+                      href="/admin"
+                      className="text-gray-700 hover:text-gray-900 px-2 py-2 rounded-md text-sm font-medium whitespace-nowrap"
+                    >
+                      Admin
+                    </Link>
+                  )}
                   
                   <Link href="/account" className="flex items-center gap-2 text-gray-700 hover:text-gray-900">
                     <div className="w-7 h-7 rounded-full overflow-hidden bg-gray-200 flex items-center justify-center">
