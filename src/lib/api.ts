@@ -217,6 +217,155 @@ export function submitOcopRegistration(payload: OcopRegistrationDto) {
   });
 }
 
+// Get OCOP registrations (for admin approval)
+export interface OcopRegistration extends OcopRegistrationDto {
+  id: number | string;
+  createdAt?: string;
+  updatedAt?: string;
+  status?: 'pending' | 'approved' | 'rejected';
+  userId?: number;
+}
+
+export interface OcopRegistrationListResponse {
+  items?: OcopRegistration[];
+  data?: OcopRegistration[];
+  registrations?: OcopRegistration[];
+  total?: number;
+  page?: number;
+  limit?: number;
+  [key: string]: unknown;
+}
+
+export async function getOcopRegistrations(params?: {
+  page?: number;
+  limit?: number;
+  status?: string;
+  search?: string;
+}): Promise<OcopRegistrationListResponse> {
+  const searchParams = new URLSearchParams();
+  if (params?.page) searchParams.append('page', String(params.page));
+  if (params?.limit) searchParams.append('limit', String(params.limit));
+  if (params?.status) searchParams.append('status', params.status);
+  if (params?.search) searchParams.append('search', params.search);
+  
+  const path = `/ocop/registrations${searchParams.toString() ? '?' + searchParams.toString() : ''}`;
+  return request<OcopRegistrationListResponse>(path, { method: 'GET' }).catch(() => {
+    return { items: [], total: 0, page: params?.page || 1, limit: params?.limit || 10 };
+  });
+}
+
+export function approveOcopRegistration(id: number | string) {
+  return request<any>(`/ocop/registrations/${id}/approve`, {
+    method: 'POST',
+  });
+}
+
+export function rejectOcopRegistration(id: number | string, reason?: string) {
+  return request<any>(`/ocop/registrations/${id}/reject`, {
+    method: 'POST',
+    json: { reason },
+  });
+}
+
+// Category management
+export interface Category {
+  id: number | string;
+  name: string;
+  description?: string;
+  slug?: string;
+  parentId?: number | string;
+  createdAt?: string;
+  updatedAt?: string;
+}
+
+export interface CategoryListResponse {
+  items?: Category[];
+  data?: Category[];
+  categories?: Category[];
+  total?: number;
+  [key: string]: unknown;
+}
+
+export async function getCategories(): Promise<CategoryListResponse> {
+  return request<CategoryListResponse>('/categories', { method: 'GET' }).catch(() => {
+    // Fallback to mock categories
+    return {
+      items: [
+        { id: 1, name: 'Nông sản', description: 'Sản phẩm nông nghiệp' },
+        { id: 2, name: 'Thủ công mỹ nghệ', description: 'Sản phẩm thủ công' },
+        { id: 3, name: 'Thực phẩm', description: 'Thực phẩm chế biến' },
+        { id: 4, name: 'Dược liệu', description: 'Dược liệu và tinh dầu' },
+        { id: 5, name: 'Khác', description: 'Danh mục khác' },
+      ],
+      total: 5,
+    };
+  });
+}
+
+export function createCategory(payload: { name: string; description?: string; parentId?: number | string }) {
+  return request<Category>('/categories', {
+    method: 'POST',
+    json: payload,
+  });
+}
+
+export function updateCategory(id: number | string, payload: { name?: string; description?: string }) {
+  return request<Category>(`/categories/${id}`, {
+    method: 'PUT',
+    json: payload,
+  });
+}
+
+export function deleteCategory(id: number | string) {
+  return request<void>(`/categories/${id}`, {
+    method: 'DELETE',
+  });
+}
+
+// Reports
+export interface ProvinceReport {
+  totalEnterprises: number;
+  totalProducts: number;
+  totalOcopRegistrations: number;
+  pendingRegistrations: number;
+  approvedRegistrations: number;
+  rejectedRegistrations: number;
+  enterprisesByDistrict: Array<{ district: string; count: number }>;
+  productsByCategory: Array<{ category: string; count: number }>;
+  registrationsByStatus: Array<{ status: string; count: number }>;
+}
+
+export async function getProvinceReport(): Promise<ProvinceReport> {
+  return request<ProvinceReport>('/admin/reports/province', { method: 'GET' }).catch(() => {
+    // Fallback mock data
+    return {
+      totalEnterprises: 0,
+      totalProducts: 0,
+      totalOcopRegistrations: 0,
+      pendingRegistrations: 0,
+      approvedRegistrations: 0,
+      rejectedRegistrations: 0,
+      enterprisesByDistrict: [],
+      productsByCategory: [],
+      registrationsByStatus: [],
+    };
+  });
+}
+
+// Approve/Reject enterprise registration
+export function approveEnterpriseRegistration(id: number | string) {
+  return request<any>(`/enterprises/${id}/approve`, {
+    method: 'POST',
+  });
+}
+
+export function rejectEnterpriseRegistration(id: number | string, reason?: string) {
+  return request<any>(`/enterprises/${id}/reject`, {
+    method: 'POST',
+    json: { reason },
+  });
+}
+
 // -------- Enterprises (Admin) --------
 export interface EnterpriseSummary {
   id: number | string;
