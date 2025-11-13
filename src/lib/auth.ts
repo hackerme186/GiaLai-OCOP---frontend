@@ -81,9 +81,47 @@ export function getClaimsFromJwt(token?: string | null): Record<string, unknown>
 export function getRoleFromToken(token?: string | null): string | null {
   const claims = getClaimsFromJwt(token);
   if (!claims) return null;
-  const roleKey = Object.keys(claims).find(k => k.toLowerCase().includes("/role") || k.toLowerCase() === 'role');
-  const raw = (roleKey ? (claims as any)[roleKey] : (claims as any).role) as unknown;
-  if (!raw) return null;
-  if (Array.isArray(raw)) return (raw[0] || '').toString();
-  return String(raw);
+  
+  // Try multiple possible role key names
+  const possibleKeys = [
+    'role',
+    'roles',
+    'userRole',
+    'user_role',
+    'authority',
+    'authorities',
+    'permission',
+    'permissions',
+    'http://schemas.microsoft.com/ws/2008/06/identity/claims/role',
+    'http://schemas.xmlsoap.org/ws/2005/05/identity/claims/role'
+  ];
+  
+  // First try exact matches
+  for (const key of possibleKeys) {
+    const value = (claims as any)[key];
+    if (value) {
+      if (Array.isArray(value)) {
+        const firstRole = value[0];
+        if (firstRole) return String(firstRole);
+      } else if (typeof value === 'string' || typeof value === 'number') {
+        return String(value);
+      }
+    }
+  }
+  
+  // Then try case-insensitive partial matches
+  const roleKey = Object.keys(claims).find(k => {
+    const lower = k.toLowerCase();
+    return lower.includes('role') || lower.includes('authority') || lower.includes('permission');
+  });
+  
+  if (roleKey) {
+    const raw = (claims as any)[roleKey];
+    if (raw) {
+      if (Array.isArray(raw)) return (raw[0] || '').toString();
+      return String(raw);
+    }
+  }
+  
+  return null;
 }
