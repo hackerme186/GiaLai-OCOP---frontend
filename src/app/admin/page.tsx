@@ -31,6 +31,7 @@ export default function AdminPage() {
                               tokenRole === 'role_admin' || 
                               tokenRole === 'admin_role' || 
                               tokenRole === 'sysadmin' ||
+                              tokenRole === 'systemadmin' ||
                               tokenRole.includes('admin')
       
       if (isAdminFromToken) {
@@ -48,6 +49,7 @@ export default function AdminPage() {
                        normRole === 'role_admin' || 
                        normRole === 'admin_role' || 
                        normRole === 'sysadmin' ||
+                       normRole === 'systemadmin' ||
                        normRole.includes('admin')
         
         if (!isAdmin) {
