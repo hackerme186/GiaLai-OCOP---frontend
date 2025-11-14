@@ -1,38 +1,58 @@
 "use client"
 
-import { useState, useEffect } from "react"
+import { useState, useEffect, useCallback } from "react"
 import Image from "next/image"
 import Link from "next/link"
-import { getProducts, ProductResponse } from "@/lib/api"
+import { getProducts, Product } from "@/lib/api"
+import Header from "@/components/layout/Header"
+import Footer from "@/components/layout/Footer"
 
 export default function ProductsPage() {
-  const [products, setProducts] = useState<ProductResponse | null>(null)
+  const [products, setProducts] = useState<Product[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [currentPage, setCurrentPage] = useState(1)
   const [searchQuery, setSearchQuery] = useState("")
   const [selectedCategory, setSelectedCategory] = useState("")
 
-  useEffect(() => {
-    fetchProducts()
-  }, [currentPage, searchQuery, selectedCategory])
-
-  const fetchProducts = async () => {
+  const fetchProducts = useCallback(async () => {
     try {
       setLoading(true)
+      setError(null)
+      
+      // Get ALL products from database
       const data = await getProducts({
         page: currentPage,
-        limit: 12,
+        pageSize: 100, // Get all products
         search: searchQuery || undefined,
-        category: selectedCategory || undefined
       })
-      setProducts(data)
+      
+      // FILTER 1: Only products with status = "Approved"
+      let approvedProducts = data.filter(p => p.status === "Approved")
+      
+      console.log(`✅ Products page: ${approvedProducts.length} approved products`)
+      
+      // FILTER 2: By category if selected
+      let filtered = approvedProducts
+      if (selectedCategory && selectedCategory !== "Tất cả") {
+        filtered = approvedProducts.filter(p => 
+          p.categoryName?.toLowerCase().includes(selectedCategory.toLowerCase())
+        )
+      }
+      
+      setProducts(filtered)
+      setLoading(false)
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Không thể tải sản phẩm")
-    } finally {
+      console.error('❌ Failed to fetch products:', err)
+      setError('Không thể tải sản phẩm từ server')
+      setProducts([]) // Don't fallback to mock - show empty
       setLoading(false)
     }
-  }
+  }, [currentPage, searchQuery, selectedCategory])
+
+  useEffect(() => {
+    fetchProducts()
+  }, [fetchProducts])
 
   const handleSearch = (e: React.FormEvent) => {
     e.preventDefault()
@@ -51,39 +71,49 @@ export default function ProductsPage() {
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
-        <div className="text-center">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-indigo-600 mx-auto"></div>
-          <p className="mt-4 text-gray-600">Đang tải sản phẩm...</p>
+      <>
+        <Header />
+        <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+          <div className="text-center">
+            <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-indigo-600 mx-auto"></div>
+            <p className="mt-4 text-gray-600">Đang tải sản phẩm...</p>
+          </div>
         </div>
-      </div>
+        <Footer />
+      </>
     )
   }
 
   if (error) {
     return (
-      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
-        <div className="text-center">
-          <div className="w-16 h-16 mx-auto mb-4 bg-red-100 rounded-full flex items-center justify-center">
-            <svg className="w-8 h-8 text-red-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L3.732 16.5c-.77.833.192 2.5 1.732 2.5z" />
-            </svg>
+      <>
+        <Header />
+        <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+          <div className="text-center">
+            <div className="w-16 h-16 mx-auto mb-4 bg-red-100 rounded-full flex items-center justify-center">
+              <svg className="w-8 h-8 text-red-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L3.732 16.5c-.77.833.192 2.5 1.732 2.5z" />
+              </svg>
+            </div>
+            <h2 className="text-2xl font-bold text-gray-900 mb-2">Lỗi tải sản phẩm</h2>
+            <p className="text-gray-600 mb-6">{error}</p>
+            <button
+              onClick={() => window.location.reload()}
+              className="bg-indigo-600 text-white px-6 py-2 rounded-lg hover:bg-indigo-700 transition-colors"
+            >
+              Thử lại
+            </button>
           </div>
-          <h2 className="text-2xl font-bold text-gray-900 mb-2">Lỗi tải sản phẩm</h2>
-          <p className="text-gray-600 mb-6">{error}</p>
-          <button
-            onClick={() => window.location.reload()}
-            className="bg-indigo-600 text-white px-6 py-2 rounded-lg hover:bg-indigo-700 transition-colors"
-          >
-            Thử lại
-          </button>
         </div>
-      </div>
+        <Footer />
+      </>
     )
   }
 
   return (
-    <div className="min-h-screen bg-gray-50 py-8">
+    <>
+      <Header />
+      <div className="min-h-screen bg-gray-50 py-8">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         {/* Header */}
         <div className="mb-8">
@@ -133,10 +163,10 @@ export default function ProductsPage() {
         </div>
 
         {/* Products Grid */}
-        {products?.products && products.products.length > 0 ? (
+        {products && products.length > 0 ? (
           <>
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6 mb-8">
-              {products.products.map((product) => (
+              {products.map((product) => (
                 <Link
                   key={product.id}
                   href={`/products/${product.id}`}
@@ -144,15 +174,22 @@ export default function ProductsPage() {
                 >
                   <div className="aspect-square bg-gray-200 relative overflow-hidden">
                     <Image
-                      src={product.image || "/hero.jpg"}
+                      src={product.imageUrl || "/hero.jpg"}
                       alt={product.name}
                       fill
                       className="object-cover group-hover:scale-105 transition-transform duration-300"
                     />
-                    {product.category && (
+                    {product.categoryName && (
                       <div className="absolute top-2 left-2">
                         <span className="bg-indigo-600 text-white px-2 py-1 rounded-full text-xs font-medium">
-                          {product.category}
+                          {product.categoryName}
+                        </span>
+                      </div>
+                    )}
+                    {product.ocopRating && (
+                      <div className="absolute top-2 right-2">
+                        <span className="bg-yellow-500 text-white px-2 py-1 rounded-full text-xs font-bold flex items-center gap-1">
+                          ⭐ {product.ocopRating}
                         </span>
                       </div>
                     )}
@@ -171,14 +208,14 @@ export default function ProductsPage() {
 
                     <div className="flex items-center justify-between">
                       <div className="flex items-center space-x-2">
-                        {product.rating && (
+                        {product.averageRating && (
                           <>
                             <div className="flex items-center">
                               {[...Array(5)].map((_, i) => (
                                 <svg
                                   key={i}
                                   className={`h-4 w-4 ${
-                                    i < Math.floor(product.rating || 0)
+                                    i < Math.floor(product.averageRating || 0)
                                       ? "text-yellow-400"
                                       : "text-gray-300"
                                   }`}
@@ -189,7 +226,7 @@ export default function ProductsPage() {
                                 </svg>
                               ))}
                             </div>
-                            <span className="text-sm text-gray-500">{product.rating}</span>
+                            <span className="text-sm text-gray-500">{product.averageRating.toFixed(1)}</span>
                           </>
                         )}
                       </div>
@@ -206,7 +243,7 @@ export default function ProductsPage() {
             </div>
 
             {/* Pagination */}
-            {products.total && products.total > 12 && (
+            {products.length >= 12 && (
               <div className="flex justify-center items-center space-x-2">
                 <button
                   onClick={() => setCurrentPage(Math.max(1, currentPage - 1))}
@@ -217,26 +254,14 @@ export default function ProductsPage() {
                 </button>
                 
                 <div className="flex space-x-1">
-                  {Array.from({ length: Math.ceil((products.total || 0) / 12) }, (_, i) => i + 1)
-                    .slice(Math.max(0, currentPage - 3), currentPage + 2)
-                    .map((page) => (
-                      <button
-                        key={page}
-                        onClick={() => setCurrentPage(page)}
-                        className={`px-3 py-2 rounded-lg text-sm font-medium ${
-                          currentPage === page
-                            ? "bg-indigo-600 text-white"
-                            : "text-gray-700 hover:bg-gray-50"
-                        }`}
-                      >
-                        {page}
-                      </button>
-                    ))}
+                  <span className="px-3 py-2 text-sm text-gray-600">
+                    Trang {currentPage}
+                  </span>
                 </div>
                 
                 <button
                   onClick={() => setCurrentPage(currentPage + 1)}
-                  disabled={currentPage >= Math.ceil((products.total || 0) / 12)}
+                  disabled={products.length < 12}
                   className="px-3 py-2 border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
                 >
                   Sau
@@ -274,5 +299,7 @@ export default function ProductsPage() {
         )}
       </div>
     </div>
+      <Footer />
+    </>
   )
 }

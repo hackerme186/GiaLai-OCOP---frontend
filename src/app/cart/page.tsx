@@ -4,6 +4,8 @@ import { useCart } from "@/lib/cart-context"
 import Image from "next/image"
 import Link from "next/link"
 import { useState } from "react"
+import Header from "@/components/layout/Header"
+import Footer from "@/components/layout/Footer"
 
 export default function CartPage() {
   const { cart, updateQuantity, removeFromCart, clearCart } = useCart()
@@ -19,33 +21,39 @@ export default function CartPage() {
 
   if (cart.items.length === 0) {
     return (
-      <div className="min-h-screen bg-gray-50 py-8">
-        <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="text-center py-16">
-            <div className="w-24 h-24 mx-auto mb-6 bg-gray-200 rounded-full flex items-center justify-center">
-              <svg className="w-12 h-12 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 3h2l.4 2M7 13h10l4-8H5.4m0 0L7 13m0 0l-2.5 5M7 13l2.5 5m0 0h8" />
-              </svg>
+      <>
+        <Header />
+        <div className="min-h-screen bg-gray-50 py-8">
+          <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8">
+            <div className="text-center py-16">
+              <div className="w-24 h-24 mx-auto mb-6 bg-gray-200 rounded-full flex items-center justify-center">
+                <svg className="w-12 h-12 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 3h2l.4 2M7 13h10l4-8H5.4m0 0L7 13m0 0l-2.5 5M7 13l2.5 5m0 0h8" />
+                </svg>
+              </div>
+              <h1 className="text-3xl font-bold text-gray-900 mb-4">Giỏ hàng trống</h1>
+              <p className="text-gray-600 mb-8">Bạn chưa có sản phẩm nào trong giỏ hàng</p>
+              <Link
+                href="/products"
+                className="bg-indigo-600 text-white px-8 py-3 rounded-lg font-medium hover:bg-indigo-700 transition-colors inline-flex items-center"
+              >
+                <svg className="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 11V7a4 4 0 00-8 0v4M5 9h14l1 12H4L5 9z" />
+                </svg>
+                Tiếp tục mua sắm
+              </Link>
             </div>
-            <h1 className="text-3xl font-bold text-gray-900 mb-4">Giỏ hàng trống</h1>
-            <p className="text-gray-600 mb-8">Bạn chưa có sản phẩm nào trong giỏ hàng</p>
-            <Link
-              href="/products"
-              className="bg-indigo-600 text-white px-8 py-3 rounded-lg font-medium hover:bg-indigo-700 transition-colors inline-flex items-center"
-            >
-              <svg className="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 11V7a4 4 0 00-8 0v4M5 9h14l1 12H4L5 9z" />
-              </svg>
-              Tiếp tục mua sắm
-            </Link>
           </div>
         </div>
-      </div>
+        <Footer />
+      </>
     )
   }
 
   return (
-    <div className="min-h-screen bg-gray-50 py-8">
+    <>
+      <Header />
+      <div className="min-h-screen bg-gray-50 py-8">
       <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8">
         {/* Header */}
         <div className="mb-8">
@@ -65,7 +73,7 @@ export default function CartPage() {
                   <div className="flex-shrink-0">
                     <div className="w-20 h-20 bg-gray-200 rounded-lg overflow-hidden">
                       <Image
-                        src={item.product.image || "/hero.jpg"}
+                        src={item.product.imageUrl || "/hero.jpg"}
                         alt={item.product.name}
                         width={80}
                         height={80}
@@ -82,8 +90,13 @@ export default function CartPage() {
                     >
                       {item.product.name}
                     </Link>
-                    {item.product.category && (
-                      <p className="text-sm text-gray-500 mt-1">{item.product.category}</p>
+                    {item.product.categoryName && (
+                      <p className="text-sm text-gray-500 mt-1">{item.product.categoryName}</p>
+                    )}
+                    {item.product.ocopRating && (
+                      <p className="text-sm text-yellow-600 mt-1 flex items-center gap-1">
+                        ⭐ OCOP {item.product.ocopRating} sao
+                      </p>
                     )}
                     <div className="flex items-center mt-2">
                       <span className="text-lg font-bold text-gray-900">
@@ -200,5 +213,7 @@ export default function CartPage() {
         </div>
       </div>
     </div>
+      <Footer />
+    </>
   )
 }

@@ -6,7 +6,7 @@ import { useSession } from 'next-auth/react'
 import Header from '@/components/layout/Header'
 import Footer from '@/components/layout/Footer'
 import HeroSlider from '@/components/home/HeroSlider'
-import ProductVus from '@/components/home/ProductVus'
+// import ProductVus from '@/components/home/ProductVus' // Removed - duplicate of FeaturedProducts
 import FeaturedProducts from '@/components/home/FeaturedProducts'
 import MapSection from '@/components/home/MapSection'
 import NewsSection from '@/components/home/NewsSection'
@@ -61,7 +61,7 @@ export default function HomePage() {
       <Header />
       <main>
         <HeroSlider />
-        <ProductVus />
+        {/* <ProductVus /> */}
         <FeaturedProducts />
         <MapSection />
         <NewsSection />
