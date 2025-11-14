@@ -341,6 +341,14 @@ export interface EnterpriseMapDto {
   imageUrl?: string;
   distance?: number;
   topProducts: Product[];
+  // Extended fields from database
+  address?: string;
+  ward?: string;
+  phoneNumber?: string;
+  emailContact?: string;
+  website?: string;
+  description?: string;
+  averageRating?: number;
 }
 
 export interface MapSearchParams {
