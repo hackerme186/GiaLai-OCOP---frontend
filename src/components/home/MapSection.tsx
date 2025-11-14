@@ -12,15 +12,30 @@ const MapSection = () => {
     const fetchProducts = async () => {
       try {
         setLoading(true)
-        const data = await getProducts({ limit: 4 }) // Limit to 4 products for map section
-        // Handle different response formats from API
-        const productList = Array.isArray(data) ? data : (data as any)?.products || []
-        setProducts(productList)
+        setError(null)
+        
+        // Get ALL products from database
+        const data = await getProducts({ 
+          pageSize: 100, // Get all products
+        })
+        
+        // Backend returns array of products
+        const productList = Array.isArray(data) ? data : []
+        
+        // FILTER: Only show products with status = "Approved"
+        const approvedProducts = productList.filter((p: Product) => 
+          p.status === "Approved"
+        )
+        
+        console.log(`✅ Map section: ${approvedProducts.length} approved products`)
+        
+        // Display first 4 approved products
+        setProducts(approvedProducts.slice(0, 4))
+        setLoading(false)
       } catch (err) {
-        console.error('Failed to fetch products:', err)
-        setError(err instanceof Error ? err.message : 'Không thể tải sản phẩm')
-        setProducts([])
-      } finally {
+        console.error('❌ Failed to fetch products for map:', err)
+        setError('Không thể tải sản phẩm')
+        setProducts([]) // Don't fallback to mock - show empty
         setLoading(false)
       }
     }
@@ -88,20 +103,36 @@ const MapSection = () => {
                 >
                   <div className="relative w-32 h-32 flex-shrink-0">
                     <Image
-                      src={product.image || '/placeholder-product.jpg'}
+                      src={product.imageUrl || '/hero.jpg'}
                       alt={product.name || 'Sản phẩm'}
                       fill
                       className="object-cover rounded-lg"
                     />
                   </div>
                   <div>
-                    <h3 className="text-xl font-semibold text-gray-900 mb-2">
-                      {product.name}
-                    </h3>
-                    <p className="text-gray-600 mb-2">{product.description}</p>
-                    <p className="text-sm text-gray-500">
-                      {product.category && `Danh mục: ${product.category}`}
-                    </p>
+                    <div className="flex items-center gap-2 mb-2">
+                      <h3 className="text-xl font-semibold text-gray-900">
+                        {product.name}
+                      </h3>
+                      {product.ocopRating && (
+                        <span className="bg-yellow-500 text-white text-xs font-bold px-2 py-1 rounded flex items-center gap-1">
+                          ⭐ {product.ocopRating}
+                        </span>
+                      )}
+                    </div>
+                    <p className="text-gray-600 mb-2 line-clamp-2">{product.description}</p>
+                    <div className="flex items-center gap-3 text-sm">
+                      {product.categoryName && (
+                        <span className="text-gray-500">
+                          📂 {product.categoryName}
+                        </span>
+                      )}
+                      {product.price && (
+                        <span className="text-green-600 font-bold">
+                          {product.price.toLocaleString('vi-VN')} ₫
+                        </span>
+                      )}
+                    </div>
                   </div>
                 </div>
               ))

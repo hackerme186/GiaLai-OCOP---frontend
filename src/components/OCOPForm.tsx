@@ -1,10 +1,10 @@
 "use client"
 
 import { useState } from "react"
-import { OcopRegistrationDto } from "@/lib/api"
+import { CreateEnterpriseApplicationDto } from "@/lib/api"
 
 interface OCOPFormProps {
-  onSubmit: (data: OcopRegistrationDto) => void
+  onSubmit: (data: CreateEnterpriseApplicationDto) => void
 }
 
 export default function OCOPForm({ onSubmit }: OCOPFormProps) {
@@ -98,7 +98,7 @@ export default function OCOPForm({ onSubmit }: OCOPFormProps) {
     e.preventDefault()
 
     // --- SUBMIT: ĐƯA ĐẦY ĐỦ DỮ LIỆU VÀO PAYLOAD ---
-    const payload: OcopRegistrationDto = {
+    const payload: CreateEnterpriseApplicationDto = {
       enterpriseName: name,
       businessType,
       taxCode,
@@ -118,18 +118,17 @@ export default function OCOPForm({ onSubmit }: OCOPFormProps) {
       representativeIdIssuedDate,
       representativeIdIssuedBy,
       productionLocation,
-      numberOfEmployees: numberOfEmployees ? parseInt(numberOfEmployees) : undefined,
+      numberOfEmployees,
       productionScale,
       businessField,
       productName,
       productCategory,
       productDescription,
       productOrigin,
-      productCertifications: productCertifications.length ? productCertifications : undefined,
-      productImages: undefined, // TODO: Upload files and get URLs
-      attachedDocuments: undefined, // TODO: Upload files and get URLs
-      additionalNotes,
-      status: undefined
+      productCertifications: productCertifications.join(','),
+      productImages: productImages.map(f => f.name).join(','), // TODO: Upload files and get URLs
+      attachedDocuments: attachedDocs.map(f => f.name).join(','), // TODO: Upload files and get URLs
+      additionalNotes
     }
 
     onSubmit(payload)

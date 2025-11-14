@@ -24,12 +24,18 @@ const Navbar = () => {
       const authStatus = await isLoggedIn()
       setLoggedIn(authStatus)
       setProfile(getUserProfile() || {})
-      try {
-        const me = await getCurrentUser()
-        const role = (me.role || (me as any).roles)?.toString?.() || ''
-        setIsAdmin(role.toLowerCase() === 'admin')
-      } catch {
-        setIsAdmin(false)
+      
+      // Only check admin role if user is logged in
+      if (authStatus) {
+        try {
+          const me = await getCurrentUser()
+          const role = (me.role || (me as any).roles)?.toString?.() || ''
+          setIsAdmin(role.toLowerCase() === 'admin')
+        } catch (error) {
+          // Backend might be offline - skip admin check
+          console.log('⚠️ Cannot check admin role - backend may be offline')
+          setIsAdmin(false)
+        }
       }
     }
     

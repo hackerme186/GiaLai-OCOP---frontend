@@ -3,22 +3,24 @@
 import { useState } from "react"
 import AuthGuard from "@/components/AuthGuard"
 import OCOPForm from "@/components/OCOPForm"
-import { OcopRegistrationDto, submitOcopRegistration } from "@/lib/api"
+import { CreateEnterpriseApplicationDto, createEnterpriseApplication } from "@/lib/api"
+import Header from "@/components/layout/Header"
+import Footer from "@/components/layout/Footer"
 
 export default function OCOPSRegisterPage() {
   const [submitted, setSubmitted] = useState(false)
   const [submitting, setSubmitting] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
-  const handleSubmit = async (formData: OcopRegistrationDto) => {
+  const handleSubmit = async (formData: CreateEnterpriseApplicationDto) => {
     try {
       setSubmitting(true)
       setError(null)
-      await submitOcopRegistration(formData)
+      await createEnterpriseApplication(formData)
       setSubmitted(true)
     } catch (error) {
       console.error("Error submitting OCOP registration:", error)
-      setError(error instanceof Error ? error.message : "Đã xảy ra lỗi")
+      setError(error instanceof Error ? error.message : "Đã xảy ra lỗi khi gửi đăng ký")
     } finally {
       setSubmitting(false)
     }
@@ -26,6 +28,7 @@ export default function OCOPSRegisterPage() {
 
   return (
     <AuthGuard>
+      <Header />
       {submitted ? (
         <div className="min-h-screen bg-gray-50 flex items-center justify-center px-4">
           <div className="max-w-md w-full bg-white rounded-lg shadow-lg p-8 text-center">
@@ -69,6 +72,7 @@ export default function OCOPSRegisterPage() {
           </div>
         </div>
       )}
+      <Footer />
     </AuthGuard>
   )
 }

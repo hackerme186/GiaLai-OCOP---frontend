@@ -3,7 +3,7 @@ import AuthGuard from "@/components/AuthGuard"
 import Header from '@/components/layout/Header'
 import Footer from '@/components/layout/Footer'
 import HeroSlider from '@/components/home/HeroSlider'
-import ProductVus from '@/components/home/ProductVus'
+// import ProductVus from '@/components/home/ProductVus' // Removed - duplicate of FeaturedProducts
 import FeaturedProducts from '@/components/home/FeaturedProducts'
 import MapSection from '@/components/home/MapSection'
 import NewsSection from '@/components/home/NewsSection'
@@ -15,7 +15,7 @@ export default function HomeLoggedInPage() {
         <Header />
         <main>
           <HeroSlider />
-          <ProductVus />
+          {/* <ProductVus /> */}
           <FeaturedProducts />
           <MapSection />
           <NewsSection />

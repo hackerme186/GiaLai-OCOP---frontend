@@ -13,7 +13,6 @@ export function Toast({ message, type = "success", duration = 3000, onClose }: T
   const [isVisible, setIsVisible] = useState(false)
 
   useEffect(() => {
-    // Hiển thị toast ngay lập tức
     setIsVisible(true)
     const timer = setTimeout(() => {
       setIsVisible(false)
@@ -21,8 +20,7 @@ export function Toast({ message, type = "success", duration = 3000, onClose }: T
     }, duration)
 
     return () => clearTimeout(timer)
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [message, duration]) // Chỉ phụ thuộc vào message và duration, không phụ thuộc vào onClose
+  }, [duration, onClose])
 
   const getToastStyles = () => {
     switch (type) {
@@ -89,8 +87,7 @@ export function useToast() {
 
   const showToast = (message: string, type: "success" | "error" | "info" = "success") => {
     const id = Math.random().toString(36).substr(2, 9)
-    // Xóa tất cả toast cũ trước khi thêm toast mới để tránh hiển thị nhiều message cùng lúc
-    setToasts([{ id, message, type }])
+    setToasts(prev => [...prev, { id, message, type }])
   }
 
   const removeToast = (id: string) => {
@@ -104,7 +101,6 @@ export function useToast() {
           key={toast.id}
           message={toast.message}
           type={toast.type}
-          duration={3000}
           onClose={() => removeToast(toast.id)}
         />
       ))}
