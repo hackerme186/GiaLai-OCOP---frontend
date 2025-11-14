@@ -20,6 +20,7 @@ export default function ProductDetailPage() {
   const [selectedImage, setSelectedImage] = useState(0);
   const [quantity, setQuantity] = useState(1);
   const [isAddingToCart, setIsAddingToCart] = useState(false);
+  const [reviewCount, setReviewCount] = useState<number>(0);
 
   useEffect(() => {
     if (productId) {
@@ -33,6 +34,8 @@ export default function ProductDetailPage() {
       const data = await getMockProductById(parseInt(productId));
       if (!data) throw new Error("Không tìm thấy sản phẩm");
       setProduct(data);
+      // Khởi tạo số đánh giá cố định một lần khi load product
+      setReviewCount(Math.floor(Math.random() * 100));
     } catch (err) {
       setError(err instanceof Error ? err.message : "Không thể tải sản phẩm");
     } finally {
@@ -41,6 +44,11 @@ export default function ProductDetailPage() {
   };
 
   const handleAddToCart = async () => {
+    // Ngăn chặn double-click
+    if (isAddingToCart) {
+      return;
+    }
+
     if (!product) {
       showToast("Không tìm thấy thông tin sản phẩm", "error");
       return;
@@ -55,7 +63,12 @@ export default function ProductDetailPage() {
     const totalQuantity = currentQuantity + quantity;
 
     if (product.quantity && totalQuantity > product.quantity) {
-      showToast(`Chỉ còn ${product.quantity} sản phẩm trong kho`, "error");
+      const available = product.quantity - currentQuantity;
+      if (available > 0) {
+        showToast(`Chỉ còn ${available} sản phẩm trong kho. Vui lòng giảm số lượng.`, "error");
+      } else {
+        showToast(`Sản phẩm đã hết hàng trong giỏ của bạn.`, "error");
+      }
       return;
     }
 
@@ -198,9 +211,9 @@ export default function ProductDetailPage() {
           <div className="space-y-6">
             {/* Product Title */}
             <div>
-              <h1 className="product-title">{product.name}</h1>
+              <h1 className="text-3xl font-bold text-gray-900 mb-2">{product.name}</h1>
               {product.category && (
-                <p className="text-sm mb-4 product-text">
+                <p className="text-sm mb-4 text-gray-900">
                   Danh mục:{" "}
                   <span className="font-medium text-indigo-600">
                     {product.category}
@@ -228,8 +241,8 @@ export default function ProductDetailPage() {
                     </svg>
                   ))}
                 </div>
-                <span className="text-sm text-gray-600 product-rating">
-                  {product.rating}/5 ({Math.floor(Math.random() * 100)} đánh
+                <span className="text-sm text-gray-900">
+                  {product.rating}/5 ({reviewCount} đánh
                   giá)
                 </span>
               </div>
@@ -238,11 +251,11 @@ export default function ProductDetailPage() {
             {/* Price */}
             <div className="flex items-baseline space-x-3">
               {product.price && (
-                <span className="product-price">
+                <span className="text-3xl font-bold text-gray-900">
                   {product.price.toLocaleString("vi-VN")} ₫
                 </span>
               )}
-              <span className="text-sm product-text">(Đã bao gồm VAT)</span>
+              <span className="text-sm text-gray-900">(Đã bao gồm VAT)</span>
             </div>
 
             {/* Description */}
@@ -251,7 +264,7 @@ export default function ProductDetailPage() {
                 <h3 className="text-lg font-semibold text-gray-900 mb-2">
                   Mô tả sản phẩm
                 </h3>
-                <p className="product-text leading-relaxed">
+                <p className="text-gray-900 leading-relaxed">
                   {product.description}
                 </p>
               </div>
@@ -261,14 +274,15 @@ export default function ProductDetailPage() {
             <div className="flex items-center space-x-4 mt-6">
               <label
                 htmlFor="quantity"
-                className="text-lg font-semibold product-text"
+                className="text-lg font-semibold text-gray-900"
               >
                 Số lượng:
               </label>
-              <div className="product-quantity">
+              <div className="flex items-center border border-gray-300 rounded-lg overflow-hidden">
                 <button
                   onClick={() => setQuantity(Math.max(1, quantity - 1))}
                   aria-label="Giảm số lượng"
+                  className="px-4 py-2 bg-gray-100 hover:bg-gray-200 text-gray-900 font-semibold transition-colors"
                 >
                   −
                 </button>
@@ -281,10 +295,12 @@ export default function ProductDetailPage() {
                     setQuantity(Math.max(1, parseInt(e.target.value) || 1))
                   }
                   aria-label="Số lượng sản phẩm"
+                  className="w-16 px-3 py-2 text-center text-gray-900 border-0 focus:outline-none focus:ring-0"
                 />
                 <button
                   onClick={() => setQuantity(quantity + 1)}
                   aria-label="Tăng số lượng"
+                  className="px-4 py-2 bg-gray-100 hover:bg-gray-200 text-gray-900 font-semibold transition-colors"
                 >
                   +
                 </button>
@@ -296,7 +312,7 @@ export default function ProductDetailPage() {
               <button
                 onClick={handleAddToCart}
                 disabled={isAddingToCart}
-                className="flex-1 bg-indigo-600 text-white px-6 py-3 rounded-lg font-medium hover:bg-indigo-700 transition-colors flex items-center justify-center disabled:opacity-50 disabled:cursor-not-allowed"
+                className="flex-1 bg-indigo-600 text-white px-6 py-3 rounded-lg font-medium hover:bg-indigo-700 transition-colors flex items-center justify-center disabled:opacity-50 disabled:cursor-not-allowed min-h-[48px]"
               >
                 {isAddingToCart ? (
                   <>
@@ -320,12 +336,12 @@ export default function ProductDetailPage() {
                         d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
                       ></path>
                     </svg>
-                    Đang thêm...
+                    <span>Đang thêm...</span>
                   </>
                 ) : (
                   <>
                     <svg
-                      className="w-5 h-5 mr-2"
+                      className="w-5 h-5 mr-2 flex-shrink-0"
                       fill="none"
                       stroke="currentColor"
                       viewBox="0 0 24 24"
@@ -337,21 +353,16 @@ export default function ProductDetailPage() {
                         d="M3 3h2l.4 2M7 13h10l4-8H5.4m0 0L7 13m0 0l-2.5 5M7 13l2.5 5m0 0h8"
                       />
                     </svg>
-                    Thêm vào giỏ hàng
-                    {product && getItemQuantity(product.id) > 0 && (
-                      <span className="ml-2 bg-white bg-opacity-20 px-2 py-1 rounded-full text-xs">
-                        {getItemQuantity(product.id)} trong giỏ
-                      </span>
-                    )}
+                    <span className="whitespace-nowrap">Thêm vào giỏ hàng</span>
                   </>
                 )}
               </button>
               <button
                 onClick={handleBuyNow}
-                className="flex-1 bg-green-600 text-white px-6 py-3 rounded-lg font-medium hover:bg-green-700 transition-colors flex items-center justify-center"
+                className="flex-1 bg-green-600 text-white px-6 py-3 rounded-lg font-medium hover:bg-green-700 transition-colors flex items-center justify-center min-h-[48px]"
               >
                 <svg
-                  className="w-5 h-5 mr-2"
+                  className="w-5 h-5 mr-2 flex-shrink-0"
                   fill="none"
                   stroke="currentColor"
                   viewBox="0 0 24 24"
@@ -363,33 +374,33 @@ export default function ProductDetailPage() {
                     d="M13 10V3L4 14h7v7l9-11h-7z"
                   />
                 </svg>
-                Mua ngay
+                <span className="whitespace-nowrap">Mua ngay</span>
               </button>
             </div>
 
             {/* Product Features */}
             <div className="border-t pt-6">
-              <h3 className="text-lg font-semibold product-text mb-4">
+              <h3 className="text-lg font-semibold text-gray-900 mb-4">
                 Thông tin sản phẩm
               </h3>
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div className="flex justify-between">
-                  <span className="product-label">Mã sản phẩm:</span>
-                  <span className="product-value">#{product.id}</span>
+                  <span className="text-gray-900">Mã sản phẩm:</span>
+                  <span className="text-gray-900 font-medium">#{product.id}</span>
                 </div>
                 <div className="flex justify-between">
-                  <span className="product-label">Danh mục:</span>
-                  <span className="product-value">
+                  <span className="text-gray-900">Danh mục:</span>
+                  <span className="text-gray-900 font-medium">
                     {product.category || "Chưa phân loại"}
                   </span>
                 </div>
                 <div className="flex justify-between">
-                  <span className="product-label">Tình trạng:</span>
-                  <span className="product-value text-green-600">Còn hàng</span>
+                  <span className="text-gray-900">Tình trạng:</span>
+                  <span className="text-green-600 font-medium">Còn hàng</span>
                 </div>
                 <div className="flex justify-between">
-                  <span className="product-label">Vận chuyển:</span>
-                  <span className="product-value text-green-600">Miễn phí</span>
+                  <span className="text-gray-900">Vận chuyển:</span>
+                  <span className="text-green-600 font-medium">Miễn phí</span>
                 </div>
               </div>
             </div>
