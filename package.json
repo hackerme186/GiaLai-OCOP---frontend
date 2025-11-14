@@ -4,6 +4,7 @@
   "private": true,
   "scripts": {
     "dev": "next dev",
+    "prebuild": "rm -f src/lib/api.js src/lib/api.js.map || exit 0",
     "build": "next build",
     "start": "next start"
   },

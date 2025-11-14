@@ -1,8 +1,8 @@
 "use client"
 import Link from "next/link"
 import { useState } from "react"
-import { login } from "@/lib/api"
-import { setAuthToken } from "@/lib/auth"
+import { login, getCurrentUser } from "@/lib/api"
+import { setAuthToken, getRoleFromToken } from "@/lib/auth"
 import { useRouter } from "next/navigation"
 
 export default function LoginForm() {
@@ -20,9 +20,63 @@ export default function LoginForm() {
     setLoading(true)
     try {
       const res = await login({ email, password }) as any
-      if (res?.token) setAuthToken(res.token)
-      else setAuthToken("1")
-      router.replace("/home")
+      
+      // Extract token from various possible response structures
+      const token = res?.token || res?.data?.token || res?.accessToken || res?.access_token
+      
+      if (!token) {
+        throw new Error("Không nhận được token từ server")
+      }
+      
+      // Save token first
+      setAuthToken(token)
+      
+      // Wait a bit to ensure token is saved to localStorage
+      await new Promise(resolve => setTimeout(resolve, 100))
+      
+      // Determine role from login response first, then fallback to /me
+      const extractRole = (obj: any): string => {
+        if (!obj) return ""
+        // Common shapes: { role }, { roles: ['ADMIN'] }, { user: { role } }, { data: { role } }
+        const u = obj.user || obj.data || obj
+        const direct = u.role || u.userRole || u.authorities || u.permission || u.permissions
+        if (Array.isArray(direct)) return (direct[0] || "").toString()
+        if (typeof direct === 'string') return direct
+        if (Array.isArray(u.roles)) return (u.roles[0] || "").toString()
+        if (u.roles && typeof u.roles === 'object') return Object.values(u.roles)[0]?.toString?.() || ""
+        return ""
+      }
+      
+      // Try decode from JWT token first (most reliable)
+      let role = getRoleFromToken(token) || extractRole(res)
+      
+      // If still no role, try to get from /me endpoint
+      if (!role || role.trim() === "") {
+        try {
+          const me = await getCurrentUser()
+          role = extractRole(me) || (me.role || (me as any).roles)?.toString?.() || ""
+        } catch (err) {
+          console.warn("Could not fetch user info:", err)
+        }
+      }
+      
+      // Normalize role for comparison
+      const norm = role.toString().toLowerCase().trim()
+      
+      // Check if user is admin
+      const isAdmin = norm === 'admin' || 
+                     norm === 'administrator' || 
+                     norm === 'role_admin' || 
+                     norm === 'admin_role' || 
+                     norm === 'sysadmin' ||
+                     norm.includes('admin')
+      
+      // Redirect based on role
+      if (isAdmin) {
+        router.replace("/admin")
+      } else {
+        router.replace("/home")
+      }
     } catch (err) {
       setError(err instanceof Error ? err.message : "Đăng nhập thất bại")
     } finally {

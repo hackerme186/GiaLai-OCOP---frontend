@@ -36,6 +36,7 @@ export function logout() {
 
 export type UserProfile = {
   name?: string;
+  email?: string;
   avatarUrl?: string;
 }
 
@@ -57,4 +58,70 @@ export function getUserProfile(): UserProfile | null {
   } catch {
     return null;
   }
+}
+
+// Decode JWT (Base64Url) to extract claims safely on client
+export function getClaimsFromJwt(token?: string | null): Record<string, unknown> | null {
+  try {
+    const t = token || getAuthToken();
+    if (!t) return null;
+    const parts = t.split(".");
+    if (parts.length < 2) return null;
+    const base64 = parts[1].replace(/-/g, "+").replace(/_/g, "/");
+    const json = typeof window !== 'undefined' ? decodeURIComponent(atob(base64).split('').map(c=>{
+      const code = c.charCodeAt(0).toString(16).padStart(2,'0');
+      return `%${code}`;
+    }).join('')) : Buffer.from(base64, 'base64').toString('utf8');
+    return JSON.parse(json);
+  } catch {
+    return null;
+  }
+}
+
+export function getRoleFromToken(token?: string | null): string | null {
+  const claims = getClaimsFromJwt(token);
+  if (!claims) return null;
+  
+  // Try multiple possible role key names
+  const possibleKeys = [
+    'role',
+    'roles',
+    'userRole',
+    'user_role',
+    'authority',
+    'authorities',
+    'permission',
+    'permissions',
+    'http://schemas.microsoft.com/ws/2008/06/identity/claims/role',
+    'http://schemas.xmlsoap.org/ws/2005/05/identity/claims/role'
+  ];
+  
+  // First try exact matches
+  for (const key of possibleKeys) {
+    const value = (claims as any)[key];
+    if (value) {
+      if (Array.isArray(value)) {
+        const firstRole = value[0];
+        if (firstRole) return String(firstRole);
+      } else if (typeof value === 'string' || typeof value === 'number') {
+        return String(value);
+      }
+    }
+  }
+  
+  // Then try case-insensitive partial matches
+  const roleKey = Object.keys(claims).find(k => {
+    const lower = k.toLowerCase();
+    return lower.includes('role') || lower.includes('authority') || lower.includes('permission');
+  });
+  
+  if (roleKey) {
+    const raw = (claims as any)[roleKey];
+    if (raw) {
+      if (Array.isArray(raw)) return (raw[0] || '').toString();
+      return String(raw);
+    }
+  }
+  
+  return null;
 }

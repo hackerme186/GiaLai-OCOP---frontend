@@ -98,7 +98,7 @@ const FeaturedProducts = () => {
                     <svg
                       key={i}
                       className={`w-4 h-4 ${
-                        i < product.rating ? 'text-yellow-400' : 'text-gray-300'
+                        i < (product.rating || 0) ? 'text-yellow-400' : 'text-gray-300'
                       }`}
                       fill="currentColor"
                       viewBox="0 0 20 20"
