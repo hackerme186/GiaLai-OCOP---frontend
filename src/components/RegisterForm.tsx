@@ -29,7 +29,7 @@ export default function RegisterForm() {
     setLoading(true)
     try {
       const normalizedEmail = email.trim().toLowerCase()
-      const res = await register({ fullName: fullName.trim(), email: normalizedEmail, password }) as any
+      const res = await register({ name: fullName.trim(), email: normalizedEmail, password }) as any
       
       // Set authentication token (similar to login flow)
       if (res?.token) {

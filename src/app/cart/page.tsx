@@ -3,17 +3,45 @@
 import { useCart } from "@/lib/cart-context"
 import Image from "next/image"
 import Link from "next/link"
-import { useState } from "react"
+import { useMemo, useState } from "react"
 import Header from "@/components/layout/Header"
 import Footer from "@/components/layout/Footer"
 
 export default function CartPage() {
   const { cart, updateQuantity, removeFromCart, clearCart } = useCart()
   const [isClearing, setIsClearing] = useState(false)
+  const [couponInput, setCouponInput] = useState("")
+  const [appliedCoupon, setAppliedCoupon] = useState<{ code: string; percent: number } | null>(null)
+  const [couponError, setCouponError] = useState<string | null>(null)
+
+  const subtotal = cart.totalPrice
+  const shippingCost = 0
+  const discount = useMemo(() => {
+    if (!appliedCoupon) return 0
+    return Math.round(subtotal * appliedCoupon.percent)
+  }, [appliedCoupon, subtotal])
+  const grandTotal = Math.max(subtotal - discount, 0) + shippingCost
+
+  const handleApplyCoupon = () => {
+    const code = couponInput.trim().toUpperCase()
+    if (!code) {
+      setCouponError("Vui lòng nhập mã giảm giá")
+      return
+    }
+    if (code === "OCOP10") {
+      setAppliedCoupon({ code, percent: 0.1 })
+      setCouponError(null)
+    } else if (code === "OCOP15" && subtotal >= 500000) {
+      setAppliedCoupon({ code, percent: 0.15 })
+      setCouponError(null)
+    } else {
+      setAppliedCoupon(null)
+      setCouponError("Mã giảm giá không hợp lệ hoặc không đủ điều kiện")
+    }
+  }
 
   const handleClearCart = async () => {
     setIsClearing(true)
-    // Add a small delay for better UX
     await new Promise(resolve => setTimeout(resolve, 500))
     clearCart()
     setIsClearing(false)
@@ -165,23 +193,38 @@ export default function CartPage() {
             <div className="bg-white rounded-lg shadow-sm border p-6 sticky top-8">
               <h2 className="text-xl font-bold text-gray-900 mb-6">Tóm tắt đơn hàng</h2>
               
-              <div className="space-y-4">
-                <div className="flex justify-between">
-                  <span className="text-gray-600">Tạm tính:</span>
-                  <span className="font-medium">{cart.totalPrice.toLocaleString('vi-VN')} ₫</span>
+              <div className="space-y-4 text-sm">
+                <div className="border rounded-lg p-3 bg-gray-50">
+                  <p className="text-gray-600 mb-2">Mã giảm giá</p>
+                  <div className="flex gap-2">
+                    <input
+                      type="text"
+                      value={couponInput}
+                      onChange={(e) => setCouponInput(e.target.value)}
+                      placeholder="Nhập mã (ví dụ: OCOP10)"
+                      className="flex-1 rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-indigo-500 focus:ring-indigo-500"
+                    />
+                    <button
+                      onClick={handleApplyCoupon}
+                      className="px-3 py-2 rounded-md bg-gray-900 text-white text-sm font-semibold hover:bg-gray-800"
+                    >
+                      Áp dụng
+                    </button>
+                  </div>
+                  {couponError && <p className="text-xs text-red-600 mt-2">{couponError}</p>}
+                  {appliedCoupon && !couponError && (
+                    <p className="text-xs text-green-600 mt-2">
+                      Đã áp dụng mã {appliedCoupon.code} (-{appliedCoupon.percent * 100}%)
+                    </p>
+                  )}
                 </div>
-                
-                <div className="flex justify-between">
-                  <span className="text-gray-600">Phí vận chuyển:</span>
-                  <span className="font-medium text-green-600">Miễn phí</span>
-                </div>
-                
-                <div className="border-t pt-4">
-                  <div className="flex justify-between">
-                    <span className="text-lg font-bold text-gray-900">Tổng cộng:</span>
-                    <span className="text-lg font-bold text-gray-900">
-                      {cart.totalPrice.toLocaleString('vi-VN')} ₫
-                    </span>
+
+                <div className="space-y-2">
+                  <SummaryRow label="Tạm tính" value={subtotal} />
+                  <SummaryRow label="Giảm giá" value={-discount} highlight />
+                  <SummaryRow label="Vận chuyển" value={shippingCost} />
+                  <div className="border-t pt-4">
+                    <SummaryRow label="Tổng cộng" value={grandTotal} bold large />
                   </div>
                 </div>
               </div>
@@ -215,5 +258,29 @@ export default function CartPage() {
     </div>
       <Footer />
     </>
+  )
+}
+
+interface SummaryRowProps {
+  label: string
+  value: number
+  bold?: boolean
+  large?: boolean
+  highlight?: boolean
+}
+
+function SummaryRow({ label, value, bold, large, highlight }: SummaryRowProps) {
+  const formatted = `${value >= 0 ? "" : "-"}${Math.abs(value).toLocaleString("vi-VN")} ₫`
+  return (
+    <div className="flex justify-between text-sm">
+      <span className={`text-gray-600 ${bold ? "font-semibold text-gray-900" : ""}`}>{label}</span>
+      <span
+        className={`${
+          bold ? "font-semibold text-gray-900" : "text-gray-900"
+        } ${large ? "text-lg" : ""} ${highlight ? "text-green-600" : ""}`}
+      >
+        {formatted}
+      </span>
+    </div>
   )
 }

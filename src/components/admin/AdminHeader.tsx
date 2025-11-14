@@ -2,7 +2,7 @@
 
 import Image from "next/image"
 import { useRouter } from "next/navigation"
-import { useState, useEffect } from "react"
+import { useState, useEffect, useMemo } from "react"
 import { logout } from "@/lib/auth"
 import { getCurrentUser } from "@/lib/api"
 
@@ -17,6 +17,7 @@ export default function AdminHeader({ activeTab, onTabChange }: AdminHeaderProps
   const router = useRouter()
   const [userName, setUserName] = useState<string>("Admin")
   const [userEmail, setUserEmail] = useState<string>("")
+  const [userRole, setUserRole] = useState<string>("")
 
   useEffect(() => {
     const loadUserInfo = async () => {
@@ -24,6 +25,7 @@ export default function AdminHeader({ activeTab, onTabChange }: AdminHeaderProps
         const me = await getCurrentUser()
         setUserName((me.name || me.fullName || me.username || "Admin").toString())
         setUserEmail((me.email || "").toString())
+        setUserRole((me.role || "").toString())
       } catch {
         // Ignore errors
       }
@@ -38,13 +40,47 @@ export default function AdminHeader({ activeTab, onTabChange }: AdminHeaderProps
     }
   }
 
-  const tabs = [
-    { id: 'dashboard' as TabType, label: 'Tổng quan', icon: '📊' },
-    { id: 'enterprise-approval' as TabType, label: 'Duyệt đơn đăng ký DN', icon: '📅' },
-    { id: 'ocop-approval' as TabType, label: 'Duyệt sản phẩm OCOP', icon: '⭐' },
-    { id: 'categories' as TabType, label: 'Quản lý danh mục', icon: '📁' },
-    { id: 'reports' as TabType, label: 'Báo cáo toàn tỉnh', icon: '📉' },
+  const allTabs: Array<{ id: TabType; label: string; icon: string }> = [
+    { id: 'dashboard', label: 'Tổng quan', icon: '📊' },
+    { id: 'enterprise-approval', label: 'Duyệt đơn đăng ký DN', icon: '📅' },
+    { id: 'ocop-approval', label: 'Duyệt sản phẩm OCOP', icon: '⭐' },
+    { id: 'categories', label: 'Quản lý danh mục', icon: '📁' },
+    { id: 'reports', label: 'Báo cáo toàn tỉnh', icon: '📉' },
   ]
+
+  const roleNormalized = (userRole || "").toLowerCase()
+
+  const roleTabMap: Record<string, TabType[]> = {
+    systemadmin: ['dashboard', 'enterprise-approval', 'ocop-approval', 'categories', 'reports'],
+    enterpriseadmin: ['dashboard', 'ocop-approval'],
+    customer: ['dashboard'],
+  }
+
+  const visibleTabs = useMemo(() => {
+    const allowed = roleTabMap[roleNormalized] || roleTabMap.customer
+    return allTabs.filter(tab => allowed.includes(tab.id))
+  }, [allTabs, roleNormalized])
+
+  useEffect(() => {
+    if (visibleTabs.length === 0) return
+    const hasActive = visibleTabs.some(tab => tab.id === activeTab)
+    if (!hasActive) {
+      onTabChange(visibleTabs[0].id)
+    }
+  }, [visibleTabs, activeTab, onTabChange])
+
+  const roleLabel = useMemo(() => {
+    switch (roleNormalized) {
+      case 'systemadmin':
+        return 'Quản trị hệ thống'
+      case 'enterpriseadmin':
+        return 'Quản trị doanh nghiệp'
+      case 'customer':
+        return 'Khách hàng'
+      default:
+        return userRole || 'Không xác định'
+    }
+  }, [roleNormalized, userRole])
 
   return (
     <header className="bg-white shadow-sm sticky top-0 z-50">
@@ -73,6 +109,9 @@ export default function AdminHeader({ activeTab, onTabChange }: AdminHeaderProps
               {userEmail && (
                 <p className="text-xs text-gray-500">{userEmail}</p>
               )}
+              {roleLabel && (
+                <p className="text-xs text-indigo-600 font-semibold">{roleLabel}</p>
+              )}
             </div>
             <div className="w-10 h-10 rounded-full bg-indigo-100 flex items-center justify-center">
               <span className="text-indigo-600 text-lg">👤</span>
@@ -88,15 +127,14 @@ export default function AdminHeader({ activeTab, onTabChange }: AdminHeaderProps
 
         {/* Navigation Tabs */}
         <div className="flex flex-wrap">
-          {tabs.map((tab) => (
+          {visibleTabs.map((tab) => (
             <button
               key={tab.id}
               onClick={() => onTabChange(tab.id)}
-              className={`px-6 py-4 text-sm font-medium transition-all border-b-2 ${
-                activeTab === tab.id
+              className={`px-6 py-4 text-sm font-medium transition-all border-b-2 ${activeTab === tab.id
                   ? 'border-indigo-600 text-indigo-600 bg-indigo-50'
                   : 'border-transparent text-gray-600 hover:text-gray-900 hover:bg-gray-50'
-              }`}
+                }`}
             >
               <span className="mr-2 text-base">{tab.icon}</span>
               {tab.label}
