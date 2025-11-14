@@ -132,8 +132,8 @@ export default function AdminHeader({ activeTab, onTabChange }: AdminHeaderProps
               key={tab.id}
               onClick={() => onTabChange(tab.id)}
               className={`px-6 py-4 text-sm font-medium transition-all border-b-2 ${activeTab === tab.id
-                  ? 'border-indigo-600 text-indigo-600 bg-indigo-50'
-                  : 'border-transparent text-gray-600 hover:text-gray-900 hover:bg-gray-50'
+                ? 'border-indigo-600 text-indigo-600 bg-indigo-50'
+                : 'border-transparent text-gray-600 hover:text-gray-900 hover:bg-gray-50'
                 }`}
             >
               <span className="mr-2 text-base">{tab.icon}</span>
