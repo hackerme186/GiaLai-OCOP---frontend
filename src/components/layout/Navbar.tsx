@@ -6,6 +6,7 @@ import { getUserProfile, isLoggedIn, logout } from '@/lib/auth'
 import { getCurrentUser } from '@/lib/api'
 import { useCart } from '@/lib/cart-context'
 import { FormEvent, useEffect, useState } from 'react'
+import UserDropdown from '@/components/UserDropdown'
 
 const Navbar = () => {
   const router = useRouter()
@@ -162,39 +163,8 @@ const Navbar = () => {
               {/* Account Area */}
               {loggedIn ? (
                 <>
-                  {/* Nút Đăng ký OCOP nổi bật */}
-                  <Link 
-                    href="/ocop-register"
-                    className="bg-green-600 text-white px-4 py-2 rounded-md text-sm font-medium hover:bg-green-700 transition-colors flex items-center whitespace-nowrap"
-                  >
-                    Đăng ký OCOP
-                  </Link>
-                  {isAdmin && (
-                    <Link 
-                      href="/admin"
-                      className="text-gray-700 hover:text-gray-900 px-2 py-2 rounded-md text-sm font-medium whitespace-nowrap"
-                    >
-                      Admin
-                    </Link>
-                  )}
-                  
-                  <Link href="/account" className="flex items-center gap-2 text-gray-700 hover:text-gray-900">
-                    <div className="w-7 h-7 rounded-full overflow-hidden bg-gray-200 flex items-center justify-center">
-                      {profile.avatarUrl ? (
-                        <Image src={profile.avatarUrl} alt={profile.name || 'avatar'} width={28} height={28} />
-                      ) : (
-                        <span className="text-sm">👤</span>
-                      )}
-                    </div>
-                    <span className="text-sm font-medium max-w-[160px] truncate">{profile.name || 'Account'}</span>
-                  </Link>
-                  
-                  <button
-                    onClick={() => { logout(); router.replace('/'); }}
-                    className="text-gray-500 hover:text-gray-900 px-3 py-2 rounded-md text-sm font-medium flex items-center whitespace-nowrap"
-                  >
-                    Đăng xuất
-                  </button>
+                  {/* User Dropdown - includes OCOP register, profile, admin, logout */}
+                  <UserDropdown profile={profile} isAdmin={isAdmin} />
                 </>
               ) : (
                 <>
