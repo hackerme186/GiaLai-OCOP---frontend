@@ -17,6 +17,7 @@ const Navbar = () => {
   const [profile, setProfile] = useState(getUserProfile() || {})
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false)
   const [isAdmin, setIsAdmin] = useState(false)
+  const [isEnterpriseAdmin, setIsEnterpriseAdmin] = useState(false)
   const [userDropdownOpen, setUserDropdownOpen] = useState(false)
   const userDropdownRef = useRef<HTMLDivElement>(null)
 
