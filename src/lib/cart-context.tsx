@@ -3,6 +3,16 @@
 import React, { createContext, useContext, useReducer, useEffect } from "react"
 import { CartItem, Cart, CartContextType, calculateCartTotal } from "@/lib/cart"
 import { Product } from "@/lib/api"
+import { getUserProfile, getAuthToken } from "@/lib/auth"
+
+// Helper để lấy cart key theo userId
+function getCartKey(userId?: number | null): string {
+  if (userId) {
+    return `cart_${userId}`
+  }
+  // Fallback cho guest cart (sẽ được clear khi login)
+  return 'cart_guest'
+}
 
 // Cart Actions
 type CartAction =
@@ -10,7 +20,7 @@ type CartAction =
   | { type: 'REMOVE_FROM_CART'; payload: { productId: number } }
   | { type: 'UPDATE_QUANTITY'; payload: { productId: number; quantity: number } }
   | { type: 'CLEAR_CART' }
-  | { type: 'LOAD_CART'; payload: { items: CartItem[] } }
+  | { type: 'LOAD_CART'; payload: { items: CartItem[]; userId?: number | null } }
 
 // Initial state
 const initialState: Cart = {
@@ -100,30 +110,88 @@ const CartContext = createContext<CartContextType | undefined>(undefined)
 // Cart Provider Component
 export function CartProvider({ children }: { children: React.ReactNode }) {
   const [cart, dispatch] = useReducer(cartReducer, initialState)
+  const [currentUserId, setCurrentUserId] = React.useState<number | null>(null)
 
-  // Load cart from localStorage on mount
+  // Load current user ID and cart when user changes
   useEffect(() => {
-    // Only access localStorage on client side
     if (typeof window === 'undefined') return
     
-    const savedCart = localStorage.getItem('cart')
-    if (savedCart) {
+    const loadUserCart = async () => {
       try {
-        const parsedCart = JSON.parse(savedCart)
-        dispatch({ type: 'LOAD_CART', payload: { items: parsedCart.items || [] } })
+        const token = getAuthToken()
+        if (!token || token === '1') {
+          // No user logged in - clear cart if was from previous user
+          if (currentUserId !== null) {
+            setCurrentUserId(null)
+            dispatch({ type: 'CLEAR_CART' })
+          }
+          return
+        }
+
+        const profile = getUserProfile()
+        const userId = profile?.id || null
+        
+        // If user changed, clear old cart and load new user's cart
+        if (userId !== currentUserId) {
+          setCurrentUserId(userId)
+          
+          // Load cart for this specific user
+          const cartKey = getCartKey(userId)
+          const savedCart = localStorage.getItem(cartKey)
+          
+          if (savedCart) {
+            try {
+              const parsedCart = JSON.parse(savedCart)
+              dispatch({ type: 'LOAD_CART', payload: { items: parsedCart.items || [], userId } })
+            } catch (error) {
+              console.error('Error loading cart from localStorage:', error)
+              dispatch({ type: 'LOAD_CART', payload: { items: [], userId } })
+            }
+          } else {
+            // No saved cart for this user - start fresh
+            dispatch({ type: 'LOAD_CART', payload: { items: [], userId } })
+          }
+          
+          // Clear guest cart if exists (migration)
+          const guestCart = localStorage.getItem('cart')
+          if (guestCart && userId) {
+            localStorage.removeItem('cart')
+          }
+        }
       } catch (error) {
-        console.error('Error loading cart from localStorage:', error)
+        console.error('Error loading user cart:', error)
       }
     }
-  }, [])
+    
+    loadUserCart()
+    
+    // Listen for storage changes (when user logs in/out in another tab)
+    const handleStorageChange = () => {
+      loadUserCart()
+    }
+    
+    window.addEventListener('storage', handleStorageChange)
+    // Also check on focus (user might have logged in/out in another tab)
+    window.addEventListener('focus', loadUserCart)
+    
+    return () => {
+      window.removeEventListener('storage', handleStorageChange)
+      window.removeEventListener('focus', loadUserCart)
+    }
+  }, [currentUserId])
 
-  // Save cart to localStorage whenever cart changes
+  // Save cart to localStorage whenever cart changes (with user-specific key)
   useEffect(() => {
-    // Only access localStorage on client side
     if (typeof window === 'undefined') return
     
-    localStorage.setItem('cart', JSON.stringify(cart))
-  }, [cart])
+    if (currentUserId) {
+      const cartKey = getCartKey(currentUserId)
+      localStorage.setItem(cartKey, JSON.stringify(cart))
+    } else {
+      // Guest cart (temporary, will be cleared on login)
+      localStorage.setItem('cart_guest', JSON.stringify(cart))
+    }
+  }, [cart, currentUserId])
 
   const addToCart = (product: Product, quantity: number = 1) => {
     dispatch({ type: 'ADD_TO_CART', payload: { product, quantity } })
