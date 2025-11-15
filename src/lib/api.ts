@@ -530,6 +530,7 @@ export async function getProducts(params?: {
   status?: string;
   categoryId?: number;
   search?: string;
+  q?: string; // Alternative search parameter
   enterpriseId?: number;
 }): Promise<Product[]> {
   const searchParams = new URLSearchParams();
@@ -537,14 +538,72 @@ export async function getProducts(params?: {
   if (params?.pageSize) searchParams.append('pageSize', String(params.pageSize));
   if (params?.status) searchParams.append('status', params.status);
   if (params?.categoryId) searchParams.append('categoryId', String(params.categoryId));
-  if (params?.search) searchParams.append('search', params.search);
+  
+  // Support both 'search' and 'q' parameters (BE may use either)
+  // If both are provided, prefer 'q', otherwise use whichever is provided
+  const searchTerm = params?.q || params?.search;
+  if (searchTerm) {
+    // Try 'q' parameter first (more common in REST APIs)
+    if (params?.q) {
+      searchParams.append('q', params.q);
+    }
+    // Also try 'search' if provided (some APIs use this)
+    if (params?.search && !params?.q) {
+      searchParams.append('search', params.search);
+    }
+  }
   if (params?.enterpriseId) searchParams.append('enterpriseId', String(params.enterpriseId));
   
   const query = searchParams.toString();
-  return request<Product[]>(`/products${query ? '?' + query : ''}`, {
+  const url = `/products${query ? '?' + query : ''}`;
+  
+  // Debug: Log the API call
+  if (params?.search || params?.q) {
+    console.log('🔍 API Call:', { 
+      fullUrl: `${API_BASE_URL}${url}`, 
+      searchTerm: params?.search || params?.q,
+      params: { q: params?.q, search: params?.search }
+    });
+  }
+  
+  const response = await request<Product[] | { products?: Product[]; items?: Product[]; data?: Product[] }>(url, {
     method: "GET",
-    // silent: false - Show full errors for debugging
   });
+  
+  // Debug: Log the response
+  if (params?.search || params?.q) {
+    const resultCount = Array.isArray(response) ? response.length : 
+      (response && typeof response === 'object' ? 
+        ((response as any).products?.length || (response as any).items?.length || (response as any).data?.length || 0) : 0);
+    console.log('✅ API Response:', { 
+      searchTerm: params?.search || params?.q, 
+      count: resultCount,
+      responseType: Array.isArray(response) ? 'array' : typeof response,
+      responseKeys: response && typeof response === 'object' ? Object.keys(response) : []
+    });
+  }
+
+  // Normalize response: handle both array and object formats
+  if (Array.isArray(response)) {
+    return response;
+  }
+  
+  if (response && typeof response === 'object') {
+    const obj = response as any;
+    if (Array.isArray(obj.products)) {
+      return obj.products;
+    }
+    if (Array.isArray(obj.items)) {
+      return obj.items;
+    }
+    if (Array.isArray(obj.data)) {
+      return obj.data;
+    }
+  }
+  
+  // Fallback: return empty array if response format is unexpected
+  console.warn('⚠️ Unexpected products response format:', response);
+  return [];
 }
 
 export async function getProduct(id: number, options?: { silent?: boolean }): Promise<Product> {
