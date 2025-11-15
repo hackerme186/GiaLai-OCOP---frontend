@@ -5,7 +5,7 @@ import { useRouter } from 'next/navigation'
 import { getUserProfile, isLoggedIn, logout } from '@/lib/auth'
 import { getCurrentUser } from '@/lib/api'
 import { useCart } from '@/lib/cart-context'
-import { FormEvent, useEffect, useState } from 'react'
+import { FormEvent, useEffect, useState, useRef } from 'react'
 
 const Navbar = () => {
   const router = useRouter()
@@ -16,6 +16,25 @@ const Navbar = () => {
   const [profile, setProfile] = useState(getUserProfile() || {})
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false)
   const [isAdmin, setIsAdmin] = useState(false)
+  const [userDropdownOpen, setUserDropdownOpen] = useState(false)
+  const userDropdownRef = useRef<HTMLDivElement>(null)
+
+  // Close dropdown when clicking outside
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (userDropdownRef.current && !userDropdownRef.current.contains(event.target as Node)) {
+        setUserDropdownOpen(false)
+      }
+    }
+
+    if (userDropdownOpen) {
+      document.addEventListener('mousedown', handleClickOutside)
+    }
+
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside)
+    }
+  }, [userDropdownOpen])
 
   useEffect(() => {
     setMounted(true)
@@ -178,23 +197,87 @@ const Navbar = () => {
                     </Link>
                   )}
                   
-                  <Link href="/account" className="flex items-center gap-2 text-gray-700 hover:text-gray-900">
-                    <div className="w-7 h-7 rounded-full overflow-hidden bg-gray-200 flex items-center justify-center">
-                      {profile.avatarUrl ? (
-                        <Image src={profile.avatarUrl} alt={profile.name || 'avatar'} width={28} height={28} />
-                      ) : (
-                        <span className="text-sm">👤</span>
-                      )}
-                    </div>
-                    <span className="text-sm font-medium max-w-[160px] truncate">{profile.name || 'Account'}</span>
-                  </Link>
-                  
-                  <button
-                    onClick={() => { logout(); router.replace('/'); }}
-                    className="text-gray-500 hover:text-gray-900 px-3 py-2 rounded-md text-sm font-medium flex items-center whitespace-nowrap"
-                  >
-                    Đăng xuất
-                  </button>
+                  {/* User Profile Dropdown */}
+                  <div className="relative" ref={userDropdownRef}>
+                    <button
+                      onClick={() => setUserDropdownOpen(!userDropdownOpen)}
+                      className="flex items-center gap-2 px-2 py-1.5 rounded-lg text-gray-700 hover:bg-gray-100 transition-colors"
+                    >
+                      <div className="w-8 h-8 rounded-full overflow-hidden bg-gradient-to-br from-gray-200 to-gray-300 flex items-center justify-center border-2 border-gray-300 shadow-sm">
+                        {profile.avatarUrl ? (
+                          <Image src={profile.avatarUrl} alt={profile.name || 'avatar'} width={32} height={32} className="object-cover" />
+                        ) : (
+                          <span className="text-base">👤</span>
+                        )}
+                      </div>
+                      <span className="text-sm font-semibold max-w-[140px] truncate text-gray-900">{profile.name || 'Account'}</span>
+                      <svg 
+                        className={`w-4 h-4 text-gray-500 transition-transform duration-200 ${userDropdownOpen ? 'rotate-180' : ''}`}
+                        fill="none" 
+                        viewBox="0 0 24 24" 
+                        stroke="currentColor"
+                      >
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                      </svg>
+                    </button>
+
+                    {/* Dropdown Menu */}
+                    {userDropdownOpen && (
+                      <div className="absolute right-0 mt-3 w-56 bg-white rounded-lg shadow-2xl border border-gray-200 z-[100] overflow-hidden transform transition-all duration-200">
+                        {/* Arrow pointing up */}
+                        <div className="absolute -top-2 right-6 w-4 h-4 bg-white border-l border-t border-gray-200 transform rotate-45 shadow-sm"></div>
+                        
+                        {/* Menu Items */}
+                        <div className="py-2">
+                          <Link
+                            href="/account"
+                            onClick={() => setUserDropdownOpen(false)}
+                            className="flex items-center gap-3 px-4 py-3 text-sm text-gray-700 hover:bg-gray-50 transition-colors cursor-pointer group"
+                          >
+                            <div className="w-5 h-5 flex items-center justify-center text-gray-400 group-hover:text-indigo-600 transition-colors">
+                              <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
+                              </svg>
+                            </div>
+                            <span className="font-medium text-gray-900 group-hover:text-indigo-600 transition-colors">Tài Khoản Của Tôi</span>
+                          </Link>
+                          
+                          <Link
+                            href="/orders"
+                            onClick={() => setUserDropdownOpen(false)}
+                            className="flex items-center gap-3 px-4 py-3 text-sm text-gray-700 hover:bg-gray-50 transition-colors cursor-pointer group"
+                          >
+                            <div className="w-5 h-5 flex items-center justify-center text-gray-400 group-hover:text-indigo-600 transition-colors">
+                              <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" />
+                              </svg>
+                            </div>
+                            <span className="font-medium text-gray-900 group-hover:text-indigo-600 transition-colors">Đơn Mua</span>
+                          </Link>
+                          
+                          <div className="border-t border-gray-200 my-1"></div>
+                          
+                          <button
+                            onClick={() => {
+                              setUserDropdownOpen(false)
+                              if (confirm('Bạn có chắc chắn muốn đăng xuất?')) {
+                                logout()
+                                router.replace('/')
+                              }
+                            }}
+                            className="w-full flex items-center gap-3 px-4 py-3 text-sm text-red-600 hover:bg-red-50 transition-colors group"
+                          >
+                            <div className="w-5 h-5 flex items-center justify-center text-red-500">
+                              <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />
+                              </svg>
+                            </div>
+                            <span className="font-medium">Đăng Xuất</span>
+                          </button>
+                        </div>
+                      </div>
+                    )}
+                  </div>
                 </>
               ) : (
                 <>

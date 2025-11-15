@@ -6,6 +6,7 @@ import Link from "next/link"
 import { useMemo, useState } from "react"
 import Header from "@/components/layout/Header"
 import Footer from "@/components/layout/Footer"
+import CheckoutModal from "@/components/cart/CheckoutModal"
 
 export default function CartPage() {
   const { cart, updateQuantity, removeFromCart, clearCart } = useCart()
@@ -13,6 +14,7 @@ export default function CartPage() {
   const [couponInput, setCouponInput] = useState("")
   const [appliedCoupon, setAppliedCoupon] = useState<{ code: string; percent: number } | null>(null)
   const [couponError, setCouponError] = useState<string | null>(null)
+  const [showCheckoutModal, setShowCheckoutModal] = useState(false)
 
   const subtotal = cart.totalPrice
   const shippingCost = 0
@@ -230,7 +232,10 @@ export default function CartPage() {
               </div>
 
               <div className="mt-6 space-y-3">
-                <button className="w-full bg-indigo-600 text-white py-3 rounded-lg font-medium hover:bg-indigo-700 transition-colors">
+                <button 
+                  onClick={() => setShowCheckoutModal(true)}
+                  className="w-full bg-indigo-600 text-white py-3 rounded-lg font-medium hover:bg-indigo-700 transition-colors"
+                >
                   Thanh toán ngay
                 </button>
                 
@@ -257,6 +262,18 @@ export default function CartPage() {
       </div>
     </div>
       <Footer />
+      
+      {/* Checkout Modal */}
+      <CheckoutModal
+        isOpen={showCheckoutModal}
+        onClose={() => setShowCheckoutModal(false)}
+        cartItems={cart.items}
+        totalAmount={grandTotal}
+        onOrderCreated={() => {
+          clearCart()
+          setShowCheckoutModal(false)
+        }}
+      />
     </>
   )
 }

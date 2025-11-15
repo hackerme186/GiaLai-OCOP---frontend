@@ -26,7 +26,7 @@ async function request<TResponse>(
 
   // Attach bearer token if available
   try {
-    const token = getAuthToken?.();
+    const token = getAuthToken();
     if (token) {
       (headers as any)["Authorization"] = `Bearer ${token}`;
     }
@@ -78,6 +78,24 @@ async function request<TResponse>(
     if (!bodyMessage && !isJson && typeof data === 'string') {
       bodyMessage = data as string;
     }
+    
+    // Handle 401 Unauthorized with a clear error message
+    if (response.status === 401) {
+      // Clear invalid token
+      if (typeof window !== "undefined") {
+        try {
+          const { logout } = require("@/lib/auth");
+          logout();
+        } catch {
+          // ignore if logout not available
+        }
+      }
+      const authError = new Error("Phiên đăng nhập đã hết hạn hoặc không hợp lệ. Vui lòng đăng nhập lại.");
+      (authError as any).status = 401;
+      (authError as any).isAuthError = true;
+      throw authError;
+    }
+    
     const message = `${response.status} ${response.statusText} ${bodyMessage ? "- " + bodyMessage : ""}`.trim();
     throw new Error(message);
   }
@@ -115,7 +133,13 @@ export interface User {
   email: string;
   role: string; // "Customer" | "EnterpriseAdmin" | "SystemAdmin"
   enterpriseId?: number;
+  shippingAddress?: string;
   createdAt?: string;
+}
+
+export interface UpdateUserDto {
+  name?: string;
+  shippingAddress?: string;
 }
 
 // Category
@@ -267,9 +291,12 @@ export interface OrderItem {
   orderId: number;
   productId: number;
   productName?: string;
+  productImageUrl?: string;
   quantity: number;
   price: number;
   total?: number;
+  enterpriseId?: number;
+  enterpriseName?: string;
 }
 
 export interface Order {
@@ -293,6 +320,7 @@ export interface CreateOrderDto {
     productId: number;
     quantity: number;
   }>;
+  paymentMethod?: "COD" | "BankTransfer";
 }
 
 export interface UpdateOrderStatusDto {
@@ -451,6 +479,13 @@ export async function getUsers(): Promise<User[]> {
 export async function getUser(id: number): Promise<User> {
   return request<User>(`/users/${id}`, {
     method: "GET",
+  });
+}
+
+export async function updateCurrentUser(payload: UpdateUserDto): Promise<User> {
+  return request<User>("/users/me", {
+    method: "PUT",
+    json: payload,
   });
 }
 
