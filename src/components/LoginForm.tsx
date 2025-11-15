@@ -22,7 +22,8 @@ export default function LoginForm() {
       const res = await login({ email, password }) as any
       
       // Extract token from various possible response structures
-      const token = res?.token || res?.data?.token || res?.accessToken || res?.access_token
+      // Backend trả về Token (chữ hoa) nên cần check cả Token và token
+      const token = res?.Token || res?.token || res?.data?.Token || res?.data?.token || res?.accessToken || res?.access_token
       
       if (!token) {
         throw new Error("Không nhận được token từ server")
