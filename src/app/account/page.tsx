@@ -16,9 +16,13 @@ export default function AccountPage() {
   const [error, setError] = useState<string | null>(null)
   const [success, setSuccess] = useState<string | null>(null)
   const [isEditingAddress, setIsEditingAddress] = useState(false)
+  const [isEditingProfile, setIsEditingProfile] = useState(false)
   const [shippingAddress, setShippingAddress] = useState("")
+  const [name, setName] = useState("")
+  const [email, setEmail] = useState("")
   const [loadingAddress, setLoadingAddress] = useState(false)
   const [saving, setSaving] = useState(false)
+  const [savingProfile, setSavingProfile] = useState(false)
 
   useEffect(() => {
     const init = async () => {
@@ -32,17 +36,22 @@ export default function AccountPage() {
         const me = await getCurrentUser()
         setUser(me)
         setShippingAddress(me.shippingAddress || "")
+        setName(me.name || "")
+        setEmail(me.email || "")
       } catch {
         const profile = getUserProfile() || {}
-        setUser({
+        const userData = {
           id: profile.id ?? 0,
           name: profile.name || "",
           email: profile.email || "",
           role: profile.role || "Customer",
           enterpriseId: profile.enterpriseId ?? undefined,
           createdAt: profile.createdAt,
-        } as User)
+        } as User
+        setUser(userData)
         setShippingAddress("")
+        setName(userData.name || "")
+        setEmail(userData.email || "")
       } finally {
         setReady(true)
       }
@@ -140,6 +149,30 @@ export default function AccountPage() {
     }
   }
 
+  const handleSaveProfile = async () => {
+    if (!name.trim()) {
+      setError("Vui lòng nhập họ và tên")
+      return
+    }
+
+    setSavingProfile(true)
+    setError(null)
+    setSuccess(null)
+
+    try {
+      const updatedUser = await updateCurrentUser({ name: name.trim() })
+      setUser(updatedUser)
+      setIsEditingProfile(false)
+      setSuccess("Đã cập nhật thông tin hồ sơ thành công!")
+      setTimeout(() => setSuccess(null), 3000)
+    } catch (err) {
+      const errorMessage = err instanceof Error ? err.message : "Không thể cập nhật thông tin hồ sơ"
+      setError(errorMessage)
+    } finally {
+      setSavingProfile(false)
+    }
+  }
+
   if (!ready) {
     return (
       <>
@@ -213,22 +246,102 @@ export default function AccountPage() {
             {/* Basic Information Section */}
             <section className="bg-white rounded-2xl shadow-lg border border-gray-100 overflow-hidden">
               <div className="bg-gradient-to-r from-indigo-600 to-purple-600 px-6 py-4">
-                <div className="flex items-center gap-3">
-                  <div className="w-10 h-10 bg-white/20 rounded-lg flex items-center justify-center">
-                    <svg className="w-6 h-6 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
-                    </svg>
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-3">
+                    <div className="w-10 h-10 bg-white/20 rounded-lg flex items-center justify-center">
+                      <svg className="w-6 h-6 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
+                      </svg>
+                    </div>
+                    <h2 className="text-xl font-bold text-white">Thông tin cơ bản</h2>
                   </div>
-                  <h2 className="text-xl font-bold text-white">Thông tin cơ bản</h2>
+                  {!isEditingProfile && (
+                    <button
+                      onClick={() => setIsEditingProfile(true)}
+                      className="px-4 py-2 text-sm font-semibold text-white bg-white/20 rounded-lg hover:bg-white/30 transition-colors backdrop-blur-sm"
+                    >
+                      Chỉnh sửa
+                    </button>
+                  )}
                 </div>
               </div>
               <div className="p-6">
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                  <InfoField label="Họ và tên" value={user?.name} icon="user" />
-                  <InfoField label="Email" value={user?.email} icon="email" />
-                  <InfoField label="Vai trò" value={roleLabel} badge icon="role" />
-                  <InfoField label="Ngày tạo" value={formattedCreatedAt || "(chưa xác định)"} icon="calendar" />
-                </div>
+                {isEditingProfile ? (
+                  <div className="space-y-5">
+                    <div>
+                      <label htmlFor="name" className="block text-sm font-semibold text-gray-900 mb-3 flex items-center gap-2">
+                        <svg className="w-4 h-4 text-indigo-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
+                        </svg>
+                        Họ và tên <span className="text-red-500">*</span>
+                      </label>
+                      <input
+                        id="name"
+                        type="text"
+                        value={name}
+                        onChange={(e) => setName(e.target.value)}
+                        placeholder="Nhập họ và tên"
+                        className="w-full rounded-xl border-2 border-gray-200 px-4 py-3 text-sm text-gray-900 font-medium placeholder:text-gray-400 focus:border-indigo-500 focus:ring-2 focus:ring-indigo-200 focus:outline-none transition-all bg-gray-50"
+                        required
+                      />
+                    </div>
+                    <div>
+                      <label htmlFor="email" className="block text-sm font-semibold text-gray-900 mb-3 flex items-center gap-2">
+                        <svg className="w-4 h-4 text-indigo-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
+                        </svg>
+                        Email
+                      </label>
+                      <input
+                        id="email"
+                        type="email"
+                        value={email}
+                        disabled
+                        className="w-full rounded-xl border-2 border-gray-200 px-4 py-3 text-sm text-gray-500 font-medium bg-gray-100 cursor-not-allowed"
+                      />
+                      <p className="mt-2 text-xs text-gray-500">Email không thể thay đổi</p>
+                    </div>
+                    <div className="flex gap-3 pt-2">
+                      <button
+                        onClick={handleSaveProfile}
+                        disabled={savingProfile || !name.trim()}
+                        className="flex-1 px-4 py-3 text-sm font-semibold text-white bg-gradient-to-r from-indigo-600 to-purple-600 rounded-xl hover:from-indigo-700 hover:to-purple-700 transition-all shadow-lg hover:shadow-xl disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:shadow-lg flex items-center justify-center gap-2"
+                      >
+                        {savingProfile ? (
+                          <>
+                            <div className="animate-spin rounded-full h-4 w-4 border-2 border-white border-t-transparent"></div>
+                            <span>Đang lưu...</span>
+                          </>
+                        ) : (
+                          <>
+                            <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                            </svg>
+                            <span>Lưu thông tin</span>
+                          </>
+                        )}
+                      </button>
+                      <button
+                        onClick={() => {
+                          setIsEditingProfile(false)
+                          setName(user?.name || "")
+                          setError(null)
+                        }}
+                        disabled={savingProfile}
+                        className="px-6 py-3 text-sm font-semibold text-gray-700 bg-gray-100 rounded-xl hover:bg-gray-200 transition-colors disabled:opacity-50"
+                      >
+                        Hủy
+                      </button>
+                    </div>
+                  </div>
+                ) : (
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    <InfoField label="Họ và tên" value={user?.name} icon="user" />
+                    <InfoField label="Email" value={user?.email} icon="email" />
+                    <InfoField label="Vai trò" value={roleLabel} badge icon="role" />
+                    <InfoField label="Ngày tạo" value={formattedCreatedAt || "(chưa xác định)"} icon="calendar" />
+                  </div>
+                )}
               </div>
             </section>
 

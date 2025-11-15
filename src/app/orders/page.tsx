@@ -7,7 +7,7 @@ import Header from "@/components/layout/Header"
 import Footer from "@/components/layout/Footer"
 import { useRouter } from "next/navigation"
 import { isLoggedIn } from "@/lib/auth"
-import { getOrders, updateOrderStatus, getProduct, type Order, type Product } from "@/lib/api"
+import { getOrders, updateOrderStatus, getProduct, createPayment, deleteOrder, getOrder, type Order, type Product } from "@/lib/api"
 import { useCart } from "@/lib/cart-context"
 
 export default function OrdersPage() {
@@ -215,6 +215,7 @@ export default function OrdersPage() {
                                 order={order}
                                 onCancelled={(message) => {
                                     setSuccessMessage(message)
+                                    // Remove order from list immediately after cancellation/deletion
                                     setOrders((prev) => prev.filter((o) => o.id !== order.id))
                                 }}
                             />
@@ -249,8 +250,13 @@ function OrderCard({ order, onCancelled }: OrderCardProps) {
             if (!order.orderItems || order.orderItems.length === 0) return
             setLoadingProducts(true)
             try {
+                // Load products with silent error handling to avoid UI crash when backend is unavailable
                 const productPromises = order.orderItems.map(item => 
-                    getProduct(item.productId).catch(() => null)
+                    getProduct(item.productId, { silent: true }).catch((err) => {
+                        // Silently handle errors - backend might be unavailable
+                        console.debug(`Could not load product ${item.productId}:`, err)
+                        return null
+                    })
                 )
                 const productResults = await Promise.all(productPromises)
                 const productMap = new Map<number, Product>()
@@ -261,7 +267,8 @@ function OrderCard({ order, onCancelled }: OrderCardProps) {
                 })
                 setProducts(productMap)
             } catch (err) {
-                console.error("Failed to load products:", err)
+                // Silently handle errors - don't crash the UI
+                console.debug("Failed to load products (backend might be unavailable):", err)
             } finally {
                 setLoadingProducts(false)
             }
@@ -467,9 +474,26 @@ function OrderCard({ order, onCancelled }: OrderCardProps) {
                 <button className="px-4 py-2 text-sm font-semibold text-gray-700 bg-white border border-gray-300 rounded hover:bg-gray-50 transition-colors">
                     Liên Hệ Người Bán
                 </button>
-                {order.status === "Pending" && (
-                    <CancelOrderButton order={order} onCancelled={onCancelled} />
-                )}
+                {/* Only show payment and cancel buttons when order is Pending (not yet confirmed by enterprise) */}
+                {(() => {
+                    // Logic: Customer can cancel order ONLY when enterprise has NOT confirmed yet
+                    // When enterprise confirms, status changes from "Pending" to "Processing", "Shipped", etc.
+                    const normalizedStatus = (order.status || "").toLowerCase().trim()
+                    
+                    // Order can be cancelled if status is still "Pending" (enterprise hasn't confirmed yet)
+                    // Once status becomes "Processing", "Shipped", "Completed" → cannot cancel
+                    const canCancel = normalizedStatus === "pending"
+                    
+                    return canCancel ? (
+                        <>
+                            <PaymentMethodModal order={order} onPaymentCreated={() => {
+                                // Reload orders after payment
+                                window.location.reload()
+                            }} />
+                            <CancelOrderButton order={order} onCancelled={onCancelled} />
+                        </>
+                    ) : null
+                })()}
             </div>
         </div>
     )
@@ -554,13 +578,59 @@ function CancelOrderButton({ order, onCancelled }: CancelOrderButtonProps) {
     const [pending, setPending] = useState(false)
 
     const handleCancel = async () => {
-        if (!confirm("Bạn chắc chắn muốn hủy đơn hàng này?")) return
+        // Logic: Customer can cancel order ONLY when enterprise has NOT confirmed yet
+        // First, refresh order status from backend to ensure we have the latest status
+        let currentOrder = order
+        try {
+            const freshOrder = await getOrder(order.id)
+            currentOrder = freshOrder
+        } catch (refreshErr) {
+            console.warn("Could not refresh order status, using cached status:", refreshErr)
+        }
+        
+        // Check if order is still in Pending status (not yet confirmed by enterprise)
+        const normalizedStatus = (currentOrder.status || "").toLowerCase().trim()
+        
+        // If status is not "Pending", it means enterprise has already confirmed/processed the order
+        if (normalizedStatus !== "pending") {
+            alert(`Không thể hủy đơn hàng này. Đơn hàng đã được doanh nghiệp xác nhận và đang được xử lý (Trạng thái: ${currentOrder.status}).`)
+            return
+        }
+
+        // Confirm with user that order will be permanently deleted
+        if (!confirm("Bạn chắc chắn muốn hủy đơn hàng này?\n\nĐơn hàng sẽ bị xóa vĩnh viễn khỏi hệ thống và không thể khôi phục.")) {
+            return
+        }
+        
         setPending(true)
         try {
-            await updateOrderStatus(order.id, { status: "Cancelled" })
-            onCancelled(`Đơn hàng #${order.id} đã được hủy thành công.`)
+            // Backend requires order to be in "Pending" status before deletion
+            // Delete the order directly (backend will handle the deletion)
+            // No need to update status to "Cancelled" first - just delete directly
+            await deleteOrder(order.id)
+            
+            // Notify parent component that order was cancelled and deleted
+            onCancelled(`Đơn hàng #${order.id} đã được hủy và xóa vĩnh viễn khỏi hệ thống.`)
         } catch (err) {
-            alert(err instanceof Error ? err.message : "Không thể hủy đơn hàng")
+            const errorMessage = err instanceof Error ? err.message : "Không thể hủy đơn hàng"
+            
+            // Check if error is about status
+            if (errorMessage.includes("400") || errorMessage.includes("Pending")) {
+                // Order status might have changed - refresh and check again
+                try {
+                    const freshOrder = await getOrder(order.id)
+                    const freshStatus = (freshOrder.status || "").toLowerCase().trim()
+                    if (freshStatus !== "pending") {
+                        alert(`Không thể hủy đơn hàng. Đơn hàng đã được doanh nghiệp xác nhận (Trạng thái hiện tại: ${freshOrder.status}).`)
+                    } else {
+                        alert(`Không thể xóa đơn hàng. Vui lòng thử lại sau.`)
+                    }
+                } catch (refreshErr) {
+                    alert(`Không thể xóa đơn hàng: ${errorMessage}`)
+                }
+            } else {
+                alert(`Không thể xóa đơn hàng: ${errorMessage}`)
+            }
         } finally {
             setPending(false)
         }
@@ -570,10 +640,171 @@ function CancelOrderButton({ order, onCancelled }: CancelOrderButtonProps) {
         <button
             onClick={handleCancel}
             disabled={pending}
-            className="inline-flex items-center justify-center rounded-md border border-red-300 px-4 py-2 text-sm font-semibold text-red-700 hover:bg-red-50 disabled:opacity-60"
+            className="inline-flex items-center justify-center rounded-md border border-red-300 px-4 py-2 text-sm font-semibold text-red-700 hover:bg-red-50 disabled:opacity-60 transition-colors"
         >
             {pending ? "Đang hủy..." : "Hủy đơn hàng"}
         </button>
+    )
+}
+
+interface PaymentMethodModalProps {
+    order: Order
+    onPaymentCreated: () => void
+}
+
+function PaymentMethodModal({ order, onPaymentCreated }: PaymentMethodModalProps) {
+    const router = useRouter()
+    const [isOpen, setIsOpen] = useState(false)
+    const [selectedMethod, setSelectedMethod] = useState<"COD" | "BankTransfer" | null>(null)
+    const [isProcessing, setIsProcessing] = useState(false)
+    const [error, setError] = useState<string | null>(null)
+
+    const handlePayment = async () => {
+        if (!selectedMethod) {
+            setError("Vui lòng chọn phương thức thanh toán")
+            return
+        }
+
+        setIsProcessing(true)
+        setError(null)
+
+        try {
+            // Create payment
+            await createPayment({
+                orderId: order.id,
+                method: selectedMethod,
+            })
+
+            // Redirect based on payment method
+            if (selectedMethod === "BankTransfer") {
+                router.push(`/payment/${order.id}?method=BankTransfer`)
+            } else {
+                // COD - just show success and reload
+                onPaymentCreated()
+                setIsOpen(false)
+            }
+        } catch (err) {
+            setError(err instanceof Error ? err.message : "Không thể tạo thanh toán")
+        } finally {
+            setIsProcessing(false)
+        }
+    }
+
+    return (
+        <>
+            <button
+                onClick={() => setIsOpen(true)}
+                className="px-4 py-2 text-sm font-semibold text-white bg-green-600 rounded hover:bg-green-700 transition-colors"
+            >
+                Thanh toán ngay
+            </button>
+
+            {isOpen && (
+                <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50 p-4">
+                    <div className="bg-white rounded-xl shadow-2xl max-w-md w-full p-6">
+                        <div className="flex items-center justify-between mb-6">
+                            <h2 className="text-xl font-bold text-gray-900">Chọn phương thức thanh toán</h2>
+                            <button
+                                onClick={() => {
+                                    setIsOpen(false)
+                                    setError(null)
+                                    setSelectedMethod(null)
+                                }}
+                                className="text-gray-400 hover:text-gray-600 transition-colors"
+                            >
+                                <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                                </svg>
+                            </button>
+                        </div>
+
+                        {error && (
+                            <div className="mb-4 p-3 bg-red-50 border border-red-200 text-red-700 rounded-lg text-sm">
+                                {error}
+                            </div>
+                        )}
+
+                        <div className="space-y-3 mb-6">
+                            <button
+                                onClick={() => setSelectedMethod("COD")}
+                                className={`w-full p-4 rounded-lg border-2 transition-all text-left ${
+                                    selectedMethod === "COD"
+                                        ? "border-green-600 bg-green-50"
+                                        : "border-gray-200 hover:border-gray-300"
+                                }`}
+                            >
+                                <div className="flex items-center gap-3">
+                                    <div className={`w-5 h-5 rounded-full border-2 flex items-center justify-center ${
+                                        selectedMethod === "COD" ? "border-green-600 bg-green-600" : "border-gray-300"
+                                    }`}>
+                                        {selectedMethod === "COD" && (
+                                            <div className="w-2 h-2 rounded-full bg-white"></div>
+                                        )}
+                                    </div>
+                                    <div className="flex-1">
+                                        <div className="font-semibold text-gray-900">Thanh toán khi nhận hàng (COD)</div>
+                                        <div className="text-sm text-gray-500 mt-1">Thanh toán bằng tiền mặt khi nhận hàng</div>
+                                    </div>
+                                </div>
+                            </button>
+
+                            <button
+                                onClick={() => setSelectedMethod("BankTransfer")}
+                                className={`w-full p-4 rounded-lg border-2 transition-all text-left ${
+                                    selectedMethod === "BankTransfer"
+                                        ? "border-green-600 bg-green-50"
+                                        : "border-gray-200 hover:border-gray-300"
+                                }`}
+                            >
+                                <div className="flex items-center gap-3">
+                                    <div className={`w-5 h-5 rounded-full border-2 flex items-center justify-center ${
+                                        selectedMethod === "BankTransfer" ? "border-green-600 bg-green-600" : "border-gray-300"
+                                    }`}>
+                                        {selectedMethod === "BankTransfer" && (
+                                            <div className="w-2 h-2 rounded-full bg-white"></div>
+                                        )}
+                                    </div>
+                                    <div className="flex-1">
+                                        <div className="font-semibold text-gray-900">Chuyển khoản ngân hàng</div>
+                                        <div className="text-sm text-gray-500 mt-1">Thanh toán qua QR code hoặc chuyển khoản</div>
+                                    </div>
+                                </div>
+                            </button>
+                        </div>
+
+                        <div className="bg-gray-50 rounded-lg p-4 mb-6">
+                            <div className="flex justify-between items-center">
+                                <span className="text-gray-600">Tổng tiền:</span>
+                                <span className="text-xl font-bold text-green-600">
+                                    {order.totalAmount.toLocaleString("vi-VN")}₫
+                                </span>
+                            </div>
+                        </div>
+
+                        <div className="flex gap-3">
+                            <button
+                                onClick={() => {
+                                    setIsOpen(false)
+                                    setError(null)
+                                    setSelectedMethod(null)
+                                }}
+                                disabled={isProcessing}
+                                className="flex-1 px-4 py-3 text-sm font-semibold text-gray-700 bg-gray-100 rounded-lg hover:bg-gray-200 transition-colors disabled:opacity-50"
+                            >
+                                Hủy
+                            </button>
+                            <button
+                                onClick={handlePayment}
+                                disabled={!selectedMethod || isProcessing}
+                                className="flex-1 px-4 py-3 text-sm font-semibold text-white bg-green-600 rounded-lg hover:bg-green-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                            >
+                                {isProcessing ? "Đang xử lý..." : "Xác nhận"}
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
+        </>
     )
 }
 

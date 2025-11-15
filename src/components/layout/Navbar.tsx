@@ -5,7 +5,7 @@ import { useRouter } from 'next/navigation'
 import { getUserProfile, isLoggedIn, logout } from '@/lib/auth'
 import { getCurrentUser } from '@/lib/api'
 import { useCart } from '@/lib/cart-context'
-import { FormEvent, useEffect, useState } from 'react'
+import { FormEvent, useEffect, useState, useRef } from 'react'
 import UserDropdown from '@/components/UserDropdown'
 
 const Navbar = () => {
