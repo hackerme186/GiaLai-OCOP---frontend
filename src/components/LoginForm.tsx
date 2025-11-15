@@ -63,13 +63,14 @@ export default function LoginForm() {
       // Normalize role for comparison
       const norm = role.toString().toLowerCase().trim()
       
-      // Check if user is admin
-      const isAdmin = norm === 'admin' || 
+      // Check roles
+      const isSystemAdmin = norm === 'systemadmin' || norm === 'sysadmin'
+      const isEnterpriseAdmin = norm === 'enterpriseadmin'
+      const isAdmin = isSystemAdmin || 
+                     norm === 'admin' || 
                      norm === 'administrator' || 
                      norm === 'role_admin' || 
-                     norm === 'admin_role' || 
-                     norm === 'sysadmin' ||
-                     norm.includes('admin')
+                     norm === 'admin_role'
       
       try {
         const profile = await getCurrentUser()
@@ -86,8 +87,10 @@ export default function LoginForm() {
       }
 
       // Redirect based on role
-      if (isAdmin) {
+      if (isSystemAdmin || isAdmin) {
         router.replace("/admin")
+      } else if (isEnterpriseAdmin) {
+        router.replace("/enterprise-admin")
       } else {
         router.replace("/home")
       }
