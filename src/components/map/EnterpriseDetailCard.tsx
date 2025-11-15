@@ -182,8 +182,8 @@ export default function EnterpriseDetailCard({ enterprise, onClose }: Enterprise
                                     key={tab.id}
                                     onClick={() => setActiveTab(tab.id as TabType)}
                                     className={`py-4 px-1 text-sm font-medium border-b-2 transition ${activeTab === tab.id
-                                            ? "border-teal-500 text-teal-600"
-                                            : "border-transparent text-gray-500 hover:text-gray-700"
+                                        ? "border-teal-500 text-teal-600"
+                                        : "border-transparent text-gray-500 hover:text-gray-700"
                                         }`}
                                 >
                                     {tab.label}

@@ -26,7 +26,7 @@ async function request<TResponse>(
 
   // Attach bearer token if available
   try {
-    const token = getAuthToken?.();
+    const token = getAuthToken();
     if (token) {
       (headers as any)["Authorization"] = `Bearer ${token}`;
     }
@@ -78,6 +78,24 @@ async function request<TResponse>(
     if (!bodyMessage && !isJson && typeof data === 'string') {
       bodyMessage = data as string;
     }
+    
+    // Handle 401 Unauthorized with a clear error message
+    if (response.status === 401) {
+      // Clear invalid token
+      if (typeof window !== "undefined") {
+        try {
+          const { logout } = require("@/lib/auth");
+          logout();
+        } catch {
+          // ignore if logout not available
+        }
+      }
+      const authError = new Error("Phiên đăng nhập đã hết hạn hoặc không hợp lệ. Vui lòng đăng nhập lại.");
+      (authError as any).status = 401;
+      (authError as any).isAuthError = true;
+      throw authError;
+    }
+    
     const message = `${response.status} ${response.statusText} ${bodyMessage ? "- " + bodyMessage : ""}`.trim();
     throw new Error(message);
   }
@@ -115,7 +133,13 @@ export interface User {
   email: string;
   role: string; // "Customer" | "EnterpriseAdmin" | "SystemAdmin"
   enterpriseId?: number;
+  shippingAddress?: string;
   createdAt?: string;
+}
+
+export interface UpdateUserDto {
+  name?: string;
+  shippingAddress?: string;
 }
 
 // Category
@@ -267,9 +291,12 @@ export interface OrderItem {
   orderId: number;
   productId: number;
   productName?: string;
+  productImageUrl?: string;
   quantity: number;
   price: number;
   total?: number;
+  enterpriseId?: number;
+  enterpriseName?: string;
 }
 
 export interface Order {
@@ -293,6 +320,7 @@ export interface CreateOrderDto {
     productId: number;
     quantity: number;
   }>;
+  paymentMethod?: "COD" | "BankTransfer";
 }
 
 export interface UpdateOrderStatusDto {
@@ -454,6 +482,13 @@ export async function getUser(id: number): Promise<User> {
   });
 }
 
+export async function updateCurrentUser(payload: UpdateUserDto): Promise<User> {
+  return request<User>("/users/me", {
+    method: "PUT",
+    json: payload,
+  });
+}
+
 // ------ CATEGORIES ------
 export async function getCategories(isActive?: boolean): Promise<Category[]> {
   const query = isActive !== undefined ? `?isActive=${isActive}` : '';
@@ -495,6 +530,7 @@ export async function getProducts(params?: {
   status?: string;
   categoryId?: number;
   search?: string;
+  enterpriseId?: number;
 }): Promise<Product[]> {
   const searchParams = new URLSearchParams();
   if (params?.page) searchParams.append('page', String(params.page));
@@ -502,6 +538,7 @@ export async function getProducts(params?: {
   if (params?.status) searchParams.append('status', params.status);
   if (params?.categoryId) searchParams.append('categoryId', String(params.categoryId));
   if (params?.search) searchParams.append('search', params.search);
+  if (params?.enterpriseId) searchParams.append('enterpriseId', String(params.enterpriseId));
   
   const query = searchParams.toString();
   return request<Product[]>(`/products${query ? '?' + query : ''}`, {
@@ -510,9 +547,10 @@ export async function getProducts(params?: {
   });
 }
 
-export async function getProduct(id: number): Promise<Product> {
+export async function getProduct(id: number, options?: { silent?: boolean }): Promise<Product> {
   return request<Product>(`/products/${id}`, {
     method: "GET",
+    silent: options?.silent,
   });
 }
 
@@ -774,6 +812,59 @@ export async function getMapEnterpriseProducts(id: number, params?: {
   return request<Product[]>(`/map/enterprises/${id}/products${query ? '?' + query : ''}`, {
     method: "GET",
   });
+}
+
+// Get products for a specific enterprise (for EnterpriseAdmin)
+export async function getEnterpriseProducts(enterpriseId: number, params?: {
+  page?: number;
+  pageSize?: number;
+  status?: string;
+}): Promise<Product[]> {
+  const searchParams = new URLSearchParams();
+  if (params?.page) searchParams.append('page', String(params.page));
+  if (params?.pageSize) searchParams.append('pageSize', String(params.pageSize));
+  if (params?.status) searchParams.append('status', params.status);
+  
+  const query = searchParams.toString();
+  
+  // Try multiple endpoints in order until one works
+  const endpoints = [
+    `/enterprises/${enterpriseId}/products${query ? '?' + query : ''}`,
+    `/products${query ? '?' + query : ''}?enterpriseId=${enterpriseId}`,
+  ];
+  
+  let lastError: Error | null = null;
+  
+  for (const endpoint of endpoints) {
+    try {
+      console.log(`🔍 Trying endpoint: ${API_BASE_URL}${endpoint}`);
+      const result = await request<Product[]>(endpoint, {
+        method: "GET",
+      });
+      console.log(`✅ Success! Got ${result.length} products from ${endpoint}`);
+      return result;
+    } catch (error) {
+      console.warn(`❌ Failed ${endpoint}:`, error instanceof Error ? error.message : error);
+      lastError = error as Error;
+      // Continue to next endpoint
+    }
+  }
+  
+  // All endpoints failed
+  const errorMsg = lastError?.message || "Unknown error";
+  
+  if (errorMsg.includes("403")) {
+    throw new Error(
+      "403 FORBIDDEN - Backend chưa cấu hình đúng cho EnterpriseAdmin.\n" +
+      "Backend cần:\n" +
+      "1. Thêm role 'EnterpriseAdmin' vào [Authorize] attribute\n" +
+      "2. Đảm bảo JWT token có claim 'EnterpriseId'\n" +
+      "3. Filter products theo enterpriseId của user\n" +
+      "Xem chi tiết: TROUBLESHOOTING_403.md"
+    );
+  }
+  
+  throw lastError || new Error("Failed to load products");
 }
 
 // ------ REPORTS (SystemAdmin) ------
