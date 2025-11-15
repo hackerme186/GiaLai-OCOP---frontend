@@ -289,8 +289,8 @@ export default function ProductManagementTab({ user }: ProductManagementTabProps
               key={tab.id}
               onClick={() => setFilter(tab.id)}
               className={`px-4 py-2 font-medium text-sm border-b-2 transition-colors ${filter === tab.id
-                  ? "border-green-600 text-green-600"
-                  : "border-transparent text-gray-500 hover:text-gray-700"
+                ? "border-green-600 text-green-600"
+                : "border-transparent text-gray-500 hover:text-gray-700"
                 }`}
             >
               {tab.label} ({tab.id === "all" ? products.length : products.filter(p => p.status === tab.id).length})
