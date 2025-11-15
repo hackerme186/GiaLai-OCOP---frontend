@@ -1,0 +1,108 @@
+ID,Mô tả,Điều kiện,Dữ liệu đầu vào,Bước thực hiện,Kết quả mong đợi,Kết quả,Mức độ Ưu tiên
+MAP-001,Hiển thị bản đồ doanh nghiệp - Homepage,Backend có enterprises với lat/lon,(map section),"1. Mở trang chủ /
+2. Scroll xuống section Bản đồ","- Component MapSection render
+- Call: searchMap({ province: ""Gia Lai"" }) hoặc getMapFilterOptions()
+- Hiển thị map với markers
+- Mỗi marker = 1 enterprise location
+- Click marker → popup với enterprise info",,Medium
+MAP-002,Search map - Keyword,Map section,"Keyword: cà phê","1. Ở map section
+2. Nhập ""cà phê"" vào search box
+3. Click search","- Call: searchMap({ keyword: ""cà phê"" })
+- API filter enterprises có name/businessField chứa ""cà phê""
+- Map update với markers filtered
+- Hiển thị kết quả search",,Medium
+MAP-003,Search map - By bounding box,User zoom/pan map,"BBox: minLat, maxLat, minLon, maxLon","1. Zoom in/out map
+2. Pan map to different area
+3. Trigger search on map move","- Capture map bounds
+- Call: getMapBoundingBox({ minLat, maxLat, minLon, maxLon })
+- Chỉ hiển thị enterprises trong viewport hiện tại
+- Improve performance - không load toàn bộ",,Low
+MAP-004,Search map - Nearby,User geolocation enabled,"Lat: 13.9775
+Lon: 108.0000
+Radius: 10km","1. User cho phép location access
+2. Get current location
+3. Call searchMap({ latitude, longitude, radiusKm: 10 })","- API tìm enterprises trong bán kính 10km
+- Sort by distance (gần nhất trước)
+- Display distance on each result: ""2.5 km""
+- Map center tại vị trí user",,Low
+MAP-005,Filter map - By district,Filter panel,"District: Pleiku","1. Select ""Pleiku"" từ district dropdown","- Call: searchMap({ district: ""Pleiku"" })
+- Chỉ hiển thị enterprises ở Pleiku
+- Map zoom to Pleiku area
+- Markers update",,Medium
+MAP-006,Filter map - By business field,Filter panel,"BusinessField: Nông nghiệp","1. Select ""Nông nghiệp"" từ filter","- Call: searchMap({ businessField: ""Nông nghiệp"" })
+- Filter enterprises
+- Markers update với chỉ enterprises Nông nghiệp",,Medium
+MAP-007,Filter map - By OCOP rating,Filter panel,"OCOP Rating: 5 sao","1. Select ""5 sao"" từ rating filter","- Call: searchMap({ ocopRating: 5 })
+- Chỉ hiển thị enterprises có OCOP 5 sao
+- Highlight special markers cho 5 sao",,Medium
+MAP-008,Clear map filters,Filters applied,"(clear all)","1. Đã áp dụng filters
+2. Click ""Xóa bộ lọc""","- Reset filters: keyword="""", district="""", etc.
+- Call: searchMap({}) - no params
+- Hiển thị tất cả enterprises
+- Map reset to default view",,Low
+MAP-009,Map marker - Enterprise info popup,Click marker,"EnterpriseID: 1","1. Click vào marker trên map","- Popup/tooltip hiển thị:
+  - Tên enterprise
+  - OCOP rating (⭐ X sao)
+  - Business field
+  - District
+  - Link ""Xem chi tiết"" → /enterprises/1",,Medium
+MAP-010,Enterprise detail - From map,Click marker popup,"EnterpriseID: 1","1. Click marker
+2. Click ""Xem chi tiết"" trong popup","- Call: getMapEnterprise(1)
+- Redirect to /enterprises/1 hoặc modal
+- Hiển thị full enterprise info:
+  - Name, description, address
+  - Contact: phone, email, website
+  - Top products (topProducts array)
+  - Map location",,Medium
+MAP-011,Top products - Enterprise detail,Enterprise detail,"EnterpriseID: 1","1. Xem enterprise detail
+2. Check topProducts section","- API trả về EnterpriseMapDto với topProducts[]
+- Hiển thị 3-5 top products
+- Mỗi product: ảnh, tên, giá, OCOP rating
+- Link tới /products/{id}",,Low
+MAP-012,Filter options - Get available values,Map load,"(options)","1. Map load lần đầu
+2. Call getMapFilterOptions()","- API trả về FilterOptions:
+  - districts: [""Pleiku"", ""Chư Păh"", ...]
+  - provinces: [""Gia Lai""]
+  - businessFields: [""Nông nghiệp"", ""Thủ công"", ...]
+  - ocopRatings: [3, 4, 5]
+- Populate filter dropdowns với values này",,Low
+MAP-013,Sort map results - By distance,Nearby search,"Sort: distance","1. Search nearby
+2. Sort by distance","- searchMap({ sortBy: ""distance"" })
+- Results sorted: gần nhất → xa nhất
+- Display distance value
+- Map markers order (optional)",,Low
+MAP-014,Sort map results - By rating,Search results,"Sort: rating","1. Search enterprises
+2. Sort by OCOP rating","- searchMap({ sortBy: ""rating"" })
+- Results sorted: 5 sao → 3 sao
+- Higher rating displayed first",,Low
+MAP-015,Pagination map results,>20 enterprises,"Page: 1, PageSize: 20","1. Search trả về nhiều results
+2. Pagination controls","- API: searchMap({ page: 1, pageSize: 20 })
+- Hiển thị 20 enterprises per page
+- Pagination: Trước | 1 2 3 | Sau
+- Map markers có thể cluster nếu quá nhiều",,Low
+MAP-016,Responsive map - Mobile,Mobile viewport 375px,(mobile),"1. Resize to mobile
+2. Xem map section","- Map height adjust cho mobile
+- Controls stack vertical
+- Filter panel collapsible/drawer
+- Markers clickable, popup readable
+- Zoom controls accessible",,Medium
+MAP-017,Map loading state,API fetching enterprises,"(loading)","1. Load map lần đầu
+2. Search map với filter","- Hiển thị loading overlay trên map
+- Spinner hoặc skeleton
+- Text: ""Đang tải doanh nghiệp...""
+- Disable interactions khi loading",,Low
+MAP-018,Map error state,API error/offline,"(error)","1. Backend offline
+2. Load map","- Hiển thị error message
+- ""Không thể tải bản đồ""
+- Button ""Thử lại""
+- Fallback: hiển thị list view thay vì map",,Medium
+MAP-019,Enterprise products - Get all,Enterprise detail,"EnterpriseID: 1","1. Xem enterprise detail
+2. Click ""Xem tất cả sản phẩm""","- Call: getMapEnterpriseProducts(1, { page: 1, pageSize: 20 })
+- Hiển thị full product list của enterprise
+- Grid/list layout
+- Pagination nếu >20 products",,Low
+MAP-020,Map - Default view Gia Lai,Map load,"Province: Gia Lai","1. Load map lần đầu","- Map center tại Gia Lai province
+- Zoom level phù hợp để thấy toàn tỉnh
+- Default: load tất cả enterprises Gia Lai
+- Markers visible",,Medium
+
