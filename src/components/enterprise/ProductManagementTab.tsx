@@ -35,18 +35,18 @@ export default function ProductManagementTab({ user }: ProductManagementTabProps
     try {
       setLoading(true)
       setError(null)
-      
+
       if (!user?.enterpriseId) {
         setError("Tài khoản chưa được liên kết với doanh nghiệp. Vui lòng liên hệ quản trị viên.")
         setLoading(false)
         return
       }
-      
+
       // Load products - backend auto-filters by EnterpriseId from token
-      const productsData = await getProducts({ 
-        pageSize: 100 
+      const productsData = await getProducts({
+        pageSize: 100
       })
-      
+
       setProducts(productsData)
 
       // Load categories - with fallback for 403 error (EnterpriseAdmin can't access categories endpoint)
@@ -56,38 +56,37 @@ export default function ProductManagementTab({ user }: ProductManagementTabProps
       } catch (catError) {
         console.warn("❌ Cannot load categories from API (403 - permission denied). Using fallback list.")
         // Fallback: Use categories extracted from products
-        const uniqueCategories: { id: number; name: string }[] = []
+        const uniqueCategories: Category[] = []
         const categoryMap = new Map<number, string>()
-        
+
         productsData.forEach(product => {
           if (product.categoryId && product.categoryName && !categoryMap.has(product.categoryId)) {
             categoryMap.set(product.categoryId, product.categoryName)
             uniqueCategories.push({
               id: product.categoryId,
               name: product.categoryName,
-              description: '',
               isActive: true
             })
           }
         })
-        
+
         // Add default categories if none found
         if (uniqueCategories.length === 0) {
           uniqueCategories.push(
-            { id: 1, name: "Thực phẩm", description: "", isActive: true },
-            { id: 2, name: "Đồ uống", description: "", isActive: true },
-            { id: 3, name: "Thủ công mỹ nghệ", description: "", isActive: true },
-            { id: 4, name: "Dệt may", description: "", isActive: true },
-            { id: 5, name: "Khác", description: "", isActive: true }
+            { id: 1, name: "Thực phẩm", isActive: true },
+            { id: 2, name: "Đồ uống", isActive: true },
+            { id: 3, name: "Thủ công mỹ nghệ", isActive: true },
+            { id: 4, name: "Dệt may", isActive: true },
+            { id: 5, name: "Khác", isActive: true }
           )
         }
-        
+
         setCategories(uniqueCategories)
       }
     } catch (err) {
       console.error("❌ Failed to load data:", err)
       const errorMsg = err instanceof Error ? err.message : "Không thể tải dữ liệu"
-      
+
       // Provide helpful error messages
       if (errorMsg.includes("403")) {
         setError(
@@ -112,8 +111,8 @@ export default function ProductManagementTab({ user }: ProductManagementTabProps
     }
   }
 
-  const filteredProducts = filter === "all" 
-    ? products 
+  const filteredProducts = filter === "all"
+    ? products
     : products.filter(p => p.status === filter)
 
   const handleCreate = () => {
@@ -152,7 +151,7 @@ export default function ProductManagementTab({ user }: ProductManagementTabProps
       setTimeout(() => setSuccess(null), 3000)
     } catch (err) {
       const errorMsg = err instanceof Error ? err.message : "Không thể xóa sản phẩm"
-      
+
       // Check if it's "product-in-order" error
       if (errorMsg.includes("order") || errorMsg.includes("đơn hàng")) {
         setError("Không thể xóa sản phẩm này vì đã có trong đơn hàng. Vui lòng liên hệ quản trị viên nếu cần hỗ trợ.")
@@ -184,16 +183,16 @@ export default function ProductManagementTab({ user }: ProductManagementTabProps
         ...formData,
         price: typeof formData.price === 'string' ? parseFloat(formData.price) : formData.price
       }
-      
+
       if (editingProduct) {
         // Update existing product
         await updateProduct(editingProduct.id, payload)
         setSuccess("Đã cập nhật sản phẩm và chuyển về trạng thái chờ duyệt!")
-        
+
         // Update local state
-        setProducts(prev => prev.map(p => 
-          p.id === editingProduct.id 
-            ? { ...p, ...payload, status: "PendingApproval" } 
+        setProducts(prev => prev.map(p =>
+          p.id === editingProduct.id
+            ? { ...p, ...payload, status: "PendingApproval" }
             : p
         ))
       } else {
@@ -289,11 +288,10 @@ export default function ProductManagementTab({ user }: ProductManagementTabProps
             <button
               key={tab.id}
               onClick={() => setFilter(tab.id)}
-              className={`px-4 py-2 font-medium text-sm border-b-2 transition-colors ${
-                filter === tab.id
+              className={`px-4 py-2 font-medium text-sm border-b-2 transition-colors ${filter === tab.id
                   ? "border-green-600 text-green-600"
                   : "border-transparent text-gray-500 hover:text-gray-700"
-              }`}
+                }`}
             >
               {tab.label} ({tab.id === "all" ? products.length : products.filter(p => p.status === tab.id).length})
             </button>
@@ -311,7 +309,7 @@ export default function ProductManagementTab({ user }: ProductManagementTabProps
           </div>
           <h3 className="text-lg font-semibold text-gray-900 mb-2">Chưa có sản phẩm</h3>
           <p className="text-gray-500 mb-6">
-            {filter === "all" 
+            {filter === "all"
               ? "Bạn chưa có sản phẩm nào. Hãy tạo sản phẩm đầu tiên!"
               : `Không có sản phẩm nào ở trạng thái "${filter}"`
             }
@@ -353,7 +351,7 @@ export default function ProductManagementTab({ user }: ProductManagementTabProps
               <div className="p-5">
                 <h3 className="text-lg font-bold text-gray-900 mb-2 line-clamp-2">{product.name}</h3>
                 <p className="text-gray-600 text-sm mb-3 line-clamp-2">{product.description}</p>
-                
+
                 <div className="flex items-center justify-between mb-4">
                   <span className="text-xl font-bold text-green-600">
                     {product.price.toLocaleString("vi-VN")}₫

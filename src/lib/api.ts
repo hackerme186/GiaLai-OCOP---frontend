@@ -117,11 +117,16 @@ export interface RegisterPayload {
   name: string;
   email: string;
   password: string;
+  // Không cần OTP - backend tự động trả về JWT token
 }
 
 export interface AuthResponse {
-  token: string;
-  expires: string; // ISO date string
+  token?: string; // Backend có thể trả về token (chữ thường) hoặc Token (chữ hoa)
+  Token?: string; // Backend trả về Token (chữ hoa)
+  expires?: string; // ISO date string
+  Expires?: string; // Backend trả về Expires (chữ hoa)
+  message?: string; // Optional message
+  Message?: string; // Backend trả về Message (chữ hoa)
 }
 
 // User
@@ -441,9 +446,15 @@ export interface RevenueByMonth {
 
 // ------ AUTH ------
 export async function register(payload: RegisterPayload): Promise<AuthResponse> {
+  // Đăng ký đơn giản - chỉ gửi name, email, password
+  // Backend tự động trả về JWT token (không cần OTP)
   return request<AuthResponse>("/auth/register", {
     method: "POST",
-    json: payload,
+    json: {
+      name: payload.name,
+      email: payload.email,
+      password: payload.password
+    },
   });
 }
 

@@ -1,6 +1,6 @@
 "use client"
 
-import { useEffect, useState, useMemo } from "react"
+import { useEffect, useState, useMemo, type ReactElement } from "react"
 import Image from "next/image"
 import { getOrders, updateOrderStatus, type Order, type User } from "@/lib/api"
 
@@ -104,7 +104,7 @@ export default function OrderManagementTab({ user }: OrderManagementTabProps) {
   const getStatusInfo = (status: string) => {
     const normalized = status?.toLowerCase() || ""
     
-    const statusMap: Record<string, { text: string; color: string; icon: JSX.Element }> = {
+    const statusMap: Record<string, { text: string; color: string; icon: ReactElement }> = {
       "pending": {
         text: "Chờ xác nhận",
         color: "text-orange-600 bg-orange-50 border-orange-200",
