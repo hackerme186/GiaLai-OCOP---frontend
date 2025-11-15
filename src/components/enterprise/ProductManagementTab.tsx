@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react"
 import Image from "next/image"
-import { getEnterpriseProducts, getCategories, createProduct, updateProduct, deleteProduct, type Product, type Category, type User } from "@/lib/api"
+import { getProducts, getCategories, createProduct, updateProduct, deleteProduct, type Product, type Category, type User } from "@/lib/api"
 
 interface ProductManagementTabProps {
   user: User | null
@@ -42,16 +42,48 @@ export default function ProductManagementTab({ user }: ProductManagementTabProps
         return
       }
       
-      // Load products using dedicated enterprise endpoint
-      const productsData = await getEnterpriseProducts(user.enterpriseId, { 
+      // Load products - backend auto-filters by EnterpriseId from token
+      const productsData = await getProducts({ 
         pageSize: 100 
       })
       
       setProducts(productsData)
 
-      // Load categories
-      const categoriesData = await getCategories()
-      setCategories(categoriesData)
+      // Load categories - with fallback for 403 error (EnterpriseAdmin can't access categories endpoint)
+      try {
+        const categoriesData = await getCategories()
+        setCategories(categoriesData)
+      } catch (catError) {
+        console.warn("❌ Cannot load categories from API (403 - permission denied). Using fallback list.")
+        // Fallback: Use categories extracted from products
+        const uniqueCategories: { id: number; name: string }[] = []
+        const categoryMap = new Map<number, string>()
+        
+        productsData.forEach(product => {
+          if (product.categoryId && product.categoryName && !categoryMap.has(product.categoryId)) {
+            categoryMap.set(product.categoryId, product.categoryName)
+            uniqueCategories.push({
+              id: product.categoryId,
+              name: product.categoryName,
+              description: '',
+              isActive: true
+            })
+          }
+        })
+        
+        // Add default categories if none found
+        if (uniqueCategories.length === 0) {
+          uniqueCategories.push(
+            { id: 1, name: "Thực phẩm", description: "", isActive: true },
+            { id: 2, name: "Đồ uống", description: "", isActive: true },
+            { id: 3, name: "Thủ công mỹ nghệ", description: "", isActive: true },
+            { id: 4, name: "Dệt may", description: "", isActive: true },
+            { id: 5, name: "Khác", description: "", isActive: true }
+          )
+        }
+        
+        setCategories(uniqueCategories)
+      }
     } catch (err) {
       console.error("❌ Failed to load data:", err)
       const errorMsg = err instanceof Error ? err.message : "Không thể tải dữ liệu"

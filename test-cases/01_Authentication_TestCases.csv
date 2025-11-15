@@ -1,0 +1,136 @@
+ID,Mô tả,Điều kiện,Dữ liệu đầu vào,Bước thực hiện,Kết quả mong đợi,Kết quả,Mức độ Ưu tiên
+AUTH-001,Đăng nhập thành công với tài khoản Customer,Backend API hoạt động; User đã được tạo trong DB,"Email: customer@test.com
+Password: Test@123","1. Mở trang /login
+2. Nhập email hợp lệ
+3. Nhập password hợp lệ
+4. Click nút ""Đăng nhập""","- Hiển thị loading ""Đang đăng nhập...""
+- Lưu token vào localStorage
+- Redirect tới /home
+- Header hiển thị tên user",,High
+AUTH-002,Đăng nhập thành công với tài khoản SystemAdmin,Backend API hoạt động; Admin user tồn tại,"Email: admin@gialai.gov.vn
+Password: Admin@123","1. Mở trang /login
+2. Nhập email admin
+3. Nhập password admin
+4. Click ""Đăng nhập""","- Hiển thị loading
+- Lưu token
+- Redirect tới /admin (không phải /home)
+- Hiển thị Admin Dashboard",,High
+AUTH-003,Đăng nhập thất bại - Email không tồn tại,Backend API hoạt động,"Email: notexist@test.com
+Password: Test@123","1. Mở trang /login
+2. Nhập email không tồn tại
+3. Nhập password
+4. Click ""Đăng nhập""","- Hiển thị lỗi màu đỏ
+- Message: ""Đăng nhập thất bại""
+- Không redirect
+- Không lưu token",,High
+AUTH-004,Đăng nhập thất bại - Sai mật khẩu,Backend API hoạt động; Email tồn tại,"Email: customer@test.com
+Password: WrongPass123","1. Mở trang /login
+2. Nhập email hợp lệ
+3. Nhập password sai
+4. Click ""Đăng nhập""","- Hiển thị lỗi
+- Message: lỗi từ backend (401 Unauthorized)
+- User vẫn ở trang login",,High
+AUTH-005,Đăng nhập - Email không hợp lệ (format sai),Không cần backend,"Email: invalidemail
+Password: Test@123","1. Nhập email không đúng format
+2. Nhập password
+3. Click ""Đăng nhập""","- HTML5 validation hiển thị
+- Message: ""Please enter a valid email address""
+- Form không submit",,Medium
+AUTH-006,Đăng nhập - Để trống Email,Không cần backend,"Email: (empty)
+Password: Test@123","1. Để trống email
+2. Nhập password
+3. Click ""Đăng nhập""","- HTML5 required validation
+- Message: ""Please fill out this field""
+- Form không submit",,Medium
+AUTH-007,Đăng nhập - Để trống Password,Không cần backend,"Email: test@test.com
+Password: (empty)","1. Nhập email
+2. Để trống password
+3. Click ""Đăng nhập""","- HTML5 required validation
+- Form không submit",,Medium
+AUTH-008,Đăng nhập - Backend API offline,Backend không khả dụng (cold start/offline),"Email: test@test.com
+Password: Test@123","1. Shutdown backend hoặc đợi cold start
+2. Nhập email và password hợp lệ
+3. Click ""Đăng nhập""","- Loading hiển thị
+- Sau timeout hiển thị lỗi network
+- Message: ""Backend API không khả dụng""
+- Console log hướng dẫn wake up backend",,High
+AUTH-009,Đăng ký thành công - Thông tin hợp lệ,Backend API hoạt động,"Họ tên: Nguyen Van A
+Email: newuser@test.com
+Password: Strong@123
+Confirm: Strong@123","1. Mở trang /register
+2. Nhập họ tên đầy đủ
+3. Nhập email chưa tồn tại
+4. Nhập password mạnh (8+ ký tự, số, ký tự đặc biệt)
+5. Nhập confirm password giống password
+6. Click ""Create Account""","- Button hiển thị ""Đang tạo tài khoản...""
+- Gọi API /auth/register
+- Lưu token vào localStorage
+- Lưu user profile
+- Redirect tới /home
+- Header hiển thị tên user",,High
+AUTH-010,Đăng ký thất bại - Email đã tồn tại,Backend API hoạt động; Email đã được đăng ký,"Họ tên: Test User
+Email: customer@test.com
+Password: Test@123
+Confirm: Test@123","1. Mở /register
+2. Nhập email đã tồn tại trong DB
+3. Nhập password hợp lệ
+4. Click ""Create Account""","- API trả về lỗi 400/409
+- Hiển thị message lỗi từ backend
+- User vẫn ở trang register
+- Form không clear",,High
+AUTH-011,Đăng ký thất bại - Password yếu,Frontend validation,"Họ tên: Test User
+Email: test@test.com
+Password: 123
+Confirm: 123","1. Nhập họ tên và email
+2. Nhập password ngắn hơn 8 ký tự
+3. Password không có ký tự đặc biệt","- Border input password màu gray (không xanh)
+- Button ""Create Account"" disabled (opacity 60%)
+- Hint text: ""8+ ký tự, 1 số, 1 ký tự đặc biệt""
+- Không submit được form",,Medium
+AUTH-012,Đăng ký thất bại - Password không khớp,Frontend validation,"Họ tên: Test User
+Email: test@test.com
+Password: Strong@123
+Confirm: Different@456","1. Nhập password hợp lệ
+2. Nhập confirm password khác password","- Border confirm input không chuyển xanh
+- Button disabled
+- Không submit được",,Medium
+AUTH-013,Đăng ký - Kiểm tra password strength indicator,Frontend validation,"Password: Test@123","1. Focus vào password field
+2. Nhập password đủ mạnh","- Border chuyển sang màu xanh (border-green-500)
+- Focus ring màu xanh (ring-green-500)
+- Password strength: Strong",,Low
+AUTH-014,Đăng ký - Để trống họ tên,Frontend validation,"Họ tên: (empty)
+Email: test@test.com
+Password: Test@123","1. Để trống họ tên
+2. Nhập email và password
+3. Click submit","- HTML5 validation: ""Please fill out this field""
+- Form không submit",,Medium
+AUTH-015,Đăng ký - Normalize email,Backend API hoạt động,"Email: Test@TEST.com (mixed case)
+Email sẽ normalize: test@test.com","1. Nhập email với uppercase
+2. Submit form","- Frontend tự động trim() và toLowerCase()
+- Backend nhận email: test@test.com
+- Đăng ký thành công",,Low
+AUTH-016,Đăng nhập - Check Remember Me checkbox,Frontend only,"Email: test@test.com
+Remember: checked","1. Check vào ""Ghi nhớ đăng nhập""
+2. Đăng nhập thành công","- Checkbox được check
+- State remember = true
+- (Chức năng có thể chưa implement persist)",,Low
+AUTH-017,Logout - Xóa token và redirect,User đã đăng nhập,"(no input)","1. User đã đăng nhập
+2. Click vào nút Logout/Đăng xuất trên Header
+3. Hoặc gọi clearAuthToken()","- localStorage.removeItem('token')
+- Redirect về trang /login
+- Header không còn hiển thị tên user",,High
+AUTH-018,Protected Route - Truy cập /admin không có token,Không có token trong localStorage,"(no token)","1. Clear localStorage
+2. Truy cập trực tiếp URL /admin","- useEffect check token
+- getAuthToken() = null
+- Tự động redirect về /login",,High
+AUTH-019,Protected Route - Truy cập /admin với token Customer,Token của customer (không phải admin),"Token: customer token","1. Đăng nhập với customer account
+2. Truy cập URL /admin","- Check role từ JWT token
+- Role không phải admin
+- Redirect về /login
+- Console: ""Admin authorization check failed""",,High
+AUTH-020,Session Expired - Token hết hạn,Token đã expired,"Token: expired JWT","1. Dùng token đã expired
+2. Call API getCurrentUser()","- API trả về 401 Unauthorized
+- Frontend catch error
+- Clear token
+- Redirect to /login",,Medium
+

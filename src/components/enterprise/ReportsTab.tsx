@@ -1,7 +1,7 @@
 "use client"
 
 import { useEffect, useState, useMemo } from "react"
-import { getOrders, getEnterpriseProducts, type Order, type Product, type User } from "@/lib/api"
+import { getOrders, getProducts, type Order, type Product, type User } from "@/lib/api"
 
 interface ReportsTabProps {
   user: User | null
@@ -32,7 +32,7 @@ export default function ReportsTab({ user }: ReportsTabProps) {
 
       // Load products
       if (user?.enterpriseId) {
-        const productsData = await getEnterpriseProducts(user.enterpriseId, { pageSize: 100 })
+            const productsData = await getProducts({ pageSize: 100 })
         setProducts(productsData)
       }
     } catch (err) {

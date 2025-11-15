@@ -1,7 +1,7 @@
 "use client"
 
 import { useEffect, useState } from "react"
-import { getEnterpriseProducts, type Product, type User } from "@/lib/api"
+import { getProducts, type Product, type User } from "@/lib/api"
 
 interface OcopStatusTabProps {
   user: User | null
@@ -25,7 +25,7 @@ export default function OcopStatusTab({ user }: OcopStatusTabProps) {
         return
       }
       
-      const data = await getEnterpriseProducts(user.enterpriseId, { pageSize: 100 })
+          const data = await getProducts({ pageSize: 100 })
       setProducts(data)
     } catch (err) {
       console.error("Failed to load products:", err)
