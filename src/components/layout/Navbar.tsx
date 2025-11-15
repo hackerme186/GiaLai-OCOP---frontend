@@ -5,7 +5,7 @@ import { useRouter } from 'next/navigation'
 import { getUserProfile, isLoggedIn, logout } from '@/lib/auth'
 import { getCurrentUser } from '@/lib/api'
 import { useCart } from '@/lib/cart-context'
-import { FormEvent, useEffect, useState } from 'react'
+import { FormEvent, useEffect, useState, useRef } from 'react'
 import UserDropdown from '@/components/UserDropdown'
 
 const Navbar = () => {
@@ -49,12 +49,14 @@ const Navbar = () => {
       if (authStatus) {
         try {
           const me = await getCurrentUser()
-          const role = (me.role || (me as any).roles)?.toString?.() || ''
-          setIsAdmin(role.toLowerCase() === 'admin')
+          const role = (me.role || (me as any).roles)?.toString?.().toLowerCase() || ''
+          setIsAdmin(role === 'admin' || role === 'systemadmin' || role === 'sysadmin')
+          setIsEnterpriseAdmin(role === 'enterpriseadmin')
         } catch (error) {
           // Backend might be offline - skip admin check
           console.log('⚠️ Cannot check admin role - backend may be offline')
           setIsAdmin(false)
+          setIsEnterpriseAdmin(false)
         }
       }
     }
@@ -183,7 +185,7 @@ const Navbar = () => {
               {loggedIn ? (
                 <>
                   {/* User Dropdown - includes OCOP register, profile, admin, logout */}
-                  <UserDropdown profile={profile} isAdmin={isAdmin} />
+                  <UserDropdown profile={profile} isAdmin={isAdmin} isEnterpriseAdmin={isEnterpriseAdmin} />
                 </>
               ) : (
                 <>
