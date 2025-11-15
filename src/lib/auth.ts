@@ -32,8 +32,32 @@ export async function isLoggedIn(): Promise<boolean> {
 
 export function logout() {
   if (typeof window === "undefined") return;
+  
+  // Get current user ID before clearing profile
+  const profile = getUserProfile();
+  const userId = profile?.id;
+  
+  // Clear authentication
   localStorage.removeItem(AUTH_KEY);
   localStorage.removeItem(PROFILE_KEY);
+  
+  // Clear user-specific data
+  if (userId) {
+    // Clear cart for this user
+    localStorage.removeItem(`cart_${userId}`);
+    
+    // Clear shipping addresses for this user
+    localStorage.removeItem(`saved_addresses_${userId}`);
+    
+    console.log(`✅ Đã xóa dữ liệu của user ${userId}`);
+  }
+  
+  // Clear guest cart if exists
+  localStorage.removeItem('cart_guest');
+  localStorage.removeItem('saved_addresses_guest');
+  
+  // Trigger storage event so cart context can react
+  window.dispatchEvent(new Event('storage'));
 }
 
 export type UserProfile = {
@@ -50,6 +74,11 @@ export function setUserProfile(profile: UserProfile) {
   if (typeof window === "undefined") return;
   try {
     localStorage.setItem(PROFILE_KEY, JSON.stringify(profile || {}));
+    
+    // Trigger storage event so cart context and other components can react to user change
+    window.dispatchEvent(new Event('storage'));
+    // Also dispatch a custom event for same-tab updates
+    window.dispatchEvent(new CustomEvent('userProfileChanged', { detail: profile }));
   } catch {
     // ignore serialization errors
   }
