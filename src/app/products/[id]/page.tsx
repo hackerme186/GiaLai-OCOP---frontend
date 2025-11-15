@@ -4,8 +4,7 @@ import { useState, useEffect } from "react"
 import { useParams } from "next/navigation"
 import Image from "next/image"
 import Link from "next/link"
-import { getProductById } from "@/lib/api"
-import { Product } from "@/lib/api"
+import { Product, getProduct } from "@/lib/api"
 import { useCart } from "@/lib/cart-context"
 import { useToast } from "@/components/Toast"
 
@@ -30,7 +29,7 @@ export default function ProductDetailPage() {
   const fetchProduct = async () => {
     try {
       setLoading(true)
-      const data = await getProductById(parseInt(productId))
+      const data = await getProduct(parseInt(productId))
       setProduct(data)
     } catch (err) {
       setError(err instanceof Error ? err.message : "Không thể tải sản phẩm")
@@ -92,13 +91,7 @@ export default function ProductDetailPage() {
     )
   }
 
-  // Mock images for demonstration
-  const productImages = [
-    product.image || "/hero.jpg",
-    "/hero.jpg",
-    "/hero.jpg",
-    "/hero.jpg"
-  ]
+  const productImages = [product.imageUrl || "/hero.jpg"]
 
   return (
     <div className="min-h-screen bg-gray-50 py-8">
@@ -166,22 +159,28 @@ export default function ProductDetailPage() {
             {/* Product Title */}
             <div>
               <h1 className="text-3xl font-bold text-gray-900 mb-2">{product.name}</h1>
-              {product.category && (
+              {product.categoryName && (
                 <p className="text-sm text-gray-500 mb-4">
-                  Danh mục: <span className="font-medium text-indigo-600">{product.category}</span>
+                  Danh mục:{" "}
+                  <span className="font-medium text-indigo-600">
+                    {product.categoryName}
+                  </span>
                 </p>
               )}
             </div>
 
             {/* Rating */}
-            {product.rating && (
+            {(product.averageRating || product.ocopRating) && (
               <div className="flex items-center space-x-2">
                 <div className="flex items-center">
                   {[...Array(5)].map((_, i) => (
                     <svg
                       key={i}
                       className={`h-5 w-5 ${
-                        i < Math.floor(product.rating || 0)
+                        i <
+                        Math.floor(
+                          product.averageRating || product.ocopRating || 0
+                        )
                           ? "text-yellow-400"
                           : "text-gray-300"
                       }`}
@@ -193,7 +192,11 @@ export default function ProductDetailPage() {
                   ))}
                 </div>
                 <span className="text-sm text-gray-600">
-                  {product.rating}/5 ({Math.floor(Math.random() * 100)} đánh giá)
+                  {product.averageRating
+                    ? `${product.averageRating.toFixed(1)}/5`
+                    : product.ocopRating
+                    ? `${product.ocopRating} sao OCOP`
+                    : "Chưa có đánh giá"}
                 </span>
               </div>
             )}
@@ -295,7 +298,9 @@ export default function ProductDetailPage() {
                 </div>
                 <div className="flex justify-between">
                   <span className="text-gray-600">Danh mục:</span>
-                  <span className="font-medium">{product.category || "Chưa phân loại"}</span>
+                  <span className="font-medium">
+                    {product.categoryName || "Chưa phân loại"}
+                  </span>
                 </div>
                 <div className="flex justify-between">
                   <span className="text-gray-600">Tình trạng:</span>

@@ -82,6 +82,12 @@ const Navbar = () => {
               >
                 Sản phẩm OCOP
               </Link>
+              <Link
+                href="/map"
+                className="text-gray-500 hover:text-gray-900 inline-flex items-center px-1 text-sm font-medium whitespace-nowrap"
+              >
+                Bản đồ
+              </Link>
               <Link 
                 href="/news"
                 className="text-gray-500 hover:text-gray-900 inline-flex items-center px-1 text-sm font-medium whitespace-nowrap"
@@ -227,6 +233,13 @@ const Navbar = () => {
                 onClick={() => setMobileMenuOpen(false)}
               >
                 Sản phẩm OCOP
+              </Link>
+              <Link
+                href="/map"
+                className="block px-3 py-2 text-base font-medium text-gray-500 hover:text-gray-700"
+                onClick={() => setMobileMenuOpen(false)}
+              >
+                Bản đồ
               </Link>
               <Link
                 href="/news"

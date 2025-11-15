@@ -1,7 +1,7 @@
 // Backend API Integration for GiaLai OCOP
 // Backend API runs at: https://gialai-ocop-be.onrender.com/api (production)
 // Or https://localhost:5001/api (local development)
-import { getAuthToken } from "@/lib/auth"
+import { getAuthToken, getClaimsFromJwt } from "@/lib/auth"
 
 // API Base URL - có thể override qua environment variable
 // Default to production backend on Render
@@ -110,6 +110,8 @@ export interface AuthResponse {
 export interface User {
   id: number;
   name: string;
+  fullName?: string;
+  username?: string;
   email: string;
   role: string; // "Customer" | "EnterpriseAdmin" | "SystemAdmin"
   enterpriseId?: number;
@@ -282,6 +284,7 @@ export interface Order {
   paymentReference?: string;
   orderItems?: OrderItem[];
   payments?: Payment[];
+  enterpriseApprovalStatus?: string;
 }
 
 export interface CreateOrderDto {
@@ -294,6 +297,7 @@ export interface CreateOrderDto {
 
 export interface UpdateOrderStatusDto {
   status: "Pending" | "Processing" | "Shipped" | "Completed" | "Cancelled";
+  shippingAddress?: string;
 }
 
 // Payment
@@ -337,6 +341,14 @@ export interface EnterpriseMapDto {
   imageUrl?: string;
   distance?: number;
   topProducts: Product[];
+  // Extended fields from database
+  address?: string;
+  ward?: string;
+  phoneNumber?: string;
+  emailContact?: string;
+  website?: string;
+  description?: string;
+  averageRating?: number;
 }
 
 export interface MapSearchParams {
@@ -367,28 +379,32 @@ export interface FilterOptions {
 // Reports
 export interface ReportSummary {
   totalEnterprises: number;
+  totalCategories: number;
   totalProducts: number;
   approvedProducts: number;
   pendingProducts: number;
   rejectedProducts: number;
   totalApplications: number;
   pendingApplications: number;
-  approvedApplications: number;
-  rejectedApplications: number;
-  totalUsers: number;
+  totalOrders: number;
   totalPayments: number;
-  totalRevenue: number;
+  totalCustomers: number;
+  totalEnterpriseAdmins: number;
+  paidPaymentsAmount: number;
+  awaitingTransferAmount: number;
 }
 
 export interface DistrictReport {
   district: string;
   enterpriseCount: number;
-  ocopProductCount: number;
+  approvedProducts: number;
+  pendingProducts: number;
 }
 
 export interface RevenueByMonth {
-  month: string;
-  revenue: number;
+  year: number;
+  month: number;
+  amount: number;
 }
 
 // ========================================
@@ -412,10 +428,18 @@ export async function login(payload: LoginPayload): Promise<AuthResponse> {
 
 // ------ USERS ------
 export async function getCurrentUser(): Promise<User> {
-  return request<User>("/users/me", {
-    method: "GET",
-    silent: true, // Don't spam console with errors for auth checks
-  });
+  try {
+    return await request<User>("/users/me", {
+      method: "GET",
+      silent: true,
+    });
+  } catch (err) {
+    const userId = extractUserIdFromToken();
+    if (userId !== null) {
+      return getUser(userId);
+    }
+    throw err;
+  }
 }
 
 export async function getUsers(): Promise<User[]> {
@@ -552,7 +576,7 @@ export async function approveEnterpriseApplication(id: number): Promise<void> {
 export async function rejectEnterpriseApplication(id: number, comment: string): Promise<void> {
   return request<void>(`/enterpriseapplications/${id}/reject`, {
     method: "PUT",
-    json: { comment },
+    json: comment,
   });
 }
 
@@ -633,7 +657,7 @@ export async function updateOrderStatus(id: number, payload: UpdateOrderStatusDt
     method: "PUT",
     json: payload,
   });
-    }
+}
 
 export async function deleteOrder(id: number): Promise<void> {
   return request<void>(`/orders/${id}`, {
@@ -769,6 +793,36 @@ export async function getReportRevenueByMonth(): Promise<RevenueByMonth[]> {
   return request<RevenueByMonth[]>("/reports/revenue-by-month", {
     method: "GET",
   });
+}
+
+function extractUserIdFromToken(): number | null {
+  try {
+    const claims = getClaimsFromJwt?.();
+    if (!claims) return null;
+    const keys = [
+      "nameidentifier",
+      "nameId",
+      "name_id",
+      "sub",
+      "userId",
+      "userid",
+      "id",
+      "http://schemas.xmlsoap.org/ws/2005/05/identity/claims/nameidentifier",
+      "http://schemas.microsoft.com/ws/2008/06/identity/claims/nameidentifier",
+    ];
+
+    for (const key of keys) {
+      const raw = (claims as any)[key];
+      if (!raw) continue;
+      const parsed = Number(raw);
+      if (!Number.isNaN(parsed)) {
+        return parsed;
+      }
+    }
+    return null;
+  } catch {
+    return null;
+  }
 }
 
 // Legacy compatibility exports

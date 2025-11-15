@@ -37,9 +37,13 @@ export function logout() {
 }
 
 export type UserProfile = {
+  id?: number;
   name?: string;
   email?: string;
+  role?: string;
+  enterpriseId?: number | null;
   avatarUrl?: string;
+  createdAt?: string;
 }
 
 export function setUserProfile(profile: UserProfile) {

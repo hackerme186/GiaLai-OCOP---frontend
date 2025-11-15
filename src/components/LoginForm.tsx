@@ -2,7 +2,7 @@
 import Link from "next/link"
 import { useState } from "react"
 import { login, getCurrentUser } from "@/lib/api"
-import { setAuthToken, getRoleFromToken } from "@/lib/auth"
+import { setAuthToken, getRoleFromToken, setUserProfile } from "@/lib/auth"
 import { useRouter } from "next/navigation"
 
 export default function LoginForm() {
@@ -71,6 +71,20 @@ export default function LoginForm() {
                      norm === 'sysadmin' ||
                      norm.includes('admin')
       
+      try {
+        const profile = await getCurrentUser()
+        setUserProfile({
+          id: profile.id,
+          name: profile.name,
+          email: profile.email,
+          role: profile.role,
+          enterpriseId: profile.enterpriseId ?? undefined,
+          createdAt: profile.createdAt,
+        })
+      } catch (profileErr) {
+        console.warn("Could not load user profile:", profileErr)
+      }
+
       // Redirect based on role
       if (isAdmin) {
         router.replace("/admin")
