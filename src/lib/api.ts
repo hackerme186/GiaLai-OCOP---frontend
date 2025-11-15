@@ -545,9 +545,10 @@ export async function getProducts(params?: {
   });
 }
 
-export async function getProduct(id: number): Promise<Product> {
+export async function getProduct(id: number, options?: { silent?: boolean }): Promise<Product> {
   return request<Product>(`/products/${id}`, {
     method: "GET",
+    silent: options?.silent,
   });
 }
 
