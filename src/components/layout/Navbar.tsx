@@ -18,6 +18,7 @@ const Navbar = () => {
   const [profile, setProfile] = useState(getUserProfile() || {})
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false)
   const [isAdmin, setIsAdmin] = useState(false)
+  const [isEnterpriseAdmin, setIsEnterpriseAdmin] = useState(false)
   const [userDropdownOpen, setUserDropdownOpen] = useState(false)
   const userDropdownRef = useRef<HTMLDivElement>(null)
 
@@ -58,12 +59,14 @@ const Navbar = () => {
       if (authStatus) {
         try {
           const me = await getCurrentUser()
-          const role = (me.role || (me as any).roles)?.toString?.() || ''
-          setIsAdmin(role.toLowerCase() === 'admin')
+          const role = (me.role || (me as any).roles)?.toString?.().toLowerCase() || ''
+          setIsAdmin(role === 'admin' || role === 'systemadmin' || role === 'sysadmin')
+          setIsEnterpriseAdmin(role === 'enterpriseadmin')
         } catch (error) {
           // Backend might be offline - skip admin check
           console.log('⚠️ Cannot check admin role - backend may be offline')
           setIsAdmin(false)
+          setIsEnterpriseAdmin(false)
         }
       }
     }
@@ -238,7 +241,7 @@ const Navbar = () => {
               {loggedIn ? (
                 <>
                   {/* User Dropdown - includes OCOP register, profile, admin, logout */}
-                  <UserDropdown profile={profile} isAdmin={isAdmin} />
+                  <UserDropdown profile={profile} isAdmin={isAdmin} isEnterpriseAdmin={isEnterpriseAdmin} />
                 </>
               ) : (
                 <>

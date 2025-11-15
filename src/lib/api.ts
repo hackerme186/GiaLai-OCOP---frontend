@@ -531,6 +531,7 @@ export async function getProducts(params?: {
   categoryId?: number;
   search?: string;
   q?: string; // Alternative search parameter
+  enterpriseId?: number;
 }): Promise<Product[]> {
   const searchParams = new URLSearchParams();
   if (params?.page) searchParams.append('page', String(params.page));
@@ -551,6 +552,7 @@ export async function getProducts(params?: {
       searchParams.append('search', params.search);
     }
   }
+  if (params?.enterpriseId) searchParams.append('enterpriseId', String(params.enterpriseId));
   
   const query = searchParams.toString();
   const url = `/products${query ? '?' + query : ''}`;
@@ -604,9 +606,10 @@ export async function getProducts(params?: {
   return [];
 }
 
-export async function getProduct(id: number): Promise<Product> {
+export async function getProduct(id: number, options?: { silent?: boolean }): Promise<Product> {
   return request<Product>(`/products/${id}`, {
     method: "GET",
+    silent: options?.silent,
   });
 }
 
@@ -868,6 +871,59 @@ export async function getMapEnterpriseProducts(id: number, params?: {
   return request<Product[]>(`/map/enterprises/${id}/products${query ? '?' + query : ''}`, {
     method: "GET",
   });
+}
+
+// Get products for a specific enterprise (for EnterpriseAdmin)
+export async function getEnterpriseProducts(enterpriseId: number, params?: {
+  page?: number;
+  pageSize?: number;
+  status?: string;
+}): Promise<Product[]> {
+  const searchParams = new URLSearchParams();
+  if (params?.page) searchParams.append('page', String(params.page));
+  if (params?.pageSize) searchParams.append('pageSize', String(params.pageSize));
+  if (params?.status) searchParams.append('status', params.status);
+  
+  const query = searchParams.toString();
+  
+  // Try multiple endpoints in order until one works
+  const endpoints = [
+    `/enterprises/${enterpriseId}/products${query ? '?' + query : ''}`,
+    `/products${query ? '?' + query : ''}?enterpriseId=${enterpriseId}`,
+  ];
+  
+  let lastError: Error | null = null;
+  
+  for (const endpoint of endpoints) {
+    try {
+      console.log(`🔍 Trying endpoint: ${API_BASE_URL}${endpoint}`);
+      const result = await request<Product[]>(endpoint, {
+        method: "GET",
+      });
+      console.log(`✅ Success! Got ${result.length} products from ${endpoint}`);
+      return result;
+    } catch (error) {
+      console.warn(`❌ Failed ${endpoint}:`, error instanceof Error ? error.message : error);
+      lastError = error as Error;
+      // Continue to next endpoint
+    }
+  }
+  
+  // All endpoints failed
+  const errorMsg = lastError?.message || "Unknown error";
+  
+  if (errorMsg.includes("403")) {
+    throw new Error(
+      "403 FORBIDDEN - Backend chưa cấu hình đúng cho EnterpriseAdmin.\n" +
+      "Backend cần:\n" +
+      "1. Thêm role 'EnterpriseAdmin' vào [Authorize] attribute\n" +
+      "2. Đảm bảo JWT token có claim 'EnterpriseId'\n" +
+      "3. Filter products theo enterpriseId của user\n" +
+      "Xem chi tiết: TROUBLESHOOTING_403.md"
+    );
+  }
+  
+  throw lastError || new Error("Failed to load products");
 }
 
 // ------ REPORTS (SystemAdmin) ------

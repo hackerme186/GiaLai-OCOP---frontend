@@ -1,7 +1,13 @@
 "use client"
 
 import { useState, useEffect } from "react"
-import { createOrder, getCurrentUser, updateCurrentUser, type CreateOrderDto } from "@/lib/api"
+import { createOrder, getCurrentUser, updateCurrentUser, type CreateOrderDto, type User } from "@/lib/api"
+import { 
+  getSavedShippingAddresses, 
+  getDefaultShippingAddress,
+  syncMainAddressFromBackend,
+  type SavedShippingAddress 
+} from "@/lib/shipping-addresses"
 import { useRouter } from "next/navigation"
 import { isLoggedIn } from "@/lib/auth"
 import Image from "next/image"
@@ -30,9 +36,16 @@ export default function CheckoutModal({
     const [error, setError] = useState<string | null>(null)
     const [checkingAuth, setCheckingAuth] = useState(false)
     const [loadingAddress, setLoadingAddress] = useState(false)
+    const [currentUser, setCurrentUser] = useState<User | null>(null)
+    const [savedAddresses, setSavedAddresses] = useState<SavedShippingAddress[]>([])
+    const [selectedAddressId, setSelectedAddressId] = useState<string | null>(null)
+    const [showSavedAddresses, setShowSavedAddresses] = useState(false)
 
     useEffect(() => {
         if (isOpen) {
+            // Reset state when modal opens
+            setError(null)
+            
             // Check authentication when modal opens
             const checkAuth = async () => {
                 setCheckingAuth(true)
@@ -47,14 +60,36 @@ export default function CheckoutModal({
                         return
                     }
                     
-                    // Load shipping address from user profile
+                    // Load shipping address from user profile (always load fresh)
                     try {
                         const user = await getCurrentUser()
+                        setCurrentUser(user)
+                        
+                        // Đồng bộ địa chỉ từ backend
                         if (user.shippingAddress) {
+                            syncMainAddressFromBackend(user.shippingAddress)
+                        }
+                        
+                        // Load danh sách địa chỉ đã lưu
+                        const addresses = getSavedShippingAddresses()
+                        setSavedAddresses(addresses)
+                        
+                        // Lấy địa chỉ mặc định hoặc địa chỉ đầu tiên
+                        const defaultAddr = getDefaultShippingAddress()
+                        if (defaultAddr) {
+                            setShippingAddress(defaultAddr.address)
+                            setSelectedAddressId(defaultAddr.id)
+                        } else if (user.shippingAddress) {
                             setShippingAddress(user.shippingAddress)
+                            setSelectedAddressId(null)
+                        } else {
+                            setShippingAddress("")
+                            setSelectedAddressId(null)
                         }
                     } catch (err) {
                         console.warn("Không thể tải địa chỉ giao hàng từ profile:", err)
+                        setShippingAddress("")
+                        setSelectedAddressId(null)
                     }
                 } catch (err) {
                     setError("Không thể xác thực người dùng. Vui lòng đăng nhập lại.")
@@ -63,6 +98,16 @@ export default function CheckoutModal({
                 }
             }
             checkAuth()
+        } else {
+            // Reset form state when modal closes
+            setShippingAddress("")
+            setPaymentMethod("COD")
+            setError(null)
+            setIsSubmitting(false)
+            setCurrentUser(null)
+            setSavedAddresses([])
+            setSelectedAddressId(null)
+            setShowSavedAddresses(false)
         }
     }, [isOpen, router, onClose])
 
@@ -124,13 +169,18 @@ export default function CheckoutModal({
 
             const order = await createOrder(orderPayload)
 
-            // Try to save address to profile after order is created (optional, don't fail if it doesn't work)
-            if (addressToSave) {
+            // Save address to profile after order is created for future use
+            if (addressToSave && currentUser) {
                 try {
-                    await updateCurrentUser({ shippingAddress: addressToSave })
+                    // Include name field as backend requires it for validation
+                    await updateCurrentUser({ 
+                        name: currentUser.name || "", 
+                        shippingAddress: addressToSave 
+                    })
+                    console.log("✅ Đã lưu địa chỉ giao hàng vào hồ sơ")
                 } catch (err) {
                     // Silently fail - order is already created, address is saved with the order
-                    console.debug("Không thể lưu địa chỉ vào profile (đơn hàng đã được tạo thành công):", err)
+                    console.debug("⚠️ Không thể lưu địa chỉ vào profile (đơn hàng đã được tạo thành công):", err)
                 }
             }
 
@@ -332,47 +382,130 @@ export default function CheckoutModal({
                                         </svg>
                                         Địa chỉ giao hàng <span className="text-red-500">*</span>
                                     </label>
-                                    <button
-                                        type="button"
-                                        onClick={handleGetCurrentLocation}
-                                        disabled={loadingAddress || isSubmitting}
-                                        className="flex items-center gap-2 px-3 py-1.5 text-sm font-semibold text-indigo-600 bg-indigo-50 rounded-lg hover:bg-indigo-100 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-                                    >
-                                        {loadingAddress ? (
-                                            <>
-                                                <div className="animate-spin rounded-full h-4 w-4 border-2 border-indigo-600 border-t-transparent"></div>
-                                                <span>Đang tải...</span>
-                                            </>
-                                        ) : (
-                                            <>
+                                    <div className="flex items-center gap-2">
+                                        {savedAddresses.length > 0 && (
+                                            <button
+                                                type="button"
+                                                onClick={() => setShowSavedAddresses(!showSavedAddresses)}
+                                                className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold text-indigo-600 bg-indigo-50 rounded-lg hover:bg-indigo-100 transition-colors"
+                                            >
                                                 <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" />
-                                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" />
+                                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
                                                 </svg>
-                                                <span>Lấy từ GPS</span>
-                                            </>
+                                                {showSavedAddresses ? 'Ẩn' : 'Chọn địa chỉ'}
+                                            </button>
                                         )}
-                                    </button>
+                                        <button
+                                            type="button"
+                                            onClick={handleGetCurrentLocation}
+                                            disabled={loadingAddress || isSubmitting}
+                                            className="flex items-center gap-2 px-3 py-1.5 text-sm font-semibold text-indigo-600 bg-indigo-50 rounded-lg hover:bg-indigo-100 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                                        >
+                                            {loadingAddress ? (
+                                                <>
+                                                    <div className="animate-spin rounded-full h-4 w-4 border-2 border-indigo-600 border-t-transparent"></div>
+                                                    <span>Đang tải...</span>
+                                                </>
+                                            ) : (
+                                                <>
+                                                    <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" />
+                                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" />
+                                                    </svg>
+                                                    <span>Lấy từ GPS</span>
+                                                </>
+                                            )}
+                                        </button>
+                                    </div>
                                 </div>
+                                
+                                {/* Danh sách địa chỉ đã lưu */}
+                                {showSavedAddresses && savedAddresses.length > 0 && (
+                                    <div className="mb-3 space-y-2 max-h-48 overflow-y-auto">
+                                        {savedAddresses.map((addr) => (
+                                            <div
+                                                key={addr.id}
+                                                onClick={() => {
+                                                    setShippingAddress(addr.address)
+                                                    setSelectedAddressId(addr.id)
+                                                    setShowSavedAddresses(false)
+                                                }}
+                                                className={`p-3 rounded-lg border-2 cursor-pointer transition-all ${
+                                                    selectedAddressId === addr.id
+                                                        ? 'border-indigo-500 bg-indigo-50'
+                                                        : 'border-gray-200 bg-white hover:border-indigo-300 hover:bg-indigo-50/50'
+                                                }`}
+                                            >
+                                                <div className="flex items-start justify-between gap-2">
+                                                    <div className="flex-1">
+                                                        <div className="flex items-center gap-2 mb-1">
+                                                            {addr.label && (
+                                                                <span className="text-xs font-semibold text-gray-600 bg-gray-100 px-2 py-0.5 rounded">
+                                                                    {addr.label}
+                                                                </span>
+                                                            )}
+                                                            {addr.isDefault && (
+                                                                <span className="text-xs font-semibold text-indigo-700 bg-indigo-100 px-2 py-0.5 rounded">
+                                                                    Mặc định
+                                                                </span>
+                                                            )}
+                                                        </div>
+                                                        <p className="text-sm text-gray-900">{addr.address}</p>
+                                                    </div>
+                                                    {selectedAddressId === addr.id && (
+                                                        <svg className="w-5 h-5 text-indigo-600 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                                                        </svg>
+                                                    )}
+                                                </div>
+                                            </div>
+                                        ))}
+                                    </div>
+                                )}
                                 <div className="relative">
                                     <textarea
                                         id="shippingAddress"
                                         value={shippingAddress}
-                                        onChange={(e) => setShippingAddress(e.target.value)}
+                                        onChange={(e) => {
+                                            setShippingAddress(e.target.value)
+                                            setSelectedAddressId(null) // Clear selection if manually editing
+                                        }}
                                         placeholder="Nhập địa chỉ giao hàng đầy đủ (số nhà, đường, phường/xã, quận/huyện, tỉnh/thành phố)"
                                         rows={4}
-                                        className="w-full rounded-xl border-2 border-gray-200 px-4 py-3 pr-12 text-sm text-gray-900 font-medium placeholder:text-gray-400 placeholder:font-normal focus:border-indigo-500 focus:ring-2 focus:ring-indigo-200 focus:outline-none transition-all disabled:opacity-50 disabled:cursor-not-allowed resize-none bg-white"
+                                        className="w-full rounded-xl border-2 border-gray-200 px-4 py-3 pr-36 text-sm text-gray-900 font-medium placeholder:text-gray-400 placeholder:font-normal focus:border-indigo-500 focus:ring-2 focus:ring-indigo-200 focus:outline-none transition-all disabled:opacity-50 disabled:cursor-not-allowed resize-none bg-white"
                                         required
-                                        disabled={isSubmitting}
+                                        disabled={loadingAddress || isSubmitting}
                                     />
-                                    <div className="absolute bottom-3 right-3 text-gray-400 pointer-events-none">
-                                        <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
-                                        </svg>
+                                    <div className="absolute bottom-3 right-3 flex items-center gap-2">
+                                        <button
+                                            type="button"
+                                            onClick={handleGetCurrentLocation}
+                                            disabled={loadingAddress || isSubmitting}
+                                            className="px-3 py-1.5 text-xs font-semibold text-indigo-600 bg-white border-2 border-indigo-200 rounded-lg hover:bg-indigo-50 hover:border-indigo-300 transition-all disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-1.5 shadow-sm"
+                                            title="Lấy địa chỉ từ GPS"
+                                        >
+                                            {loadingAddress ? (
+                                                <>
+                                                    <div className="animate-spin rounded-full h-3 w-3 border-2 border-indigo-600 border-t-transparent"></div>
+                                                    <span>Đang tải...</span>
+                                                </>
+                                            ) : (
+                                                <>
+                                                    <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" />
+                                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" />
+                                                    </svg>
+                                                    <span>Lấy từ GPS</span>
+                                                </>
+                                            )}
+                                        </button>
                                     </div>
                                 </div>
                                 <p className="mt-2 text-xs text-gray-500">
-                                    💡 Bấm "Lấy từ GPS" để tự động điền địa chỉ từ vị trí hiện tại của bạn
+                                    {savedAddresses.length > 0 
+                                        ? '💡 Chọn từ địa chỉ đã lưu hoặc bấm "Lấy từ GPS" để tự động điền địa chỉ từ vị trí hiện tại'
+                                        : '💡 Bấm "Lấy từ GPS" để tự động điền địa chỉ từ vị trí hiện tại của bạn'
+                                    }
                                 </p>
                             </div>
 

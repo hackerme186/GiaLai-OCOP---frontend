@@ -1,0 +1,163 @@
+ID,Mô tả,Điều kiện,Dữ liệu đầu vào,Bước thực hiện,Kết quả mong đợi,Kết quả,Mức độ Ưu tiên
+OCOP-001,Mở form đăng ký OCOP - Step 1,User đã login,(no input),"1. Login với tài khoản customer
+2. Click menu ""Đăng ký OCOP"" hoặc mở /ocop-register","- Render OCOPForm component
+- Step = 1/3
+- Hiển thị progress bar: Step 1 active, 2-3 inactive
+- Title: ""1. Thông tin doanh nghiệp""
+- Form fields: Tên DN, Loại hình, Mã số thuế, etc.",,High
+OCOP-002,Step 1 - Validation các trường required,Form ở step 1,"Tên DN: (empty)
+Địa chỉ: (empty)
+Phone: (empty)
+Email: (empty)","1. Ở step 1
+2. Không nhập gì
+3. Click ""Tiếp theo""","- validateStep1() chạy
+- errors.name = ""Vui lòng nhập tên doanh nghiệp""
+- errors.address = ""Vui lòng nhập địa chỉ""
+- errors.phone = ""Vui lòng nhập số điện thoại""
+- errors.email = ""Vui lòng nhập email""
+- Hiển thị error text màu đỏ dưới mỗi field
+- Không chuyển sang step 2",,High
+OCOP-003,Step 1 - Nhập đầy đủ thông tin hợp lệ,Form ở step 1,"Tên DN: Công ty TNHH OCOP Gia Lai
+Loại hình: TNHH
+Mã số thuế: 1234567890
+Địa chỉ: 123 Đường ABC
+Tỉnh: Gia Lai
+Huyện: Pleiku
+Phường: Hội Phú
+Phone: 0901234567
+Email: ocop@gialai.com","1. Nhập đầy đủ thông tin vào tất cả các trường required
+2. Click ""Tiếp theo""","- validateStep1() return true
+- setErrors({}) - clear errors
+- setStep(2)
+- Progress bar: Step 2 active
+- Chuyển sang form Step 2",,High
+OCOP-004,Step 1 - Nhập thông tin đại diện pháp luật,Step 1 form,"Họ tên đại diện: Nguyễn Văn A
+Chức vụ: Giám đốc
+CMND: 123456789
+Ngày cấp: 2020-01-15
+Nơi cấp: CA Gia Lai","1. Scroll xuống phần ""Thông tin đại diện pháp luật""
+2. Nhập các trường thông tin","- State update cho từng field
+- representativeName, representativePosition, etc.
+- Không có validation required cho section này
+- Cho phép để trống",,Medium
+OCOP-005,Step 2 - Thông tin sản phẩm,Đã hoàn thành Step 1,"Tên sản phẩm: Cà phê hữu cơ
+Danh mục: Nông sản
+Mô tả: Cà phê chất lượng cao...
+Xuất xứ: Gia Lai
+Chứng nhận: VietGAP, OCOP","1. Hoàn thành Step 1
+2. Click ""Tiếp theo"" → Step 2
+3. Nhập thông tin sản phẩm","- Render Step 2 form
+- Title: ""3. Thông tin sản phẩm""
+- Các field: productName, productCategory, productDescription, productOrigin, productCertifications
+- Update state cho từng field",,High
+OCOP-006,Step 2 - Upload hình ảnh sản phẩm,Step 2 form,"Files: product1.jpg, product2.png","1. Ở Step 2
+2. Click input ""Hình ảnh sản phẩm""
+3. Chọn multiple files
+4. Upload","- Input type=""file"" accept=""image/*"" multiple
+- setProductImages(Array.from(files))
+- Hiển thị list file names dưới input
+- Format: <li>{file.name}</li> cho mỗi file",,Medium
+OCOP-007,Step 2 - Upload tài liệu đính kèm,Step 2 form,"Files: giay_phep.pdf, chung_nhan.pdf","1. Ở Step 2
+2. Click input ""Tài liệu đính kèm""
+3. Chọn multiple files PDF/DOC","- Input type=""file"" multiple (không restrict type)
+- setAttachedDocs(Array.from(files))
+- Hiển thị list file names
+- Cho phép upload bất kỳ file type nào",,Medium
+OCOP-008,Step 2 - Nhập chứng nhận sản phẩm (comma separated),Step 2,"Chứng nhận: VietGAP, OCOP 4 sao, ISO 9001","1. Nhập vào field ""Chứng nhận sản phẩm""
+2. Ngăn cách bằng dấu phẩy","- onChange: e.target.value.split(',')
+- setProductCertifications([""VietGAP"", "" OCOP 4 sao"", "" ISO 9001""])
+- Store as array in state",,Low
+OCOP-009,Step 3 - Xác nhận đăng ký,Hoàn thành Step 1 & 2,(review data),"1. Hoàn thành Step 2
+2. Click ""Tiếp theo""
+3. Xem Step 3","- Render Step 3
+- Title: ""4. Xác nhận đăng ký""
+- Hiển thị review tất cả thông tin đã nhập
+- Section 1: Thông tin doanh nghiệp
+- Section 2: Thông tin đại diện
+- Section 3: Thông tin sản phẩm
+- Section 4: Tài liệu đính kèm
+- Button ""GỬI ĐĂNG KÝ"" (bg-green-600)",,High
+OCOP-010,Step 3 - Hiển thị dữ liệu review,Step 3 review,"(all entered data)","1. Ở Step 3
+2. Xem từng section","- Display: {name || '(chưa nhập)'}
+- Format: <span>Tên:</span> {enterpriseName}
+- Tất cả field đã nhập hiển thị đúng
+- Field chưa nhập hiển thị ""(chưa nhập)""",,Medium
+OCOP-011,Submit form - Gửi đăng ký thành công,Backend API hoạt động; All data filled,"(complete payload)","1. Điền đầy đủ tất cả thông tin
+2. Ở Step 3
+3. Click ""GỬI ĐĂNG KÝ""","- handleSubmit(e) trigger
+- e.preventDefault()
+- Build CreateEnterpriseApplicationDto payload
+- Call: onSubmit(payload)
+- API: createEnterpriseApplication(payload)
+- Response 200/201
+- Redirect hoặc hiển thị success message",,High
+OCOP-012,Submit form - Payload structure đúng,Ready to submit,"(check payload)","1. Hoàn thành form
+2. Click submit
+3. Intercept payload","- payload.enterpriseName = name
+- payload.businessType, taxCode, businessLicenseNumber
+- payload.address, ward, district, province
+- payload.phoneNumber = phone
+- payload.emailContact = email
+- payload.representativeName, etc.
+- payload.productName, productCategory, productDescription
+- payload.productImages = files.map(f=>f.name).join(',')
+- payload.attachedDocuments = files.join(',')",,High
+OCOP-013,Submit form - Backend trả về lỗi,Backend validation error,"(invalid data in backend)","1. Submit form
+2. Backend trả về 400 Bad Request","- Catch error
+- Hiển thị error message
+- User vẫn ở trang form
+- Không clear data đã nhập",,Medium
+OCOP-014,Navigation - Quay lại bước trước,Step 2 hoặc 3,(back button),"1. Ở Step 2 hoặc 3
+2. Click button ""Quay lại""","- setStep(Math.max(1, step - 1))
+- Chuyển về step trước
+- Data đã nhập vẫn giữ nguyên (state persist)
+- Progress bar update",,Medium
+OCOP-015,Navigation - Button Quay lại disabled ở Step 1,Step 1,(check button),"1. Ở Step 1
+2. Xem button ""Quay lại""","- Button có disabled={step===1}
+- Style: bg-gray-200 text-gray-400 cursor-not-allowed
+- Click không có effect",,Low
+OCOP-016,Progress Bar - Visual indicator,Any step,(check UI),"1. Xem progress bar trên cùng form","- 3 circles đánh số 1, 2, 3
+- Step hiện tại: bg-indigo-600 text-white
+- Step chưa tới: bg-gray-200 text-gray-600
+- Line giữa các step: bg-indigo-600 (completed), bg-gray-200 (incomplete)
+- Text dưới: ""Bước X / 3""",,Low
+OCOP-017,Field - Email contact validation,Step 1,"Email: invalid-email","1. Nhập email không đúng format
+2. Blur field","- HTML5 type=""email"" validation
+- Browser hiển thị: ""Please enter a valid email""
+- Field required, không cho submit",,Medium
+OCOP-018,Field - Phone number format,Step 1,"Phone: 0901234567","1. Nhập số điện thoại
+2. Blur","- Input type=""text"" (không restrict format frontend)
+- Backend có thể validate format
+- Required field",,Low
+OCOP-019,Field - Date picker format,Step 1,"Ngày cấp giấy phép: 2023-05-20","1. Click vào date input
+2. Chọn ngày từ calendar","- Input type=""date""
+- Browser native date picker
+- Format: YYYY-MM-DD
+- Store in state: licenseIssuedDate",,Low
+OCOP-020,Field - Number of Employees,Step 1,"Số lao động: 50","1. Nhập số lao động","- Input type=""number""
+- setNumberOfEmployees(e.target.value)
+- Store as string (backend có thể expect string)
+- Cho phép nhập số dương",,Low
+OCOP-021,Responsive Design - Mobile,Mobile viewport 375px,(mobile view),"1. Resize browser tới 375px
+2. Mở /ocop-register","- Form full width
+- Grid fields: grid-cols-1 trên mobile (không md:grid-cols-2)
+- Progress bar stack vertical hoặc scroll horizontal
+- Buttons full width",,Medium
+OCOP-022,Auto-save draft (nếu có),Form đang điền,(auto-save),"1. Điền một phần form
+2. Reload page","- Hiện tại: không có localStorage persist
+- Data bị mất khi reload
+- (Feature có thể implement sau: localStorage draft)",,Low
+OCOP-023,Ghi chú bổ sung - Textarea,Step 1,"Ghi chú: Doanh nghiệp có kinh nghiệm 10 năm...","1. Scroll xuống field ""Ghi chú bổ sung""
+2. Nhập text dài","- Textarea rows={2}
+- Có thể expand khi nhập nhiều
+- Not required
+- setAdditionalNotes(e.target.value)",,Low
+OCOP-024,File upload - Check file size limit,Step 2,"File: large_image.jpg (>5MB)","1. Upload file rất lớn
+2. Check behavior","- Frontend không validate size (chưa implement)
+- Backend có thể reject file quá lớn
+- Nên thêm validation: max 5MB per file",,Low
+OCOP-025,Multiple products (legacy code),Step 2 old version,"(có code products array)","1. Check source code line 46-73","- Code có state products: ProductFormItem[]
+- Có functions: addProduct, removeProduct, updateProduct
+- Nhưng UI chỉ render 1 product (dùng productName, productDescription)
+- Code có thể cleanup hoặc mở rộng sau",,Low
+

@@ -1,0 +1,166 @@
+ID,Mô tả,Điều kiện,Dữ liệu đầu vào,Bước thực hiện,Kết quả mong đợi,Kết quả,Mức độ Ưu tiên
+ORDER-001,Tạo đơn hàng - Checkout từ cart,Cart có ≥1 items; User logged in,"Items: Product 12 (qty 2), Product 19 (qty 1)
+Shipping: 123 Đường ABC, Gia Lai","1. Thêm products vào cart
+2. Mở /cart
+3. Click ""Thanh toán ngay""
+4. (Giả sử có checkout page)
+5. Nhập địa chỉ giao hàng
+6. Chọn phương thức thanh toán
+7. Click ""Đặt hàng""","- Call: createOrder({ shippingAddress, items: [{ productId, quantity }] })
+- API tạo order trong DB
+- Response: Order object với ID, orderDate, status=""Pending""
+- Cart được clear
+- Redirect to /orders/{orderId}
+- Hiển thị order confirmation",,High
+ORDER-002,Xem chi tiết đơn hàng,Order ID=1 tồn tại,"OrderID: 1","1. User đã tạo order
+2. Click vào order trong danh sách
+3. Hoặc mở /orders/1","- Call: getOrder(1)
+- Hiển thị order details:
+  - Order ID, ngày đặt, status
+  - Shipping address
+  - Items list: tên, quantity, price, subtotal
+  - Total amount
+  - Payment method, payment status
+- Nút ""Hủy đơn"" nếu status = Pending",,High
+ORDER-003,Xem danh sách đơn hàng của user,User có ≥1 orders,(my orders),"1. Login
+2. Mở /account hoặc /orders","- Call: getOrders() (backend filter by userId)
+- Hiển thị table orders:
+  - Order ID, Ngày đặt, Tổng tiền, Status, Actions
+- Status colors:
+  - Pending: yellow
+  - Processing: blue
+  - Shipped: purple
+  - Completed: green
+  - Cancelled: red",,High
+ORDER-004,Order status - Pending,Order mới tạo,"Status: Pending","1. Vừa tạo order
+2. Xem chi tiết","- status = ""Pending""
+- Badge: bg-yellow-100 text-yellow-800
+- Text: ""Đang chờ xử lý""
+- Cho phép hủy đơn",,Medium
+ORDER-005,Order status - Processing,Admin/Enterprise đã xác nhận,"Status: Processing","1. Admin update order status
+2. Call: updateOrderStatus(id, { status: ""Processing"" })","- status = ""Processing""
+- Badge: bg-blue-100 text-blue-800
+- Text: ""Đang xử lý""
+- Không cho phép hủy",,Medium
+ORDER-006,Order status - Shipped,Đơn hàng đã giao cho shipper,"Status: Shipped","1. Order status update to Shipped","- status = ""Shipped""
+- Badge: bg-purple-100 text-purple-800
+- Text: ""Đang giao hàng""
+- Có thể hiển thị tracking info",,Medium
+ORDER-007,Order status - Completed,Đơn hàng đã giao thành công,"Status: Completed","1. Customer nhận hàng
+2. Confirm delivered","- status = ""Completed""
+- Badge: bg-green-100 text-green-800
+- Text: ""Hoàn thành""
+- Cho phép đánh giá sản phẩm",,High
+ORDER-008,Order status - Cancelled,User hoặc admin hủy đơn,"Status: Cancelled","1. User click ""Hủy đơn""
+2. Hoặc admin hủy
+3. Call: updateOrderStatus(id, { status: ""Cancelled"" })","- status = ""Cancelled""
+- Badge: bg-red-100 text-red-800
+- Text: ""Đã hủy""
+- Không thể thay đổi status nữa",,Medium
+ORDER-009,Hủy đơn hàng - Status Pending,Order status = Pending,"OrderID: 5","1. Xem order ID 5 (Pending)
+2. Click nút ""Hủy đơn""
+3. Confirm dialog","- Confirm: ""Bạn có chắc muốn hủy đơn hàng?""
+- Call: updateOrderStatus(5, { status: ""Cancelled"" })
+- Status update to Cancelled
+- Toast: ""Đã hủy đơn hàng""
+- Refresh order detail",,High
+ORDER-010,Không cho hủy đơn - Status Processing,Order status ≠ Pending,"Status: Processing","1. Order đang Processing
+2. Xem nút ""Hủy đơn""","- Nút không hiển thị hoặc disabled
+- Message: ""Không thể hủy đơn hàng đang xử lý""
+- Phải liên hệ admin để hủy",,Medium
+ORDER-011,Tính tổng tiền đơn hàng,Order có nhiều items,"Item1: 100k x 2 = 200k
+Item2: 150k x 1 = 150k","1. Xem order detail","- totalAmount = sum of (item.price * item.quantity)
+- = 200k + 150k = 350k
+- Display: ""350.000 ₫""
+- Format: toLocaleString('vi-VN')",,High
+ORDER-012,Order items - Hiển thị sản phẩm,Order có orderItems,"Items: 2 products","1. Xem order detail
+2. Check items list","- Mỗi item hiển thị:
+  - Product name (có thể link tới product)
+  - Quantity
+  - Price (đơn giá)
+  - Total (quantity * price)
+- Table layout hoặc list",,Medium
+ORDER-013,Payment method - COD,Order với COD,"Method: COD","1. User chọn ""Thanh toán khi nhận hàng""
+2. Submit order","- paymentMethod = ""COD""
+- paymentStatus = ""Pending""
+- Không cần thanh toán online
+- Shipper thu tiền khi giao hàng",,High
+ORDER-014,Payment method - Bank Transfer,Order với chuyển khoản,"Method: BankTransfer","1. User chọn ""Chuyển khoản ngân hàng""
+2. Submit order","- paymentMethod = ""BankTransfer""
+- Call: createPayment({ orderId, method: ""BankTransfer"" })
+- Backend tạo Payment records (split by enterprise)
+- Mỗi enterprise có 1 payment
+- Response: Payment[] với bank info, QR codes",,High
+ORDER-015,Payment - Split by Enterprise,Order có products từ 2 enterprises,"Product 12: Enterprise 1 (100k)
+Product 19: Enterprise 2 (200k)","1. Tạo order
+2. Gọi createPayment","- Backend tính tổng per enterprise
+- Enterprise 1: Payment amount = 100k
+- Enterprise 2: Payment amount = 200k
+- 2 Payment objects created
+- Mỗi payment có: enterpriseId, amount, bankAccount, qrCodeUrl",,Medium
+ORDER-016,Payment - Hiển thị thông tin chuyển khoản,Payment method = BankTransfer,"Payment ID: 10","1. Order đã tạo với BankTransfer
+2. Xem payment details","- Hiển thị:
+  - Số tài khoản: bankAccount
+  - Tên tài khoản: accountName
+  - Ngân hàng: bankCode
+  - Số tiền: amount.toLocaleString() ₫
+  - Mã giao dịch: reference
+  - QR Code: <img src={qrCodeUrl} />
+- Instruction: ""Quét QR hoặc chuyển khoản theo thông tin trên""",,High
+ORDER-017,Payment QR Code - Hiển thị,Payment có qrCodeUrl,"qrCodeUrl: https://...","1. Payment với BankTransfer
+2. Backend generate QR code","- <img src={payment.qrCodeUrl} />
+- Width: 200px hoặc 300px
+- Alt text: ""QR Code thanh toán""
+- User dùng banking app scan QR",,Medium
+ORDER-018,Payment status - Pending,Payment mới tạo,"Status: Pending","1. Order với BankTransfer
+2. Payment created","- paymentStatus = ""Pending""
+- Badge: bg-yellow-100
+- Text: ""Chờ thanh toán""
+- User chưa chuyển khoản",,Medium
+ORDER-019,Payment status - Paid,Enterprise admin xác nhận đã nhận tiền,"PaymentID: 10","1. User chuyển khoản xong
+2. Enterprise admin check banking
+3. Confirm payment
+4. Call: updatePaymentStatus(10, { status: ""Paid"" })","- paymentStatus = ""Paid""
+- paidAt = now (timestamp)
+- Badge: bg-green-100
+- Text: ""Đã thanh toán""
+- Order có thể chuyển sang Processing",,High
+ORDER-020,Payment status - Cancelled,Order bị hủy,"PaymentID: 11
+OrderID: 5 (Cancelled)","1. Order bị hủy
+2. Update payment status
+3. Call: updatePaymentStatus(11, { status: ""Cancelled"" })","- paymentStatus = ""Cancelled""
+- Badge: bg-red-100
+- Text: ""Đã hủy""
+- Không cần thanh toán nữa",,Medium
+ORDER-021,Enterprise Admin - Xem orders của doanh nghiệp,User role = EnterpriseAdmin; enterpriseId = 1,"(enterprise orders)","1. Login với enterprise admin
+2. Mở /enterprise-admin","- Call: getOrders() → backend filter by enterpriseId
+- Hiển thị orders có products thuộc enterprise này
+- Table: Order ID, Customer, Products, Amount, Status, Payment Status
+- Actions: Update status, Confirm payment",,High
+ORDER-022,Enterprise Admin - Confirm payment,Payment Pending; Admin check bank,"PaymentID: 15","1. Check banking app - tiền đã về
+2. Click ""Xác nhận đã nhận tiền""
+3. Confirm","- Call: updatePaymentStatus(15, { status: ""Paid"" })
+- Payment status: Pending → Paid
+- paidAt update
+- Có thể tự động update order status to Processing
+- Toast: ""Đã xác nhận thanh toán""",,High
+ORDER-023,Enterprise Admin - Update order status,Order thuộc enterprise,"OrderID: 8
+Status: Pending → Processing","1. Xem order detail
+2. Select new status từ dropdown
+3. Click ""Cập nhật""","- Call: updateOrderStatus(8, { status: ""Processing"" })
+- Status update
+- Customer nhận notification (nếu có)
+- Refresh order detail",,Medium
+ORDER-024,Payment Reference - Mã giao dịch,Payment created,"reference: ORD-001-ENT-005","1. Payment được tạo
+2. Check reference field","- Backend generate unique reference
+- Format: ORD-{orderId}-ENT-{enterpriseId}
+- User dùng reference làm nội dung chuyển khoản
+- Admin check reference để match payment",,Medium
+ORDER-025,Order history - Timeline,Order detail,"Order lifecycle","1. Xem chi tiết order
+2. Check timeline/history","- (Feature có thể implement)
+- Timeline hiển thị:
+  - Created at: orderDate
+  - Status changes: Pending → Processing → Shipped → Completed
+  - Payment status changes
+  - Timestamps cho mỗi event",,Low
+
