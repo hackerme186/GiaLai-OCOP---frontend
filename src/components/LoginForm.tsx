@@ -2,7 +2,7 @@
 import Link from "next/link"
 import { useState } from "react"
 import { login, getCurrentUser } from "@/lib/api"
-import { setAuthToken, getRoleFromToken } from "@/lib/auth"
+import { setAuthToken, getRoleFromToken, setUserProfile } from "@/lib/auth"
 import { useRouter } from "next/navigation"
 
 export default function LoginForm() {
@@ -22,7 +22,8 @@ export default function LoginForm() {
       const res = await login({ email, password }) as any
       
       // Extract token from various possible response structures
-      const token = res?.token || res?.data?.token || res?.accessToken || res?.access_token
+      // Backend trả về Token (chữ hoa) nên cần check cả Token và token
+      const token = res?.Token || res?.token || res?.data?.Token || res?.data?.token || res?.accessToken || res?.access_token
       
       if (!token) {
         throw new Error("Không nhận được token từ server")
@@ -63,17 +64,34 @@ export default function LoginForm() {
       // Normalize role for comparison
       const norm = role.toString().toLowerCase().trim()
       
-      // Check if user is admin
-      const isAdmin = norm === 'admin' || 
+      // Check roles
+      const isSystemAdmin = norm === 'systemadmin' || norm === 'sysadmin'
+      const isEnterpriseAdmin = norm === 'enterpriseadmin'
+      const isAdmin = isSystemAdmin || 
+                     norm === 'admin' || 
                      norm === 'administrator' || 
                      norm === 'role_admin' || 
-                     norm === 'admin_role' || 
-                     norm === 'sysadmin' ||
-                     norm.includes('admin')
+                     norm === 'admin_role'
       
+      try {
+        const profile = await getCurrentUser()
+        setUserProfile({
+          id: profile.id,
+          name: profile.name,
+          email: profile.email,
+          role: profile.role,
+          enterpriseId: profile.enterpriseId ?? undefined,
+          createdAt: profile.createdAt,
+        })
+      } catch (profileErr) {
+        console.warn("Could not load user profile:", profileErr)
+      }
+
       // Redirect based on role
-      if (isAdmin) {
+      if (isSystemAdmin || isAdmin) {
         router.replace("/admin")
+      } else if (isEnterpriseAdmin) {
+        router.replace("/enterprise-admin")
       } else {
         router.replace("/home")
       }

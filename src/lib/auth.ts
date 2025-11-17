@@ -16,12 +16,14 @@ export function getAuthToken(): string | null {
 export async function isLoggedIn(): Promise<boolean> {
   if (typeof window === "undefined") return false;
   
-  // Check NextAuth session first
+  // Check NextAuth session first (but don't fail if NextAuth is not available)
   try {
     const session = await getSession();
     if (session) return true;
-  } catch {
-    // Ignore session errors
+  } catch (err) {
+    // Ignore NextAuth errors (e.g., if API route is not available)
+    // This allows the app to work with custom auth even if NextAuth fails
+    console.debug("NextAuth session check failed (using fallback):", err);
   }
   
   // Fallback to local storage token
@@ -35,9 +37,13 @@ export function logout() {
 }
 
 export type UserProfile = {
+  id?: number;
   name?: string;
   email?: string;
+  role?: string;
+  enterpriseId?: number | null;
   avatarUrl?: string;
+  createdAt?: string;
 }
 
 export function setUserProfile(profile: UserProfile) {
