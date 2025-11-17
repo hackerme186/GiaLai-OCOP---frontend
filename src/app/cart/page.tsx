@@ -3,7 +3,11 @@
 import { useCart } from "@/lib/cart-context"
 import Image from "next/image"
 import Link from "next/link"
+<<<<<<< HEAD
+import { useMemo, useState, Suspense } from "react"
+=======
 import { useMemo, useState } from "react"
+>>>>>>> 7fdf69ba412eda1d3e9da27c1f8bb9a9f61bdbca
 import { useSearchParams } from "next/navigation"
 import Header from "@/components/layout/Header"
 import Footer from "@/components/layout/Footer"
@@ -344,6 +348,9 @@ function CartContent() {
 }
 
 <<<<<<< HEAD
+=======
+<<<<<<< HEAD
+>>>>>>> 7fdf69ba412eda1d3e9da27c1f8bb9a9f61bdbca
 // Component chính - wrap CartContent trong Suspense
 export default function CartPage() {
   return (
@@ -361,6 +368,8 @@ export default function CartPage() {
     }>
       <CartContent />
     </Suspense>
+<<<<<<< HEAD
+=======
 =======
 interface SummaryRowProps {
   label: string
@@ -384,5 +393,6 @@ function SummaryRow({ label, value, bold, large, highlight }: SummaryRowProps) {
       </span>
     </div>
 >>>>>>> ebcd71bbc86d3f1cf663334b94f2057bb2b0f602
+>>>>>>> 7fdf69ba412eda1d3e9da27c1f8bb9a9f61bdbca
   )
 }
