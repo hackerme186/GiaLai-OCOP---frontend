@@ -9,6 +9,30 @@ import Header from "@/components/layout/Header"
 import Footer from "@/components/layout/Footer"
 import CheckoutModal from "@/components/cart/CheckoutModal"
 
+interface SummaryRowProps {
+  label: string
+  value: number
+  bold?: boolean
+  large?: boolean
+  highlight?: boolean
+}
+
+function SummaryRow({ label, value, bold, large, highlight }: SummaryRowProps) {
+  const formatted = `${value >= 0 ? "" : "-"}${Math.abs(value).toLocaleString("vi-VN")} ₫`
+  return (
+    <div className="flex justify-between text-sm">
+      <span className={`text-gray-600 ${bold ? "font-semibold text-gray-900" : ""}`}>{label}</span>
+      <span
+        className={`${
+          bold ? "font-semibold text-gray-900" : "text-gray-900"
+        } ${large ? "text-lg" : ""} ${highlight ? "text-green-600" : ""}`}
+      >
+        {formatted}
+      </span>
+    </div>
+  )
+}
+
 // Component con sử dụng useSearchParams (phải wrap trong Suspense)
 function CartContent() {
   const { cart, updateQuantity, removeFromCart, clearCart } = useCart()
@@ -319,6 +343,25 @@ function CartContent() {
   )
 }
 
+<<<<<<< HEAD
+// Component chính - wrap CartContent trong Suspense
+export default function CartPage() {
+  return (
+    <Suspense fallback={
+      <>
+        <Header />
+        <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+          <div className="text-center">
+            <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-indigo-600 mx-auto"></div>
+            <p className="mt-4 text-gray-600">Đang tải giỏ hàng...</p>
+          </div>
+        </div>
+        <Footer />
+      </>
+    }>
+      <CartContent />
+    </Suspense>
+=======
 interface SummaryRowProps {
   label: string
   value: number
@@ -340,5 +383,6 @@ function SummaryRow({ label, value, bold, large, highlight }: SummaryRowProps) {
         {formatted}
       </span>
     </div>
+>>>>>>> ebcd71bbc86d3f1cf663334b94f2057bb2b0f602
   )
 }
