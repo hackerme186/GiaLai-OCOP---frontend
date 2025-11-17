@@ -3,7 +3,7 @@
 import { useState } from "react"
 import { useRouter } from "next/navigation"
 import { cn } from "@/lib/utils"
-import { register } from "@/lib/api"
+import { register, login } from "@/lib/api"
 import { setAuthToken, setUserProfile } from "@/lib/auth"
 
 export default function RegisterForm() {
@@ -27,28 +27,52 @@ export default function RegisterForm() {
     if (!strong || !match) return
     setError(null)
     setLoading(true)
+    
     try {
       const normalizedEmail = email.trim().toLowerCase()
-      const res = await register({ fullName: fullName.trim(), email: normalizedEmail, password }) as any
       
-      // Set authentication token (similar to login flow)
-      if (res?.token) {
-        setAuthToken(res.token)
-      } else {
-        setAuthToken("1") // Default token for authenticated user
+      // Đăng ký đơn giản - chỉ gửi name, email, password (không có OTP)
+      const res = await register({ 
+        name: fullName.trim(), 
+        email: normalizedEmail, 
+        password
+      }) as any
+      
+      // Backend tự động trả về JWT token sau khi đăng ký
+      // Backend trả về Token (chữ hoa) nên cần check cả Token và token
+      const token = res?.Token || res?.token || res?.data?.Token || res?.data?.token || res?.accessToken || res?.access_token
+      
+      if (!token) {
+        throw new Error("Không nhận được token từ server sau khi đăng ký")
       }
       
-      // Set user profile with the registered user's information
-      setUserProfile({
-        name: fullName.trim(),
-        email: normalizedEmail,
-        avatarUrl: undefined
-      })
+      // Lưu token
+      setAuthToken(token)
       
-      // Navigate to home page after successful registration
+      // Lấy thông tin user từ response hoặc gọi /me endpoint
+      try {
+        const { getCurrentUser } = await import("@/lib/api")
+        const userInfo = await getCurrentUser()
+        setUserProfile({
+          id: userInfo.id,
+          name: userInfo.name || fullName.trim(),
+          email: userInfo.email || normalizedEmail,
+          role: userInfo.role || "Customer"
+        })
+      } catch (profileErr) {
+        // Nếu không lấy được user info, dùng thông tin từ form
+        setUserProfile({
+          name: fullName.trim(),
+          email: normalizedEmail,
+          role: "Customer"
+        })
+      }
+      
+      // Navigate to home page sau khi đăng ký thành công
       router.replace("/home")
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Đăng ký thất bại")
+      const errorMessage = err instanceof Error ? err.message : "Đăng ký thất bại"
+      setError(errorMessage)
     } finally {
       setLoading(false)
     }

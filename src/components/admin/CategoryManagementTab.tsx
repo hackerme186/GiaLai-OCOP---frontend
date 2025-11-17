@@ -19,7 +19,10 @@ export default function CategoryManagementTab() {
     setLoading(true)
     try {
       const res = await getCategories()
-      setCategories(res.items || res.data || res.categories || [])
+      const list = Array.isArray(res)
+        ? res
+        : (res as any)?.items || (res as any)?.data || (res as any)?.categories || []
+      setCategories(list)
     } catch (err) {
       console.error('Failed to load categories:', err)
       setCategories([])
@@ -64,7 +67,7 @@ export default function CategoryManagementTab() {
     }
   }
 
-  const handleDelete = async (id: number | string) => {
+  const handleDelete = async (id: number) => {
     if (!confirm('Bạn có chắc chắn muốn xóa danh mục này?')) return
     try {
       await deleteCategory(id)

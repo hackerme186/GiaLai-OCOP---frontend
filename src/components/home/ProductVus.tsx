@@ -13,9 +13,10 @@ const ProductVus = () => {
     const fetchProducts = async () => {
       try {
         setLoading(true)
-        const data = await getProducts({ limit: 8 }) // Limit to 8 products for slider
-        // Handle different response formats from API
-        const productList = Array.isArray(data) ? data : (data as any)?.products || []
+        const data = await getProducts({ pageSize: 8, status: "Approved" })
+        const productList = Array.isArray(data)
+          ? data
+          : (data as any)?.items || (data as any)?.products || []
         setProducts(productList)
       } catch (err) {
         console.error('Failed to fetch products:', err)
@@ -101,10 +102,10 @@ const ProductVus = () => {
                   key={product.id}
                   className="w-full sm:w-1/2 md:w-1/3 lg:w-1/4 flex-shrink-0 px-4"
                 >
-                  <div className="bg-white rounded-lg shadow-md overflow-hidden hover:shadow-xl transition-shadow">
+                    <div className="bg-white rounded-lg shadow-md overflow-hidden hover:shadow-xl transition-shadow">
                     <div className="relative h-56">
                       <Image
-                        src={product.image || '/placeholder-product.jpg'}
+                        src={product.imageUrl || '/placeholder-product.jpg'}
                         alt={product.name || 'Sản phẩm'}
                         fill
                         className="object-cover"
