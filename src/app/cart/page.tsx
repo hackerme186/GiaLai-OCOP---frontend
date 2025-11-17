@@ -3,7 +3,7 @@
 import { useCart } from "@/lib/cart-context"
 import Image from "next/image"
 import Link from "next/link"
-import { useMemo, useState, Suspense } from "react"
+import { useMemo, useState } from "react"
 import { useSearchParams } from "next/navigation"
 import Header from "@/components/layout/Header"
 import Footer from "@/components/layout/Footer"
@@ -316,26 +316,6 @@ function CartContent() {
         }}
       />
     </>
-  )
-}
-
-// Component chính - wrap CartContent trong Suspense
-export default function CartPage() {
-  return (
-    <Suspense fallback={
-      <>
-        <Header />
-        <div className="min-h-screen bg-gray-50 flex items-center justify-center">
-          <div className="text-center">
-            <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-indigo-600 mx-auto"></div>
-            <p className="mt-4 text-gray-600">Đang tải giỏ hàng...</p>
-          </div>
-        </div>
-        <Footer />
-      </>
-    }>
-      <CartContent />
-    </Suspense>
   )
 }
 
