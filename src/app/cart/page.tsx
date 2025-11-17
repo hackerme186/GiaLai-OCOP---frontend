@@ -9,7 +9,8 @@ import Header from "@/components/layout/Header"
 import Footer from "@/components/layout/Footer"
 import CheckoutModal from "@/components/cart/CheckoutModal"
 
-export default function CartPage() {
+// Component con sử dụng useSearchParams (phải wrap trong Suspense)
+function CartContent() {
   const { cart, updateQuantity, removeFromCart, clearCart } = useCart()
   const searchParams = useSearchParams()
   const [isClearing, setIsClearing] = useState(false)
