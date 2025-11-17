@@ -1,6 +1,10 @@
 "use client"
 
+<<<<<<< HEAD
 import { useEffect, useState, Suspense } from "react"
+=======
+import { useEffect, useState } from "react"
+>>>>>>> 7fdf69ba412eda1d3e9da27c1f8bb9a9f61bdbca
 import { useParams, useSearchParams, useRouter } from "next/navigation"
 import Image from "next/image"
 import Header from "@/components/layout/Header"
@@ -8,8 +12,12 @@ import Footer from "@/components/layout/Footer"
 import { createPayment, getOrder, getPaymentsByOrder, type Payment, type Order } from "@/lib/api"
 import { isLoggedIn } from "@/lib/auth"
 
+<<<<<<< HEAD
 // Component con sử dụng useSearchParams (phải wrap trong Suspense)
 function PaymentContent() {
+=======
+export default function PaymentPage() {
+>>>>>>> 7fdf69ba412eda1d3e9da27c1f8bb9a9f61bdbca
     const params = useParams()
     const searchParams = useSearchParams()
     const router = useRouter()
@@ -257,6 +265,7 @@ function PaymentContent() {
     )
 }
 
+<<<<<<< HEAD
 // Component chính - wrap PaymentContent trong Suspense
 export default function PaymentPage() {
     return (
@@ -277,3 +286,5 @@ export default function PaymentPage() {
     )
 }
 
+=======
+>>>>>>> 7fdf69ba412eda1d3e9da27c1f8bb9a9f61bdbca
