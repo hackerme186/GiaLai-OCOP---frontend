@@ -83,10 +83,6 @@ export default function LoginForm() {
           enterpriseId: profile.enterpriseId ?? undefined,
           createdAt: profile.createdAt,
         })
-        
-        // Trigger cart reload for this user by dispatching storage event
-        // Cart context will detect user change and load the correct cart
-        window.dispatchEvent(new Event('storage'));
       } catch (profileErr) {
         console.warn("Could not load user profile:", profileErr)
       }

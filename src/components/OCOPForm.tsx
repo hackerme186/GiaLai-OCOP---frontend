@@ -12,7 +12,6 @@ export default function OCOPForm({ onSubmit }: OCOPFormProps) {
   const totalSteps = 3
 
   const [name, setName] = useState("")
-  const [description, setDescription] = useState("")
   const [address, setAddress] = useState("")
   const [phone, setPhone] = useState("")
   const [email, setEmail] = useState("")
@@ -42,95 +41,122 @@ export default function OCOPForm({ onSubmit }: OCOPFormProps) {
   const [productCertifications, setProductCertifications] = useState<string[]>([])
   const [attachedDocuments, setAttachedDocuments] = useState<File[]>([])
   const [additionalNotes, setAdditionalNotes] = useState("")
-  type ProductFormItem = { name: string; description: string; priceText: string }
-  const [products, setProducts] = useState<ProductFormItem[]>([
-    { name: "", description: "", priceText: "" }
-  ])
   const [errors, setErrors] = useState<Record<string, string>>({})
 
-  // --- 0. THÊM STATE MỚI (dưới dòng 44) ---
+  // Product fields for Step 2
   const [productName, setProductName] = useState("");
   const [productDescription, setProductDescription] = useState("");
-  const [productImages, setProductImages] = useState<File[]>([]); // allow multiple
-  // Multi-file upload for attached docs
-  const [attachedDocs, setAttachedDocs] = useState<File[]>([]); // replace attachedDocuments
-
-  const addProduct = () => {
-    setProducts(prev => ([...prev, { name: "", description: "", priceText: "" }]))
-  }
-
-  const removeProduct = (index: number) => {
-    setProducts(prev => prev.filter((_, i) => i !== index))
-  }
-
-  const updateProduct = (index: number, field: keyof ProductFormItem, value: any) => {
-    setProducts(prev => prev.map((p, i) => i === index ? { ...p, [field]: value } : p))
-    setErrors(prev => {
-      const copy = { ...prev }
-      delete copy[`product_${index}_${field}`]
-      return copy
-    })
-  }
+  const [productImages, setProductImages] = useState<File[]>([]);
+  const [attachedDocs, setAttachedDocs] = useState<File[]>([]);
 
   const validateStep1 = () => {
     const nextErrors: Record<string, string> = {}
     if (!name.trim()) nextErrors.name = "Vui lòng nhập tên doanh nghiệp"
-    if (!description.trim()) nextErrors.description = "Vui lòng nhập mô tả"
+    // Removed description validation - field doesn't exist in form
     if (!address.trim()) nextErrors.address = "Vui lòng nhập địa chỉ"
     if (!phone.trim()) nextErrors.phone = "Vui lòng nhập số điện thoại"
-    if (!email.trim()) nextErrors.email = "Vui lòng nhập email"
+    
+    // Email validation with proper format check
+    if (!email.trim()) {
+      nextErrors.email = "Vui lòng nhập email"
+    } else {
+      // Strict email regex validation to match backend requirements
+      const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
+      if (!emailRegex.test(email.trim())) {
+        nextErrors.email = "Email không đúng định dạng (ví dụ: example@company.com)"
+      }
+    }
+    
     setErrors(nextErrors)
     return Object.keys(nextErrors).length === 0
   }
 
   const validateStep2 = () => {
-    const nextErrors: Record<string, string> = {}
-    products.forEach((p, i) => {
-      if (!p.name.trim()) nextErrors[`product_${i}_name`] = "Vui lòng nhập tên sản phẩm"
-      if (!p.description.trim()) nextErrors[`product_${i}_description`] = "Vui lòng nhập mô tả sản phẩm"
-      if (!p.priceText.trim()) nextErrors[`product_${i}_priceText`] = "Vui lòng nhập giá"
-    })
-    setErrors(nextErrors)
-    return Object.keys(nextErrors).length === 0
+    // Step 2 fields (productName, productDescription, etc.) are all optional
+    // No validation needed - user can proceed to step 3
+    return true
   }
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault()
 
+    // --- PRE-SUBMIT VALIDATION ---
+    const trimmedEmail = email.trim()
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
+    
+    console.log('🔍 DEBUG - Email value before submit:', {
+      raw: email,
+      trimmed: trimmedEmail,
+      isValid: emailRegex.test(trimmedEmail),
+      length: trimmedEmail.length
+    })
+    
+    if (!emailRegex.test(trimmedEmail)) {
+      console.error('❌ Email không hợp lệ trước khi submit:', trimmedEmail)
+      alert(`⚠️ Email không hợp lệ: "${trimmedEmail}"\n\nVui lòng nhập email đúng định dạng (ví dụ: contact@company.com)`)
+      return
+    }
+
+    // --- HELPER: Convert date to UTC ISO string or undefined ---
+    const toUTCDate = (dateStr: string): string | undefined => {
+      if (!dateStr || dateStr.trim() === '') return undefined
+      try {
+        // Parse date and convert to UTC ISO string for PostgreSQL compatibility
+        const date = new Date(dateStr)
+        if (isNaN(date.getTime())) return undefined
+        return date.toISOString()
+      } catch {
+        return undefined
+      }
+    }
+
     // --- SUBMIT: ĐƯA ĐẦY ĐỦ DỮ LIỆU VÀO PAYLOAD ---
+    // Convert dates to UTC first
+    const licenseIssuedDateUTC = toUTCDate(licenseIssuedDate)
+    const representativeIdIssuedDateUTC = toUTCDate(representativeIdIssuedDate)
+    
+    // Build payload with proper handling of optional date fields
     const payload: CreateEnterpriseApplicationDto = {
-      enterpriseName: name,
-      businessType,
-      taxCode,
-      businessLicenseNumber,
-      licenseIssuedDate,
-      licenseIssuedBy,
-      address,
-      ward,
-      district,
-      province,
-      phoneNumber: phone,
-      emailContact: email,
-      website,
-      representativeName,
-      representativePosition,
-      representativeIdNumber,
-      representativeIdIssuedDate,
-      representativeIdIssuedBy,
-      productionLocation,
-      numberOfEmployees,
-      productionScale,
-      businessField,
-      productName,
-      productCategory,
-      productDescription,
-      productOrigin,
+      enterpriseName: name.trim(),
+      businessType: businessType,
+      taxCode: taxCode,
+      businessLicenseNumber: businessLicenseNumber,
+      // Only include licenseIssuedDate if conversion succeeded (returns non-undefined UTC string)
+      ...(licenseIssuedDateUTC && { licenseIssuedDate: licenseIssuedDateUTC }),
+      licenseIssuedBy: licenseIssuedBy,
+      address: address.trim(),
+      ward: ward,
+      district: district,
+      province: province,
+      phoneNumber: phone.trim(),
+      emailContact: trimmedEmail, // Already validated above
+      website: website,
+      representativeName: representativeName,
+      representativePosition: representativePosition,
+      representativeIdNumber: representativeIdNumber,
+      // Only include representativeIdIssuedDate if conversion succeeded
+      ...(representativeIdIssuedDateUTC && { representativeIdIssuedDate: representativeIdIssuedDateUTC }),
+      representativeIdIssuedBy: representativeIdIssuedBy,
+      productionLocation: productionLocation,
+      numberOfEmployees: numberOfEmployees,
+      productionScale: productionScale,
+      businessField: businessField,
+      productName: productName,
+      productCategory: productCategory,
+      productDescription: productDescription,
+      productOrigin: productOrigin,
       productCertifications: productCertifications.join(','),
       productImages: productImages.map(f => f.name).join(','), // TODO: Upload files and get URLs
       attachedDocuments: attachedDocs.map(f => f.name).join(','), // TODO: Upload files and get URLs
-      additionalNotes
+      additionalNotes: additionalNotes
     }
 
+    console.log('📤 Gửi dữ liệu đăng ký OCOP:', payload)
+    console.log('📧 Email sẽ gửi đi:', payload.emailContact)
+    console.log('📅 Date fields (UTC):', {
+      licenseIssuedDate: payload.licenseIssuedDate,
+      representativeIdIssuedDate: payload.representativeIdIssuedDate
+    })
     onSubmit(payload)
   }
 
@@ -309,7 +335,6 @@ export default function OCOPForm({ onSubmit }: OCOPFormProps) {
               <h4 className="font-semibold text-gray-900">Thông tin doanh nghiệp</h4>
               <div>
                 <p className="text-gray-700"><span className="font-medium">Tên:</span> {name || '(chưa nhập)'}</p>
-                <p className="text-gray-700"><span className="font-medium">Mô tả:</span> {description || '(chưa nhập)'}</p>
                 <p className="text-gray-700"><span className="font-medium">Địa chỉ:</span> {address || '(chưa nhập)'}</p>
                 <p className="text-gray-700"><span className="font-medium">Điện thoại:</span> {phone || '(chưa nhập)'}</p>
                 <p className="text-gray-700"><span className="font-medium">Email:</span> {email || '(chưa nhập)'}</p>

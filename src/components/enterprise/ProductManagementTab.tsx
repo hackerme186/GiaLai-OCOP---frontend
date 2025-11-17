@@ -25,6 +25,7 @@ export default function ProductManagementTab({ user }: ProductManagementTabProps
     price: "" as string | number,
     categoryId: 0,
     imageUrl: "",
+    stockStatus: "InStock" as "InStock" | "OutOfStock" | "",
   })
 
   useEffect(() => {
@@ -52,10 +53,16 @@ export default function ProductManagementTab({ user }: ProductManagementTabProps
       // Load categories - with fallback for 403 error (EnterpriseAdmin can't access categories endpoint)
       try {
         const categoriesData = await getCategories()
-        setCategories(categoriesData)
+        
+        // ✨ FILTER: Only show active categories (IsActive = true)
+        const activeCategories = categoriesData.filter(cat => cat.isActive !== false)
+        
+        console.log(`📋 Loaded ${categoriesData.length} categories, ${activeCategories.length} active`)
+        setCategories(activeCategories)
       } catch (catError) {
-        console.warn("❌ Cannot load categories from API (403 - permission denied). Using fallback list.")
-        // Fallback: Use categories extracted from products
+        console.warn("❌ Cannot load categories from API (403 - permission denied). Extracting from existing products.")
+        
+        // Fallback: Extract categories from existing products (these are already filtered by backend)
         const uniqueCategories: Category[] = []
         const categoryMap = new Map<number, string>()
 
@@ -65,22 +72,17 @@ export default function ProductManagementTab({ user }: ProductManagementTabProps
             uniqueCategories.push({
               id: product.categoryId,
               name: product.categoryName,
-              isActive: true
+              isActive: true // Categories from existing products are assumed active
             })
           }
         })
 
-        // Add default categories if none found
         if (uniqueCategories.length === 0) {
-          uniqueCategories.push(
-            { id: 1, name: "Thực phẩm", isActive: true },
-            { id: 2, name: "Đồ uống", isActive: true },
-            { id: 3, name: "Thủ công mỹ nghệ", isActive: true },
-            { id: 4, name: "Dệt may", isActive: true },
-            { id: 5, name: "Khác", isActive: true }
-          )
+          console.warn("⚠️ No categories found from products. Enterprise has no products yet.")
+          // Don't add default categories - force user to contact admin
         }
 
+        console.log(`📋 Extracted ${uniqueCategories.length} categories from existing products`)
         setCategories(uniqueCategories)
       }
     } catch (err) {
@@ -117,14 +119,27 @@ export default function ProductManagementTab({ user }: ProductManagementTabProps
 
   const handleCreate = () => {
     setEditingProduct(null)
+    
+    // Warn if no active categories available
+    if (categories.length === 0) {
+      console.warn('⚠️ No active categories available.')
+      alert('⚠️ Không có danh mục nào khả dụng.\n\nVui lòng liên hệ SystemAdmin để kích hoạt danh mục sản phẩm.')
+      return
+    }
+    
+    // Auto-select first active category
+    const defaultCategoryId = categories[0].id
     setFormData({
       name: "",
       description: "",
       price: "",
-      categoryId: categories[0]?.id || 0,
+      categoryId: defaultCategoryId,
       imageUrl: "",
+      stockStatus: "InStock", // Default: Còn hàng
     })
     setShowModal(true)
+    
+    console.log(`📝 Creating new product with default category: ${categories[0].name} (ID: ${defaultCategoryId})`)
   }
 
   const handleEdit = (product: Product) => {
@@ -135,6 +150,7 @@ export default function ProductManagementTab({ user }: ProductManagementTabProps
       price: product.price,
       categoryId: product.categoryId || 0,
       imageUrl: product.imageUrl || "",
+      stockStatus: (product.stockStatus || "InStock") as "InStock" | "OutOfStock" | "",
     })
     setShowModal(true)
   }
@@ -166,6 +182,8 @@ export default function ProductManagementTab({ user }: ProductManagementTabProps
     e.preventDefault()
     setError(null)
 
+    console.log('🔍 DEBUG - Form data before submit:', formData)
+
     // Validation
     if (!formData.name.trim()) {
       setError("Vui lòng nhập tên sản phẩm")
@@ -176,13 +194,33 @@ export default function ProductManagementTab({ user }: ProductManagementTabProps
       setError("Vui lòng nhập giá sản phẩm hợp lệ (lớn hơn 0)")
       return
     }
+    if (!formData.categoryId || formData.categoryId === 0) {
+      setError("Vui lòng chọn danh mục sản phẩm")
+      return
+    }
+    
+    // Verify selected category is still active
+    const selectedCategory = categories.find(cat => cat.id === formData.categoryId)
+    if (!selectedCategory) {
+      setError("Danh mục đã chọn không còn khả dụng. Vui lòng chọn danh mục khác.")
+      console.warn(`⚠️ Category ${formData.categoryId} not found in active categories list`)
+      return
+    }
 
     try {
-      // Prepare payload with validated price
+      // Prepare payload with validated price and default imageUrl if empty
       const payload = {
         ...formData,
-        price: typeof formData.price === 'string' ? parseFloat(formData.price) : formData.price
+        price: typeof formData.price === 'string' ? parseFloat(formData.price) : formData.price,
+        imageUrl: formData.imageUrl.trim() || '/hero.jpg', // Use default if empty
+        stockStatus: formData.stockStatus || "InStock" // Default to InStock if empty
       }
+      
+      console.log('📤 Sending product payload:', payload)
+      console.log('📸 ImageUrl:', payload.imageUrl)
+      console.log('📦 StockStatus:', payload.stockStatus)
+      console.log('📁 Selected category:', selectedCategory.name, `(ID: ${selectedCategory.id})`)
+      console.log('✅ Category is active and available')
 
       if (editingProduct) {
         // Update existing product
@@ -197,7 +235,9 @@ export default function ProductManagementTab({ user }: ProductManagementTabProps
         ))
       } else {
         // Create new product
+        console.log('🚀 Creating new product...')
         const newProduct = await createProduct(payload)
+        console.log('✅ Product created successfully:', newProduct)
         setSuccess("Đã tạo sản phẩm mới! Sản phẩm đang chờ quản trị viên duyệt.")
         setProducts(prev => [newProduct, ...prev])
       }
@@ -206,8 +246,29 @@ export default function ProductManagementTab({ user }: ProductManagementTabProps
       setTimeout(() => setSuccess(null), 5000)
       await loadData() // Reload to get latest data
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Có lỗi xảy ra")
-      setTimeout(() => setError(null), 5000)
+      console.error('❌ Error creating/updating product:', err)
+      
+      let errorMessage = "Có lỗi xảy ra"
+      if (err instanceof Error) {
+        errorMessage = err.message
+        
+        // Parse backend validation errors (400 Bad Request)
+        if (errorMessage.includes("400")) {
+          // Try to extract more specific error info
+          if (errorMessage.includes("imageUrl") || errorMessage.includes("ImageUrl")) {
+            errorMessage = "⚠️ URL hình ảnh không hợp lệ. Vui lòng nhập URL đầy đủ (bắt đầu bằng http:// hoặc https://)"
+          } else if (errorMessage.includes("category") || errorMessage.includes("Category")) {
+            errorMessage = "⚠️ Danh mục không hợp lệ. Vui lòng chọn danh mục khác."
+          } else if (errorMessage.includes("enterprise") || errorMessage.includes("Enterprise")) {
+            errorMessage = "⚠️ Không tìm thấy doanh nghiệp. Vui lòng đăng nhập lại."
+          } else {
+            errorMessage = `⚠️ Dữ liệu không hợp lệ: ${errorMessage}`
+          }
+        }
+      }
+      
+      setError(errorMessage)
+      setTimeout(() => setError(null), 8000)
     }
   }
 
@@ -289,8 +350,8 @@ export default function ProductManagementTab({ user }: ProductManagementTabProps
               key={tab.id}
               onClick={() => setFilter(tab.id)}
               className={`px-4 py-2 font-medium text-sm border-b-2 transition-colors ${filter === tab.id
-                ? "border-green-600 text-green-600"
-                : "border-transparent text-gray-500 hover:text-gray-700"
+                  ? "border-green-600 text-green-600"
+                  : "border-transparent text-gray-500 hover:text-gray-700"
                 }`}
             >
               {tab.label} ({tab.id === "all" ? products.length : products.filter(p => p.status === tab.id).length})
@@ -457,20 +518,29 @@ export default function ProductManagementTab({ user }: ProductManagementTabProps
 
                 <div>
                   <label className="block text-sm font-semibold text-gray-900 mb-2">
-                    Danh mục
+                    Danh mục <span className="text-red-500">*</span>
                   </label>
                   <select
                     value={formData.categoryId}
                     onChange={(e) => setFormData({ ...formData, categoryId: Number(e.target.value) })}
                     className="w-full px-4 py-3 border-2 border-gray-200 rounded-lg focus:border-green-500 focus:ring-2 focus:ring-green-200 transition-all"
+                    required
                   >
-                    <option value={0}>Không có</option>
+                    <option value={0} disabled>-- Chọn danh mục --</option>
                     {categories.map((cat) => (
                       <option key={cat.id} value={cat.id}>
                         {cat.name}
                       </option>
                     ))}
                   </select>
+                  {categories.length === 0 && (
+                    <p className="text-xs text-red-600 mt-1">
+                      ⚠️ Không có danh mục khả dụng. Vui lòng liên hệ quản trị viên.
+                    </p>
+                  )}
+                  <p className="text-xs text-gray-500 mt-1">
+                    💡 Chỉ hiển thị danh mục đã được SystemAdmin kích hoạt
+                  </p>
                 </div>
               </div>
 
@@ -488,6 +558,26 @@ export default function ProductManagementTab({ user }: ProductManagementTabProps
                 />
                 <p className="text-xs text-gray-500 mt-1">
                   💡 Để trống nếu không có ảnh, hệ thống sẽ dùng ảnh mặc định
+                </p>
+              </div>
+
+              {/* Stock Status */}
+              <div>
+                <label className="block text-sm font-semibold text-gray-900 mb-2">
+                  Tình trạng kho <span className="text-red-500">*</span>
+                </label>
+                <select
+                  value={formData.stockStatus}
+                  onChange={(e) => setFormData({ ...formData, stockStatus: e.target.value as "InStock" | "OutOfStock" | "" })}
+                  className="w-full px-4 py-3 border-2 border-gray-200 rounded-lg focus:border-green-500 focus:ring-2 focus:ring-green-200 transition-all"
+                  required
+                >
+                  <option value="">Không xác định</option>
+                  <option value="InStock">Còn hàng</option>
+                  <option value="OutOfStock">Hết hàng</option>
+                </select>
+                <p className="text-xs text-gray-500 mt-1">
+                  📦 Cập nhật trạng thái tồn kho của sản phẩm
                 </p>
               </div>
 

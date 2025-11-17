@@ -134,8 +134,6 @@ const UserDropdown = ({ profile, isAdmin, isEnterpriseAdmin }: UserDropdownProps
                 Đơn hàng của tôi
               </Link>
 
-<<<<<<< HEAD
-=======
               {/* Enterprise Admin Dashboard (nếu có) */}
               {isEnterpriseAdmin && (
                 <Link
@@ -151,7 +149,6 @@ const UserDropdown = ({ profile, isAdmin, isEnterpriseAdmin }: UserDropdownProps
                 </Link>
               )}
 
->>>>>>> 4597cd586282757010a6a01c2d7981866adbd6ac
               {/* Admin (nếu có) */}
               {isAdmin && (
                 <Link

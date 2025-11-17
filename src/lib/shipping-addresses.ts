@@ -1,9 +1,7 @@
 /**
  * Shipping Address Management Service
- * Quản lý danh sách địa chỉ giao hàng đã lưu - theo từng Customer
+ * Quản lý danh sách địa chỉ giao hàng đã lưu
  */
-
-import { getUserProfile } from "@/lib/auth"
 
 export interface SavedShippingAddress {
   id: string;
@@ -14,27 +12,16 @@ export interface SavedShippingAddress {
   updatedAt?: string;
 }
 
-// Helper để lấy storage key theo userId
-function getStorageKey(userId?: number | null): string {
-  if (userId) {
-    return `saved_addresses_${userId}`
-  }
-  // Fallback cho guest (sẽ được clear khi login)
-  return 'saved_addresses_guest'
-}
+const STORAGE_KEY = 'saved_shipping_addresses';
 
 /**
- * Lấy danh sách địa chỉ giao hàng đã lưu cho user hiện tại
+ * Lấy danh sách địa chỉ giao hàng đã lưu
  */
 export function getSavedShippingAddresses(): SavedShippingAddress[] {
   if (typeof window === 'undefined') return [];
   
   try {
-    const profile = getUserProfile();
-    const userId = profile?.id || null;
-    const storageKey = getStorageKey(userId);
-    
-    const stored = localStorage.getItem(storageKey);
+    const stored = localStorage.getItem(STORAGE_KEY);
     if (!stored) return [];
     return JSON.parse(stored) as SavedShippingAddress[];
   } catch (error) {
@@ -44,17 +31,13 @@ export function getSavedShippingAddresses(): SavedShippingAddress[] {
 }
 
 /**
- * Lưu danh sách địa chỉ giao hàng cho user hiện tại
+ * Lưu danh sách địa chỉ giao hàng
  */
 function saveShippingAddresses(addresses: SavedShippingAddress[]): void {
   if (typeof window === 'undefined') return;
   
   try {
-    const profile = getUserProfile();
-    const userId = profile?.id || null;
-    const storageKey = getStorageKey(userId);
-    
-    localStorage.setItem(storageKey, JSON.stringify(addresses));
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(addresses));
   } catch (error) {
     console.error('Error saving shipping addresses:', error);
   }

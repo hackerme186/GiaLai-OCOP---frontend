@@ -59,9 +59,6 @@ export default function RegisterForm() {
           email: userInfo.email || normalizedEmail,
           role: userInfo.role || "Customer"
         })
-        
-        // Trigger cart reload for this new user
-        window.dispatchEvent(new Event('storage'));
       } catch (profileErr) {
         // Nếu không lấy được user info, dùng thông tin từ form
         setUserProfile({
@@ -69,9 +66,6 @@ export default function RegisterForm() {
           email: normalizedEmail,
           role: "Customer"
         })
-        
-        // Trigger cart reload
-        window.dispatchEvent(new Event('storage'));
       }
       
       // Navigate to home page sau khi đăng ký thành công
