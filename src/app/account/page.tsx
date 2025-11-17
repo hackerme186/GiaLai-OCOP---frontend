@@ -32,13 +32,10 @@ export default function AccountPage() {
   const [loadingAddress, setLoadingAddress] = useState(false)
   const [saving, setSaving] = useState(false)
   const [savingProfile, setSavingProfile] = useState(false)
-<<<<<<< HEAD
-=======
   const [savedAddresses, setSavedAddresses] = useState<SavedShippingAddress[]>([])
   const [isAddingNewAddress, setIsAddingNewAddress] = useState(false)
   const [newAddressLabel, setNewAddressLabel] = useState("")
   const [editingAddressId, setEditingAddressId] = useState<string | null>(null)
->>>>>>> 4597cd586282757010a6a01c2d7981866adbd6ac
 
   useEffect(() => {
     const init = async () => {
@@ -54,8 +51,6 @@ export default function AccountPage() {
         setShippingAddress(me.shippingAddress || "")
         setName(me.name || "")
         setEmail(me.email || "")
-<<<<<<< HEAD
-=======
         
         // Đồng bộ địa chỉ từ backend vào danh sách địa chỉ đã lưu
         if (me.shippingAddress) {
@@ -64,7 +59,6 @@ export default function AccountPage() {
         
         // Load danh sách địa chỉ đã lưu
         setSavedAddresses(getSavedShippingAddresses())
->>>>>>> 4597cd586282757010a6a01c2d7981866adbd6ac
       } catch {
         const profile = getUserProfile() || {}
         const userData = {
@@ -79,10 +73,7 @@ export default function AccountPage() {
         setShippingAddress("")
         setName(userData.name || "")
         setEmail(userData.email || "")
-<<<<<<< HEAD
-=======
         setSavedAddresses(getSavedShippingAddresses())
->>>>>>> 4597cd586282757010a6a01c2d7981866adbd6ac
       } finally {
         setReady(true)
       }
@@ -215,8 +206,6 @@ export default function AccountPage() {
     }
   }
 
-<<<<<<< HEAD
-=======
   const handleAddNewAddress = () => {
     if (!shippingAddress.trim()) {
       setError("Vui lòng nhập địa chỉ giao hàng")
@@ -277,7 +266,6 @@ export default function AccountPage() {
     }
   }
 
->>>>>>> 4597cd586282757010a6a01c2d7981866adbd6ac
   if (!ready) {
     return (
       <>
