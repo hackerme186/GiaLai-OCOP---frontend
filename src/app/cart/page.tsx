@@ -9,6 +9,30 @@ import Header from "@/components/layout/Header"
 import Footer from "@/components/layout/Footer"
 import CheckoutModal from "@/components/cart/CheckoutModal"
 
+interface SummaryRowProps {
+  label: string
+  value: number
+  bold?: boolean
+  large?: boolean
+  highlight?: boolean
+}
+
+function SummaryRow({ label, value, bold, large, highlight }: SummaryRowProps) {
+  const formatted = `${value >= 0 ? "" : "-"}${Math.abs(value).toLocaleString("vi-VN")} ₫`
+  return (
+    <div className="flex justify-between text-sm">
+      <span className={`text-gray-600 ${bold ? "font-semibold text-gray-900" : ""}`}>{label}</span>
+      <span
+        className={`${
+          bold ? "font-semibold text-gray-900" : "text-gray-900"
+        } ${large ? "text-lg" : ""} ${highlight ? "text-green-600" : ""}`}
+      >
+        {formatted}
+      </span>
+    </div>
+  )
+}
+
 // Component con sử dụng useSearchParams (phải wrap trong Suspense)
 function CartContent() {
   const { cart, updateQuantity, removeFromCart, clearCart } = useCart()
@@ -336,29 +360,5 @@ export default function CartPage() {
     }>
       <CartContent />
     </Suspense>
-  )
-}
-
-interface SummaryRowProps {
-  label: string
-  value: number
-  bold?: boolean
-  large?: boolean
-  highlight?: boolean
-}
-
-function SummaryRow({ label, value, bold, large, highlight }: SummaryRowProps) {
-  const formatted = `${value >= 0 ? "" : "-"}${Math.abs(value).toLocaleString("vi-VN")} ₫`
-  return (
-    <div className="flex justify-between text-sm">
-      <span className={`text-gray-600 ${bold ? "font-semibold text-gray-900" : ""}`}>{label}</span>
-      <span
-        className={`${
-          bold ? "font-semibold text-gray-900" : "text-gray-900"
-        } ${large ? "text-lg" : ""} ${highlight ? "text-green-600" : ""}`}
-      >
-        {formatted}
-      </span>
-    </div>
   )
 }
