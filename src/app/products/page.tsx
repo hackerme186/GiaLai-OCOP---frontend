@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useEffect } from "react"
+import { useState, useEffect, Suspense } from "react"
 import { useQuery } from "@tanstack/react-query"
 import { useSearchParams, useRouter } from "next/navigation"
 import Image from "next/image"
@@ -9,7 +9,8 @@ import { getProducts, Product } from "@/lib/api"
 import Header from "@/components/layout/Header"
 import Footer from "@/components/layout/Footer"
 
-export default function ProductsPage() {
+// Component con sử dụng useSearchParams (phải wrap trong Suspense)
+function ProductsContent() {
   const searchParams = useSearchParams()
   const router = useRouter()
   const [searchInput, setSearchInput] = useState("")
@@ -387,5 +388,25 @@ export default function ProductsPage() {
     </div>
       <Footer />
     </>
+  )
+}
+
+// Component chính - wrap ProductsContent trong Suspense
+export default function ProductsPage() {
+  return (
+    <Suspense fallback={
+      <>
+        <Header />
+        <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+          <div className="text-center">
+            <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-indigo-600 mx-auto"></div>
+            <p className="mt-4 text-gray-600">Đang tải sản phẩm...</p>
+          </div>
+        </div>
+        <Footer />
+      </>
+    }>
+      <ProductsContent />
+    </Suspense>
   )
 }
