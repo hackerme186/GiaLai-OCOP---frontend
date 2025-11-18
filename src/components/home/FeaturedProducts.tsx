@@ -16,9 +16,10 @@ const FeaturedProducts = () => {
         
         console.log('🔄 Fetching products from API...')
         
-        // Get ALL products from database
+        // ✅ FIX: Request only Approved products from backend
         const data = await getProducts({
           pageSize: 100, // Get all products
+          status: "Approved", // ✅ Only get approved products from backend
         })
         
         console.log('📦 Raw API response:', data)
@@ -31,10 +32,13 @@ const FeaturedProducts = () => {
         console.log('📋 Product list:', productList)
         console.log('📋 Product list length:', productList.length)
         
-        // FILTER: Only show products with status = "Approved"
+        // ✅ Double-check: Filter again on client-side as safety measure
         const approvedProducts = productList.filter((p: Product) => {
-          console.log(`Checking product ${p.id}: ${p.name}, status: ${p.status}`)
-          return p.status === "Approved"
+          const isApproved = p.status === "Approved"
+          if (!isApproved) {
+            console.warn(`⚠️ Product ${p.id} (${p.name}) has status "${p.status}", not Approved. Filtered out.`)
+          }
+          return isApproved
         })
         
         console.log(`✅ Fetched ${approvedProducts.length} approved products from API`)
