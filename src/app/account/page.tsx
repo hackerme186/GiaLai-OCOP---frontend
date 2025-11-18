@@ -7,6 +7,15 @@ import { getCurrentUser, getEnterprise, updateCurrentUser, type Enterprise, type
 import Header from "@/components/layout/Header"
 import { useRouter } from "next/navigation"
 import { getCurrentAddress } from "@/lib/geolocation"
+import { 
+  getSavedShippingAddresses, 
+  addShippingAddress, 
+  updateShippingAddress, 
+  deleteShippingAddress, 
+  setDefaultShippingAddress,
+  syncMainAddressFromBackend,
+  type SavedShippingAddress 
+} from "@/lib/shipping-addresses"
 
 export default function AccountPage() {
   const router = useRouter()
@@ -16,9 +25,17 @@ export default function AccountPage() {
   const [error, setError] = useState<string | null>(null)
   const [success, setSuccess] = useState<string | null>(null)
   const [isEditingAddress, setIsEditingAddress] = useState(false)
+  const [isEditingProfile, setIsEditingProfile] = useState(false)
   const [shippingAddress, setShippingAddress] = useState("")
+  const [name, setName] = useState("")
+  const [email, setEmail] = useState("")
   const [loadingAddress, setLoadingAddress] = useState(false)
   const [saving, setSaving] = useState(false)
+  const [savingProfile, setSavingProfile] = useState(false)
+  const [savedAddresses, setSavedAddresses] = useState<SavedShippingAddress[]>([])
+  const [isAddingNewAddress, setIsAddingNewAddress] = useState(false)
+  const [newAddressLabel, setNewAddressLabel] = useState("")
+  const [editingAddressId, setEditingAddressId] = useState<string | null>(null)
 
   useEffect(() => {
     const init = async () => {
@@ -32,17 +49,31 @@ export default function AccountPage() {
         const me = await getCurrentUser()
         setUser(me)
         setShippingAddress(me.shippingAddress || "")
+        setName(me.name || "")
+        setEmail(me.email || "")
+        
+        // Đồng bộ địa chỉ từ backend vào danh sách địa chỉ đã lưu
+        if (me.shippingAddress) {
+          syncMainAddressFromBackend(me.shippingAddress)
+        }
+        
+        // Load danh sách địa chỉ đã lưu
+        setSavedAddresses(getSavedShippingAddresses())
       } catch {
         const profile = getUserProfile() || {}
-        setUser({
+        const userData = {
           id: profile.id ?? 0,
           name: profile.name || "",
           email: profile.email || "",
           role: profile.role || "Customer",
           enterpriseId: profile.enterpriseId ?? undefined,
           createdAt: profile.createdAt,
-        } as User)
+        } as User
+        setUser(userData)
         setShippingAddress("")
+        setName(userData.name || "")
+        setEmail(userData.email || "")
+        setSavedAddresses(getSavedShippingAddresses())
       } finally {
         setReady(true)
       }
@@ -121,8 +152,19 @@ export default function AccountPage() {
     setSuccess(null)
 
     try {
-      const updatedUser = await updateCurrentUser({ shippingAddress: shippingAddress.trim() })
+      // Include name field as backend requires it for validation
+      const updatedUser = await updateCurrentUser({ 
+        name: user?.name || "", 
+        shippingAddress: shippingAddress.trim() 
+      })
       setUser(updatedUser)
+      
+      // Đồng bộ địa chỉ mới vào danh sách địa chỉ đã lưu
+      if (shippingAddress.trim()) {
+        syncMainAddressFromBackend(shippingAddress.trim())
+        setSavedAddresses(getSavedShippingAddresses())
+      }
+      
       setIsEditingAddress(false)
       setSuccess("Đã cập nhật địa chỉ giao hàng thành công!")
       setTimeout(() => setSuccess(null), 3000)
@@ -135,6 +177,90 @@ export default function AccountPage() {
       } else {
         setError(errorMessage)
       }
+    } finally {
+      setSaving(false)
+    }
+  }
+
+  const handleSaveProfile = async () => {
+    if (!name.trim()) {
+      setError("Vui lòng nhập họ và tên")
+      return
+    }
+
+    setSavingProfile(true)
+    setError(null)
+    setSuccess(null)
+
+    try {
+      const updatedUser = await updateCurrentUser({ name: name.trim() })
+      setUser(updatedUser)
+      setIsEditingProfile(false)
+      setSuccess("Đã cập nhật thông tin hồ sơ thành công!")
+      setTimeout(() => setSuccess(null), 3000)
+    } catch (err) {
+      const errorMessage = err instanceof Error ? err.message : "Không thể cập nhật thông tin hồ sơ"
+      setError(errorMessage)
+    } finally {
+      setSavingProfile(false)
+    }
+  }
+
+  const handleAddNewAddress = () => {
+    if (!shippingAddress.trim()) {
+      setError("Vui lòng nhập địa chỉ giao hàng")
+      return
+    }
+    
+    addShippingAddress(shippingAddress.trim(), newAddressLabel.trim() || undefined, false)
+    setSavedAddresses(getSavedShippingAddresses())
+    setNewAddressLabel("")
+    setIsAddingNewAddress(false)
+    setSuccess("Đã thêm địa chỉ giao hàng mới!")
+    setTimeout(() => setSuccess(null), 3000)
+  }
+
+  const handleDeleteAddress = (id: string) => {
+    if (confirm("Bạn có chắc muốn xóa địa chỉ này?")) {
+      deleteShippingAddress(id)
+      setSavedAddresses(getSavedShippingAddresses())
+      setSuccess("Đã xóa địa chỉ!")
+      setTimeout(() => setSuccess(null), 3000)
+    }
+  }
+
+  const handleSetDefault = (id: string) => {
+    setDefaultShippingAddress(id)
+    setSavedAddresses(getSavedShippingAddresses())
+    setSuccess("Đã đặt làm địa chỉ mặc định!")
+    setTimeout(() => setSuccess(null), 3000)
+  }
+
+  const handleSetAsMainAddress = async (address: string) => {
+    if (!address.trim()) return
+    
+    setSaving(true)
+    setError(null)
+    setSuccess(null)
+
+    try {
+      // Cập nhật địa chỉ chính lên backend
+      const updatedUser = await updateCurrentUser({ 
+        name: user?.name || "", 
+        shippingAddress: address.trim() 
+      })
+      setUser(updatedUser)
+      setShippingAddress(address.trim())
+      
+      // Đồng bộ với danh sách địa chỉ đã lưu
+      syncMainAddressFromBackend(address.trim())
+      setSavedAddresses(getSavedShippingAddresses())
+      
+      setSuccess("Đã cập nhật địa chỉ giao hàng chính!")
+      setTimeout(() => setSuccess(null), 3000)
+    } catch (err) {
+      const errorMessage = err instanceof Error ? err.message : "Không thể cập nhật địa chỉ giao hàng chính"
+      setError(errorMessage)
     } finally {
       setSaving(false)
     }
@@ -213,22 +339,102 @@ export default function AccountPage() {
             {/* Basic Information Section */}
             <section className="bg-white rounded-2xl shadow-lg border border-gray-100 overflow-hidden">
               <div className="bg-gradient-to-r from-indigo-600 to-purple-600 px-6 py-4">
-                <div className="flex items-center gap-3">
-                  <div className="w-10 h-10 bg-white/20 rounded-lg flex items-center justify-center">
-                    <svg className="w-6 h-6 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
-                    </svg>
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-3">
+                    <div className="w-10 h-10 bg-white/20 rounded-lg flex items-center justify-center">
+                      <svg className="w-6 h-6 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
+                      </svg>
+                    </div>
+                    <h2 className="text-xl font-bold text-white">Thông tin cơ bản</h2>
                   </div>
-                  <h2 className="text-xl font-bold text-white">Thông tin cơ bản</h2>
+                  {!isEditingProfile && (
+                    <button
+                      onClick={() => setIsEditingProfile(true)}
+                      className="px-4 py-2 text-sm font-semibold text-white bg-white/20 rounded-lg hover:bg-white/30 transition-colors backdrop-blur-sm"
+                    >
+                      Chỉnh sửa
+                    </button>
+                  )}
                 </div>
               </div>
               <div className="p-6">
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                  <InfoField label="Họ và tên" value={user?.name} icon="user" />
-                  <InfoField label="Email" value={user?.email} icon="email" />
-                  <InfoField label="Vai trò" value={roleLabel} badge icon="role" />
-                  <InfoField label="Ngày tạo" value={formattedCreatedAt || "(chưa xác định)"} icon="calendar" />
-                </div>
+                {isEditingProfile ? (
+                  <div className="space-y-5">
+                    <div>
+                      <label htmlFor="name" className="block text-sm font-semibold text-gray-900 mb-3 flex items-center gap-2">
+                        <svg className="w-4 h-4 text-indigo-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
+                        </svg>
+                        Họ và tên <span className="text-red-500">*</span>
+                      </label>
+                      <input
+                        id="name"
+                        type="text"
+                        value={name}
+                        onChange={(e) => setName(e.target.value)}
+                        placeholder="Nhập họ và tên"
+                        className="w-full rounded-xl border-2 border-gray-200 px-4 py-3 text-sm text-gray-900 font-medium placeholder:text-gray-400 focus:border-indigo-500 focus:ring-2 focus:ring-indigo-200 focus:outline-none transition-all bg-gray-50"
+                        required
+                      />
+                    </div>
+                    <div>
+                      <label htmlFor="email" className="block text-sm font-semibold text-gray-900 mb-3 flex items-center gap-2">
+                        <svg className="w-4 h-4 text-indigo-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
+                        </svg>
+                        Email
+                      </label>
+                      <input
+                        id="email"
+                        type="email"
+                        value={email}
+                        disabled
+                        className="w-full rounded-xl border-2 border-gray-200 px-4 py-3 text-sm text-gray-500 font-medium bg-gray-100 cursor-not-allowed"
+                      />
+                      <p className="mt-2 text-xs text-gray-500">Email không thể thay đổi</p>
+                    </div>
+                    <div className="flex gap-3 pt-2">
+                      <button
+                        onClick={handleSaveProfile}
+                        disabled={savingProfile || !name.trim()}
+                        className="flex-1 px-4 py-3 text-sm font-semibold text-white bg-gradient-to-r from-indigo-600 to-purple-600 rounded-xl hover:from-indigo-700 hover:to-purple-700 transition-all shadow-lg hover:shadow-xl disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:shadow-lg flex items-center justify-center gap-2"
+                      >
+                        {savingProfile ? (
+                          <>
+                            <div className="animate-spin rounded-full h-4 w-4 border-2 border-white border-t-transparent"></div>
+                            <span>Đang lưu...</span>
+                          </>
+                        ) : (
+                          <>
+                            <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                            </svg>
+                            <span>Lưu thông tin</span>
+                          </>
+                        )}
+                      </button>
+                      <button
+                        onClick={() => {
+                          setIsEditingProfile(false)
+                          setName(user?.name || "")
+                          setError(null)
+                        }}
+                        disabled={savingProfile}
+                        className="px-6 py-3 text-sm font-semibold text-gray-700 bg-gray-100 rounded-xl hover:bg-gray-200 transition-colors disabled:opacity-50"
+                      >
+                        Hủy
+                      </button>
+                    </div>
+                  </div>
+                ) : (
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    <InfoField label="Họ và tên" value={user?.name} icon="user" />
+                    <InfoField label="Email" value={user?.email} icon="email" />
+                    <InfoField label="Vai trò" value={roleLabel} badge icon="role" />
+                    <InfoField label="Ngày tạo" value={formattedCreatedAt || "(chưa xác định)"} icon="calendar" />
+                  </div>
+                )}
               </div>
             </section>
 
@@ -273,7 +479,7 @@ export default function AccountPage() {
                           onChange={(e) => setShippingAddress(e.target.value)}
                           placeholder="Nhập địa chỉ giao hàng đầy đủ (số nhà, đường, phường/xã, quận/huyện, tỉnh/thành phố)"
                           rows={4}
-                          className="w-full rounded-xl border-2 border-gray-200 px-4 py-3 pr-36 text-sm text-gray-900 font-medium placeholder:text-gray-400 focus:border-indigo-500 focus:ring-2 focus:ring-indigo-200 focus:outline-none transition-all resize-none bg-gray-50"
+                          className="w-full rounded-xl border-2 border-gray-300 px-4 py-3 pr-36 text-sm text-gray-900 font-medium placeholder:text-gray-500 focus:border-indigo-500 focus:ring-2 focus:ring-indigo-200 focus:outline-none transition-all resize-none bg-white"
                           required
                         />
                         <div className="absolute bottom-3 right-3">
@@ -341,12 +547,227 @@ export default function AccountPage() {
                     </div>
                   </div>
                 ) : (
-                  <div className="bg-gradient-to-br from-blue-50 to-cyan-50 rounded-xl p-5 border-2 border-blue-100">
-                    <InfoField 
-                      label="Địa chỉ giao hàng" 
-                      value={user?.shippingAddress || "(chưa cập nhật)"}
-                      icon="location"
-                    />
+                  <div className="space-y-4">
+                    <div className="bg-gradient-to-br from-blue-50 to-cyan-50 rounded-xl p-5 border-2 border-blue-100">
+                      <div className="space-y-2">
+                        <label className="block text-xs font-semibold text-gray-500 uppercase tracking-wide flex items-center gap-2">
+                          <svg className="w-4 h-4 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" />
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" />
+                          </svg>
+                          Địa chỉ giao hàng chính
+                        </label>
+                        <div className="text-base font-semibold text-gray-900 bg-white rounded-lg px-4 py-3 border border-gray-200 min-h-[3rem] flex items-center">
+                          {(() => {
+                            // Ưu tiên địa chỉ từ user.shippingAddress
+                            const mainAddress = user?.shippingAddress?.trim()
+                            // Nếu không có, lấy địa chỉ mặc định từ danh sách đã lưu
+                            const defaultAddress = savedAddresses.find(addr => addr.isDefault)?.address
+                            const displayAddress = mainAddress || defaultAddress
+                            
+                            return displayAddress ? (
+                              <p className="text-gray-900">{displayAddress}</p>
+                            ) : (
+                              <p className="text-gray-400 italic">(chưa cập nhật)</p>
+                            )
+                          })()}
+                        </div>
+                      </div>
+                    </div>
+                    
+                    {/* Danh sách địa chỉ đã lưu */}
+                    <div>
+                      <div className="flex items-center justify-between mb-3">
+                        <h3 className="text-sm font-semibold text-gray-900">Địa chỉ đã lưu</h3>
+                        <button
+                          onClick={() => {
+                            setIsAddingNewAddress(true)
+                            setShippingAddress("")
+                            setNewAddressLabel("")
+                          }}
+                          className="text-xs font-semibold text-indigo-600 hover:text-indigo-700 flex items-center gap-1"
+                        >
+                          <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
+                          </svg>
+                          Thêm địa chỉ mới
+                        </button>
+                      </div>
+                      
+                      {savedAddresses.length === 0 ? (
+                        <div className="text-sm text-gray-500 p-4 bg-gray-50 rounded-lg border border-gray-200 text-center">
+                          Chưa có địa chỉ nào được lưu. Thêm địa chỉ để sử dụng khi thanh toán.
+                        </div>
+                      ) : (
+                        <div className="space-y-2">
+                          {savedAddresses.map((addr) => (
+                            <div
+                              key={addr.id}
+                              className={`p-4 rounded-lg border-2 ${
+                                user?.shippingAddress?.trim() === addr.address.trim()
+                                  ? "border-blue-500 bg-blue-50"
+                                  : addr.isDefault
+                                  ? "border-indigo-500 bg-indigo-50"
+                                  : "border-gray-200 bg-white"
+                              }`}
+                            >
+                              <div className="flex items-start justify-between gap-3">
+                                <div className="flex-1">
+                                  <div className="flex items-center gap-2 mb-1">
+                                    {addr.label && (
+                                      <span className="text-xs font-semibold text-gray-600 bg-gray-100 px-2 py-0.5 rounded">
+                                        {addr.label}
+                                      </span>
+                                    )}
+                                    {addr.isDefault && (
+                                      <span className="text-xs font-semibold text-indigo-700 bg-indigo-100 px-2 py-0.5 rounded">
+                                        Mặc định
+                                      </span>
+                                    )}
+                                  </div>
+                                  <p className="text-sm text-gray-900">{addr.address}</p>
+                                </div>
+                                <div className="flex items-center gap-2">
+                                  {(() => {
+                                    const mainAddress = user?.shippingAddress?.trim()
+                                    const currentAddr = addr.address.trim()
+                                    const isMain = mainAddress === currentAddr
+                                    
+                                    return (
+                                      <>
+                                        {!isMain && (
+                                          <button
+                                            onClick={async () => {
+                                              await handleSetAsMainAddress(addr.address)
+                                              // Reload user data để đảm bảo UI cập nhật
+                                              try {
+                                                const updatedUser = await getCurrentUser()
+                                                setUser(updatedUser)
+                                              } catch (err) {
+                                                console.error("Failed to reload user:", err)
+                                              }
+                                            }}
+                                            disabled={saving}
+                                            className="text-xs text-blue-600 hover:text-blue-700 font-medium disabled:opacity-50"
+                                            title="Đặt làm địa chỉ giao hàng chính"
+                                          >
+                                            Đặt làm chính
+                                          </button>
+                                        )}
+                                        {isMain && (
+                                          <span className="text-xs text-green-600 font-semibold">
+                                            ✓ Địa chỉ chính
+                                          </span>
+                                        )}
+                                      </>
+                                    )
+                                  })()}
+                                  {!addr.isDefault && (
+                                    <button
+                                      onClick={() => handleSetDefault(addr.id)}
+                                      className="text-xs text-indigo-600 hover:text-indigo-700 font-medium"
+                                      title="Đặt làm mặc định"
+                                    >
+                                      Đặt mặc định
+                                    </button>
+                                  )}
+                                  <button
+                                    onClick={() => handleDeleteAddress(addr.id)}
+                                    className="text-xs text-red-600 hover:text-red-700 font-medium"
+                                    title="Xóa"
+                                  >
+                                    Xóa
+                                  </button>
+                                </div>
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      )}
+                      
+                      {/* Form thêm địa chỉ mới */}
+                      {isAddingNewAddress && (
+                        <div className="mt-4 p-4 bg-gray-50 rounded-lg border-2 border-indigo-200">
+                          <div className="space-y-3">
+                            <div>
+                              <label className="block text-xs font-semibold text-gray-700 mb-1">
+                                Nhãn (tùy chọn)
+                              </label>
+                              <input
+                                type="text"
+                                value={newAddressLabel}
+                                onChange={(e) => setNewAddressLabel(e.target.value)}
+                                placeholder="Ví dụ: Nhà riêng, Công ty"
+                                className="w-full text-sm rounded-lg border-2 border-gray-300 px-3 py-2 text-gray-900 font-medium placeholder:text-gray-500 bg-white focus:border-indigo-500 focus:ring-2 focus:ring-indigo-200 focus:outline-none"
+                              />
+                            </div>
+                            <div>
+                              <label className="block text-xs font-semibold text-gray-700 mb-1">
+                                Địa chỉ <span className="text-red-500">*</span>
+                              </label>
+                              <div className="relative">
+                                <textarea
+                                  value={shippingAddress}
+                                  onChange={(e) => setShippingAddress(e.target.value)}
+                                  placeholder="Nhập địa chỉ đầy đủ"
+                                  rows={3}
+                                  className="w-full text-sm rounded-lg border-2 border-gray-300 px-3 py-2 pr-32 text-gray-900 font-medium placeholder:text-gray-500 focus:border-indigo-500 focus:ring-2 focus:ring-indigo-200 focus:outline-none resize-none bg-white"
+                                />
+                                <div className="absolute bottom-2 right-2">
+                                  <button
+                                    type="button"
+                                    onClick={handleGetCurrentLocation}
+                                    disabled={loadingAddress}
+                                    className="px-3 py-1.5 text-xs font-semibold text-indigo-600 bg-white border-2 border-indigo-200 rounded-lg hover:bg-indigo-50 hover:border-indigo-300 transition-all disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-1.5 shadow-sm"
+                                    title="Lấy địa chỉ từ GPS"
+                                  >
+                                    {loadingAddress ? (
+                                      <>
+                                        <div className="animate-spin rounded-full h-3 w-3 border-2 border-indigo-600 border-t-transparent"></div>
+                                        <span>Đang tải...</span>
+                                      </>
+                                    ) : (
+                                      <>
+                                        <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" />
+                                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" />
+                                        </svg>
+                                        <span>GPS</span>
+                                      </>
+                                    )}
+                                  </button>
+                                </div>
+                              </div>
+                              <p className="mt-1.5 text-xs text-gray-500 flex items-center gap-1.5">
+                                <svg className="w-3.5 h-3.5 text-blue-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                                </svg>
+                                Bấm "GPS" để tự động điền địa chỉ từ vị trí hiện tại
+                              </p>
+                            </div>
+                            <div className="flex gap-2">
+                              <button
+                                onClick={handleAddNewAddress}
+                                disabled={!shippingAddress.trim()}
+                                className="flex-1 px-4 py-2 text-xs font-semibold text-white bg-indigo-600 rounded-lg hover:bg-indigo-700 disabled:opacity-50 disabled:cursor-not-allowed"
+                              >
+                                Lưu
+                              </button>
+                              <button
+                                onClick={() => {
+                                  setIsAddingNewAddress(false)
+                                  setShippingAddress(user?.shippingAddress || "")
+                                  setNewAddressLabel("")
+                                }}
+                                className="px-4 py-2 text-xs font-semibold text-gray-700 bg-gray-200 rounded-lg hover:bg-gray-300"
+                              >
+                                Hủy
+                              </button>
+                            </div>
+                          </div>
+                        </div>
+                      )}
+                    </div>
                   </div>
                 )}
               </div>

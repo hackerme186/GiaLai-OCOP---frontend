@@ -117,11 +117,16 @@ export interface RegisterPayload {
   name: string;
   email: string;
   password: string;
+  // Không cần OTP - backend tự động trả về JWT token
 }
 
 export interface AuthResponse {
-  token: string;
-  expires: string; // ISO date string
+  token?: string; // Backend có thể trả về token (chữ thường) hoặc Token (chữ hoa)
+  Token?: string; // Backend trả về Token (chữ hoa)
+  expires?: string; // ISO date string
+  Expires?: string; // Backend trả về Expires (chữ hoa)
+  message?: string; // Optional message
+  Message?: string; // Backend trả về Message (chữ hoa)
 }
 
 // User
@@ -441,9 +446,15 @@ export interface RevenueByMonth {
 
 // ------ AUTH ------
 export async function register(payload: RegisterPayload): Promise<AuthResponse> {
+  // Đăng ký đơn giản - chỉ gửi name, email, password
+  // Backend tự động trả về JWT token (không cần OTP)
   return request<AuthResponse>("/auth/register", {
     method: "POST",
-    json: payload,
+    json: {
+      name: payload.name,
+      email: payload.email,
+      password: payload.password
+    },
   });
 }
 
@@ -530,24 +541,86 @@ export async function getProducts(params?: {
   status?: string;
   categoryId?: number;
   search?: string;
+  q?: string; // Alternative search parameter
+  enterpriseId?: number;
 }): Promise<Product[]> {
   const searchParams = new URLSearchParams();
   if (params?.page) searchParams.append('page', String(params.page));
   if (params?.pageSize) searchParams.append('pageSize', String(params.pageSize));
   if (params?.status) searchParams.append('status', params.status);
   if (params?.categoryId) searchParams.append('categoryId', String(params.categoryId));
-  if (params?.search) searchParams.append('search', params.search);
+  
+  // Support both 'search' and 'q' parameters (BE may use either)
+  // If both are provided, prefer 'q', otherwise use whichever is provided
+  const searchTerm = params?.q || params?.search;
+  if (searchTerm) {
+    // Try 'q' parameter first (more common in REST APIs)
+    if (params?.q) {
+      searchParams.append('q', params.q);
+    }
+    // Also try 'search' if provided (some APIs use this)
+    if (params?.search && !params?.q) {
+      searchParams.append('search', params.search);
+    }
+  }
+  if (params?.enterpriseId) searchParams.append('enterpriseId', String(params.enterpriseId));
   
   const query = searchParams.toString();
-  return request<Product[]>(`/products${query ? '?' + query : ''}`, {
+  const url = `/products${query ? '?' + query : ''}`;
+  
+  // Debug: Log the API call
+  if (params?.search || params?.q) {
+    console.log('🔍 API Call:', { 
+      fullUrl: `${API_BASE_URL}${url}`, 
+      searchTerm: params?.search || params?.q,
+      params: { q: params?.q, search: params?.search }
+    });
+  }
+  
+  const response = await request<Product[] | { products?: Product[]; items?: Product[]; data?: Product[] }>(url, {
     method: "GET",
-    // silent: false - Show full errors for debugging
   });
+  
+  // Debug: Log the response
+  if (params?.search || params?.q) {
+    const resultCount = Array.isArray(response) ? response.length : 
+      (response && typeof response === 'object' ? 
+        ((response as any).products?.length || (response as any).items?.length || (response as any).data?.length || 0) : 0);
+    console.log('✅ API Response:', { 
+      searchTerm: params?.search || params?.q, 
+      count: resultCount,
+      responseType: Array.isArray(response) ? 'array' : typeof response,
+      responseKeys: response && typeof response === 'object' ? Object.keys(response) : []
+    });
+  }
+
+  // Normalize response: handle both array and object formats
+  if (Array.isArray(response)) {
+    return response;
+  }
+  
+  if (response && typeof response === 'object') {
+    const obj = response as any;
+    if (Array.isArray(obj.products)) {
+      return obj.products;
+    }
+    if (Array.isArray(obj.items)) {
+      return obj.items;
+    }
+    if (Array.isArray(obj.data)) {
+      return obj.data;
+    }
+  }
+  
+  // Fallback: return empty array if response format is unexpected
+  console.warn('⚠️ Unexpected products response format:', response);
+  return [];
 }
 
-export async function getProduct(id: number): Promise<Product> {
+export async function getProduct(id: number, options?: { silent?: boolean }): Promise<Product> {
   return request<Product>(`/products/${id}`, {
     method: "GET",
+    silent: options?.silent,
   });
 }
 
@@ -809,6 +882,59 @@ export async function getMapEnterpriseProducts(id: number, params?: {
   return request<Product[]>(`/map/enterprises/${id}/products${query ? '?' + query : ''}`, {
     method: "GET",
   });
+}
+
+// Get products for a specific enterprise (for EnterpriseAdmin)
+export async function getEnterpriseProducts(enterpriseId: number, params?: {
+  page?: number;
+  pageSize?: number;
+  status?: string;
+}): Promise<Product[]> {
+  const searchParams = new URLSearchParams();
+  if (params?.page) searchParams.append('page', String(params.page));
+  if (params?.pageSize) searchParams.append('pageSize', String(params.pageSize));
+  if (params?.status) searchParams.append('status', params.status);
+  
+  const query = searchParams.toString();
+  
+  // Try multiple endpoints in order until one works
+  const endpoints = [
+    `/enterprises/${enterpriseId}/products${query ? '?' + query : ''}`,
+    `/products${query ? '?' + query : ''}?enterpriseId=${enterpriseId}`,
+  ];
+  
+  let lastError: Error | null = null;
+  
+  for (const endpoint of endpoints) {
+    try {
+      console.log(`🔍 Trying endpoint: ${API_BASE_URL}${endpoint}`);
+      const result = await request<Product[]>(endpoint, {
+        method: "GET",
+      });
+      console.log(`✅ Success! Got ${result.length} products from ${endpoint}`);
+      return result;
+    } catch (error) {
+      console.warn(`❌ Failed ${endpoint}:`, error instanceof Error ? error.message : error);
+      lastError = error as Error;
+      // Continue to next endpoint
+    }
+  }
+  
+  // All endpoints failed
+  const errorMsg = lastError?.message || "Unknown error";
+  
+  if (errorMsg.includes("403")) {
+    throw new Error(
+      "403 FORBIDDEN - Backend chưa cấu hình đúng cho EnterpriseAdmin.\n" +
+      "Backend cần:\n" +
+      "1. Thêm role 'EnterpriseAdmin' vào [Authorize] attribute\n" +
+      "2. Đảm bảo JWT token có claim 'EnterpriseId'\n" +
+      "3. Filter products theo enterpriseId của user\n" +
+      "Xem chi tiết: TROUBLESHOOTING_403.md"
+    );
+  }
+  
+  throw lastError || new Error("Failed to load products");
 }
 
 // ------ REPORTS (SystemAdmin) ------

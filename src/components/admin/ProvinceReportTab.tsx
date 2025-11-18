@@ -2,19 +2,13 @@
 
 import { useEffect, useState } from "react"
 import {
-  DistrictReport,
   ReportSummary,
-  RevenueByMonth,
-  getReportDistricts,
-  getReportRevenueByMonth,
   getReportSummary
 } from "@/lib/api"
 
 export default function ProvinceReportTab() {
   const [loading, setLoading] = useState(false)
   const [summary, setSummary] = useState<ReportSummary | null>(null)
-  const [districtStats, setDistrictStats] = useState<DistrictReport[]>([])
-  const [revenueStats, setRevenueStats] = useState<RevenueByMonth[]>([])
   const [error, setError] = useState<string | null>(null)
 
   useEffect(() => {
@@ -24,18 +18,13 @@ export default function ProvinceReportTab() {
   const loadReport = async () => {
     setLoading(true)
     setError(null)
+    
     try {
-      const [summaryData, districtsData, revenueData] = await Promise.all([
-        getReportSummary(),
-        getReportDistricts(),
-        getReportRevenueByMonth()
-      ])
+      const summaryData = await getReportSummary()
       setSummary(summaryData)
-      setDistrictStats(districtsData || [])
-      setRevenueStats(revenueData || [])
     } catch (err) {
-      console.error("Failed to load report:", err)
-      setError(err instanceof Error ? err.message : "Không thể tải báo cáo")
+      console.error("❌ Failed to load summary:", err)
+      setError(err instanceof Error ? err.message : "Không thể tải báo cáo tổng quan")
     } finally {
       setLoading(false)
     }
@@ -206,63 +195,6 @@ export default function ProvinceReportTab() {
         </div>
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        <div className="bg-white border rounded-lg p-6">
-          <h3 className="text-lg font-semibold text-gray-900 mb-4">
-            Doanh nghiệp theo huyện
-          </h3>
-          {districtStats.length > 0 ? (
-            <div className="space-y-3">
-              {districtStats.map((item) => (
-                <div
-                  key={item.district}
-                  className="p-3 bg-gray-50 rounded flex flex-col gap-2"
-                >
-                  <div className="flex items-center justify-between">
-                    <span className="font-medium text-gray-800">
-                      {item.district || "Chưa xác định"}
-                    </span>
-                    <span className="text-indigo-600 font-semibold">
-                      {item.enterpriseCount} DN
-                    </span>
-                  </div>
-                  <div className="flex items-center justify-between text-xs text-gray-600">
-                    <span>Approved: {item.approvedProducts}</span>
-                    <span>Pending: {item.pendingProducts}</span>
-                  </div>
-                </div>
-              ))}
-            </div>
-          ) : (
-            <p className="text-gray-500 text-center py-4">Chưa có dữ liệu</p>
-          )}
-        </div>
-
-        <div className="bg-white border rounded-lg p-6">
-          <h3 className="text-lg font-semibold text-gray-900 mb-4">
-            Doanh thu 12 tháng gần nhất
-          </h3>
-          {revenueStats.length > 0 ? (
-            <div className="space-y-3">
-              {revenueStats.map((item, index) => (
-                <div
-                  key={`${item.year}-${item.month}-${index}`}
-                  className="flex items-center justify-between p-3 bg-gray-50 rounded"
-                >
-                  <span className="font-medium text-gray-700">
-                    {`Tháng ${item.month}/${item.year}`}
-                  </span>
-                  <span className="text-green-600 font-semibold">
-                    {item.amount.toLocaleString("vi-VN")} ₫
-                  </span>
-                </div>
-              ))}
-            </div>
-          ) : (
-            <p className="text-gray-500 text-center py-4">Chưa có dữ liệu</p>
-          )}
-        </div>
-      </div>
     </div>
   )
 }
