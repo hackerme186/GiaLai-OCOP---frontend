@@ -80,8 +80,10 @@ export default function OCOPSRegisterPage() {
                 {error}
               </div>
             )}
-            <div className={submitting ? 'opacity-75 pointer-events-none' : ''}>
-              <OCOPForm onSubmit={handleSubmit} />
+            <div className={submitting ? 'pointer-events-none' : ''}>
+              <div className={submitting ? 'opacity-75' : ''}>
+                <OCOPForm onSubmit={handleSubmit} />
+              </div>
             </div>
           </div>
         </div>
