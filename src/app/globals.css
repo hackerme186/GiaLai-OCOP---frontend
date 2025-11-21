@@ -12,17 +12,51 @@
   --font-mono: var(--font-geist-mono);
 }
 
-@media (prefers-color-scheme: dark) {
+/* Disable dark mode override to prevent text color issues in production */
+/* @media (prefers-color-scheme: dark) {
   :root {
     --background: #0a0a0a;
     --foreground: #ededed;
   }
-}
+} */
 
 body {
   background: var(--background);
   color: var(--foreground);
   font-family: Arial, Helvetica, sans-serif;
+}
+
+/* Ensure inputs and form elements maintain their explicit colors */
+input, textarea, select {
+  color: inherit;
+}
+
+/* Force explicit text colors for form elements to prevent opacity issues */
+input[type="text"],
+input[type="email"],
+input[type="number"],
+input[type="date"],
+input[type="tel"],
+input[type="url"],
+textarea {
+  color: rgb(17, 24, 39) !important; /* text-gray-900 */
+}
+
+input::placeholder,
+textarea::placeholder {
+  color: rgb(107, 114, 128) !important; /* text-gray-500 */
+  opacity: 1 !important; /* Prevent browser default opacity */
+}
+
+/* Glassmorphism login form - override text color for white text inputs */
+.backdrop-blur-xl input[type="text"],
+.backdrop-blur-xl input[type="email"],
+.backdrop-blur-xl input[type="password"] {
+  color: white !important;
+}
+
+.backdrop-blur-xl input::placeholder {
+  color: rgba(255, 255, 255, 0.7) !important;
 }
 
 /* Dropdown animation */
@@ -39,4 +73,18 @@ body {
 
 .animate-fadeIn {
   animation: fadeIn 0.2s ease-out;
+}
+
+/* Glassmorphism Login Page Animations */
+@keyframes float {
+  0%, 100% {
+    transform: translateY(0px);
+  }
+  50% {
+    transform: translateY(-10px);
+  }
+}
+
+.animate-float {
+  animation: float 3s ease-in-out infinite;
 }
