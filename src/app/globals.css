@@ -48,17 +48,6 @@ textarea::placeholder {
   opacity: 1 !important; /* Prevent browser default opacity */
 }
 
-/* Glassmorphism login form - override text color for white text inputs */
-.backdrop-blur-xl input[type="text"],
-.backdrop-blur-xl input[type="email"],
-.backdrop-blur-xl input[type="password"] {
-  color: white !important;
-}
-
-.backdrop-blur-xl input::placeholder {
-  color: rgba(255, 255, 255, 0.7) !important;
-}
-
 /* Dropdown animation */
 @keyframes fadeIn {
   from {
