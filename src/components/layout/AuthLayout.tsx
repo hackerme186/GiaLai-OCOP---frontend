@@ -1,7 +1,5 @@
 "use client"
 import Image from "next/image"
-import AuthCard from "@/components/AuthCard"
-import SocialLogin from "@/components/SocialLogin"
 import { useRouter } from "next/navigation"
 
 interface AuthLayoutProps {
@@ -20,57 +18,53 @@ export default function AuthLayout({
   linkAction
 }: AuthLayoutProps) {
   return (
-    <main className="min-h-screen grid lg:grid-cols-3 grid-rows-2 lg:grid-rows-1 bg-gray-50">
-      <div className="relative row-span-1 lg:col-span-2 h-64 lg:h-full overflow-hidden">
-        <Image
-          src="/hero.jpg" 
-          alt="Hero"
-          fill
-          priority
-          className="object-cover object-right"
+    <main className="min-h-screen relative flex items-center justify-center overflow-hidden">
+      {/* Fantasy Background with Gradient */}
+      <div className="absolute inset-0 bg-gradient-to-br from-amber-900 via-orange-800 to-yellow-700">
+        {/* Background Image Overlay */}
+        <div 
+          className="absolute inset-0 opacity-40"
+          style={{
+            backgroundImage: `url('/hero.jpg')`,
+            backgroundSize: 'cover',
+            backgroundPosition: 'center',
+            backgroundRepeat: 'no-repeat',
+          }}
         />
-        <div className="absolute inset-0 bg-black/20" />
+        
+        {/* Fantasy Overlay Effects */}
+        <div className="absolute inset-0 bg-gradient-to-t from-purple-900/30 via-transparent to-amber-500/20" />
+        <div className="absolute inset-0 bg-gradient-to-br from-yellow-400/10 via-transparent to-orange-600/10" />
+        
+        {/* Animated Fireflies / Magical Particles */}
+        <div className="absolute inset-0 overflow-hidden">
+          {[...Array(20)].map((_, i) => (
+            <div
+              key={i}
+              className="absolute rounded-full bg-yellow-300/60 blur-sm animate-pulse"
+              style={{
+                width: `${Math.random() * 4 + 2}px`,
+                height: `${Math.random() * 4 + 2}px`,
+                left: `${Math.random() * 100}%`,
+                top: `${Math.random() * 100}%`,
+                animationDelay: `${Math.random() * 3}s`,
+                animationDuration: `${Math.random() * 2 + 2}s`,
+              }}
+            />
+          ))}
+        </div>
       </div>
 
-      <div className="row-span-1 lg:col-span-1 flex items-center justify-center px-4 py-10">
-        <AuthCard>
-          <h2 className="text-center text-2xl font-bold text-gray-900">
-            {title}
-          </h2>
-          <p className="mt-2 text-center text-sm text-gray-600">
-            {subtitle}
-          </p>
-
-          <div className="h-4" />
-          <div className="h-4" />
-
+      {/* Glassmorphism Login Form Container */}
+      <div className="relative z-10 w-full max-w-md mx-auto px-4">
+        <div 
+          className="backdrop-blur-xl bg-white/15 rounded-3xl border border-white/30 shadow-2xl p-8 md:p-10"
+          style={{
+            boxShadow: '0 8px 32px 0 rgba(31, 38, 135, 0.37)',
+          }}
+        >
           {children}
-
-          <SocialLogin />
-
-          <p className="mt-6 text-center text-sm text-gray-600">
-            <button
-              type="button"
-              onClick={linkAction}
-              className="font-medium text-indigo-600 hover:text-indigo-500"
-            >
-              {linkText}
-            </button>
-          </p>
-
-          <p className="mt-4 text-center text-xs text-gray-500">
-            Bằng cách tiếp tục, bạn đồng ý với chúng tôi{" "}
-            <br />
-            <a href="#" className="text-indigo-600 hover:underline">
-              Điều khoản và điều kiện
-            </a>{" "}
-            và{" "}
-            <a href="#" className="text-indigo-600 hover:underline">
-              Quyền riêng tư
-            </a>
-            .
-          </p>
-        </AuthCard>
+        </div>
       </div>
     </main>
   )

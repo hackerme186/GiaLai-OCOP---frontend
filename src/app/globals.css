@@ -63,3 +63,17 @@ textarea::placeholder {
 .animate-fadeIn {
   animation: fadeIn 0.2s ease-out;
 }
+
+/* Glassmorphism Login Page Animations */
+@keyframes float {
+  0%, 100% {
+    transform: translateY(0px);
+  }
+  50% {
+    transform: translateY(-10px);
+  }
+}
+
+.animate-float {
+  animation: float 3s ease-in-out infinite;
+}
