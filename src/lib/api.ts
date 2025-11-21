@@ -140,11 +140,19 @@ export interface User {
   enterpriseId?: number;
   shippingAddress?: string;
   createdAt?: string;
+  phoneNumber?: string;
+  gender?: string;
+  dateOfBirth?: string;
+  avatarUrl?: string;
 }
 
 export interface UpdateUserDto {
   name?: string;
   shippingAddress?: string;
+  phoneNumber?: string;
+  gender?: string;
+  dateOfBirth?: string;
+  avatarUrl?: string;
 }
 
 // Category
@@ -494,10 +502,104 @@ export async function getUser(id: number): Promise<User> {
 }
 
 export async function updateCurrentUser(payload: UpdateUserDto): Promise<User> {
-  return request<User>("/users/me", {
+  // Log để debug
+  if (typeof window !== "undefined") {
+    console.log("📤 [API] updateCurrentUser - Request payload:", JSON.stringify(payload, null, 2));
+  }
+  
+  const result = await request<User>("/users/me", {
     method: "PUT",
     json: payload,
   });
+  
+  // Log response để debug
+  if (typeof window !== "undefined") {
+    console.log("📥 [API] updateCurrentUser - Response:", JSON.stringify(result, null, 2));
+    
+    // Kiểm tra dữ liệu có được cập nhật không
+    const fieldsNotInResponse: string[] = [];
+    const fieldsNotUpdated: string[] = [];
+    
+    if (payload.name && result.name !== payload.name) fieldsNotUpdated.push("name");
+    
+    if (payload.phoneNumber) {
+      if (!result.phoneNumber) {
+        fieldsNotInResponse.push("phoneNumber");
+      } else if (result.phoneNumber !== payload.phoneNumber) {
+        fieldsNotUpdated.push("phoneNumber");
+      }
+    }
+    
+    if (payload.gender) {
+      if (!result.gender) {
+        fieldsNotInResponse.push("gender");
+      } else if (result.gender !== payload.gender) {
+        fieldsNotUpdated.push("gender");
+      }
+    }
+    
+    if (payload.dateOfBirth) {
+      if (!result.dateOfBirth) {
+        fieldsNotInResponse.push("dateOfBirth");
+      } else {
+        const payloadDate = new Date(payload.dateOfBirth).toISOString();
+        const resultDate = new Date(result.dateOfBirth).toISOString();
+        if (resultDate !== payloadDate) {
+          fieldsNotUpdated.push("dateOfBirth");
+        }
+      }
+    }
+    
+    if (payload.shippingAddress && result.shippingAddress !== payload.shippingAddress) {
+      if (!result.shippingAddress) {
+        fieldsNotInResponse.push("shippingAddress");
+      } else {
+        fieldsNotUpdated.push("shippingAddress");
+      }
+    }
+    
+    if (fieldsNotInResponse.length > 0) {
+      console.warn(
+        "⚠️ [API] updateCurrentUser - Backend KHÔNG TRẢ VỀ các trường sau trong response:",
+        fieldsNotInResponse,
+        "\n→ Có thể backend không hỗ trợ các trường này hoặc chưa map vào UserDto.",
+        "\n→ Hãy kiểm tra backend: UserDto có include các trường này không?"
+      );
+    }
+    
+    if (fieldsNotUpdated.length > 0) {
+      console.warn("⚠️ [API] updateCurrentUser - Các trường sau không khớp với payload:", fieldsNotUpdated);
+    }
+  }
+  
+  return result;
+}
+
+// Change password
+export interface ChangePasswordDto {
+  currentPassword: string;
+  newPassword: string;
+  confirmPassword: string;
+}
+
+export async function changePassword(payload: ChangePasswordDto): Promise<{ message: string }> {
+  // Thử endpoint change-password, nếu không có thì có thể backend chưa hỗ trợ
+  // Hoặc có thể cần dùng endpoint khác như /users/me/password
+  try {
+    return await request<{ message: string }>("/auth/change-password", {
+      method: "POST",
+      json: {
+        currentPassword: payload.currentPassword,
+        newPassword: payload.newPassword,
+      },
+    });
+  } catch (error) {
+    // Nếu endpoint không tồn tại, thử endpoint khác hoặc throw error rõ ràng
+    if (error instanceof Error && error.message.includes("404")) {
+      throw new Error("Backend chưa hỗ trợ đổi mật khẩu. Endpoint /auth/change-password không tồn tại. Vui lòng liên hệ quản trị viên.");
+    }
+    throw error;
+  }
 }
 
 // ------ CATEGORIES ------
