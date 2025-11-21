@@ -75,22 +75,13 @@ const Footer = () => {
                   <span className="group-hover:translate-x-1 transition-transform duration-300">Tin tức</span>
                 </Link>
               </li>
-              <li>
-                <Link 
-                  href="/contact" 
-                  className="text-gray-300 hover:text-white transition-all duration-300 flex items-center group"
-                >
-                  <span className="w-0 group-hover:w-2 h-0.5 bg-green-500 mr-0 group-hover:mr-2 transition-all duration-300"></span>
-                  <span className="group-hover:translate-x-1 transition-transform duration-300">Liên hệ</span>
-                </Link>
-              </li>
             </ul>
           </div>
 
           {/* Social Links */}
           <div>
             <h3 className="text-xl font-bold mb-6 text-white relative pb-3 after:content-[''] after:absolute after:bottom-0 after:left-0 after:w-12 after:h-1 after:bg-green-500">
-              Liên kết
+              Liên hệ
             </h3>
             <div className="flex flex-col space-y-4">
               <Link 
