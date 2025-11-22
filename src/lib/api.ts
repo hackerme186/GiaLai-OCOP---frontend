@@ -179,6 +179,7 @@ export interface Product {
   imageUrl?: string;
   ocopRating?: number; // 3, 4, 5 sao
   stockStatus: string; // "InStock" | "LowStock" | "OutOfStock"
+  stockQuantity?: number; // Số lượng tồn kho thực tế (nếu backend có)
   averageRating?: number;
   status: string; // "PendingApproval" | "Approved" | "Rejected"
   categoryId?: number;
