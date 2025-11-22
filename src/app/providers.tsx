@@ -4,6 +4,7 @@ import React from "react"
 import { SessionProvider } from "next-auth/react"
 import { CartProvider } from "@/lib/cart-context"
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query"
+import AutoLogoutProvider from "@/components/AutoLogoutProvider"
 
 // Create a client
 const queryClient = new QueryClient({
@@ -30,7 +31,9 @@ export function Providers({
         refetchOnWindowFocus={false}
       >
         <CartProvider>
-          {children}
+          <AutoLogoutProvider idleTimeInMinutes={15}>
+            {children}
+          </AutoLogoutProvider>
         </CartProvider>
       </SessionProvider>
     </QueryClientProvider>
