@@ -8,9 +8,9 @@ export default function LoginPage() {
 
   return (
     <AuthLayout
-      title="Chào mừng đến OCOP-Gia Lai"
-      subtitle="Đăng nhập để tiếp tục"
-      linkText="Bạn chưa có tài khoản? Tạo tài khoản"
+      title="Login"
+      subtitle=""
+      linkText=""
       linkAction={() => router.push('/register')}
     >
       <LoginForm />

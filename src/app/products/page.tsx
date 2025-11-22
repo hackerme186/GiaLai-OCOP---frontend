@@ -47,6 +47,7 @@ function ProductsContent() {
   }, [searchInput])
 
   // React Query: Fetch products from API with search
+  // ✅ FIX: Request only Approved products from backend to prevent showing pending/rejected products
   const {
     data: allProducts = [],
     isLoading,
@@ -56,25 +57,31 @@ function ProductsContent() {
   } = useQuery({
     queryKey: ["products", "customer", searchQuery, selectedCategory],
     queryFn: async () => {
-      // Call API with search parameter
+      // Call API with search parameter AND status filter
       const searchTerm = searchQuery || undefined;
       if (searchTerm) {
         console.log('🔍 Frontend: Searching for:', searchTerm);
       }
       
-      // Try with 'q' parameter first (more common in REST APIs)
-      // If BE doesn't support 'q', change to 'search' parameter
+      // ✅ FIX: Request only Approved products from backend
       const result = await getProducts({
         page: 1,
         pageSize: 100, // Get all products
+        status: "Approved", // ✅ Only get approved products from backend
         q: searchTerm, // Try 'q' parameter first
       });
       
       if (searchTerm) {
-        console.log('✅ Frontend: Received', result.length, 'products from API');
+        console.log('✅ Frontend: Received', result.length, 'approved products from API');
       }
       
-      return result;
+      // ✅ Double-check: Filter again on client-side as safety measure
+      const approvedOnly = result.filter((p) => p.status === "Approved");
+      if (approvedOnly.length !== result.length) {
+        console.warn(`⚠️ Backend returned ${result.length - approvedOnly.length} non-approved products. Filtered out.`);
+      }
+      
+      return approvedOnly;
     },
     enabled: true, // Always enabled
     staleTime: 30 * 1000, // 30 seconds
@@ -82,8 +89,8 @@ function ProductsContent() {
     refetchOnWindowFocus: true,
   })
 
-  // Filter products: Only show "Approved" products for customers
-  const approvedProducts = allProducts.filter((p) => p.status === "Approved")
+  // ✅ All products from API are already filtered to Approved only
+  const approvedProducts = allProducts
 
   // Client-side search filter (fallback if API doesn't support search)
   const searchFiltered = searchQuery

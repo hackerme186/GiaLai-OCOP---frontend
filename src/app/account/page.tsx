@@ -3,19 +3,28 @@
 import { useEffect, useMemo, useState } from "react"
 import Link from "next/link"
 import { getUserProfile, isLoggedIn } from "@/lib/auth"
-import { getCurrentUser, getEnterprise, updateCurrentUser, type Enterprise, type User } from "@/lib/api"
+import { getCurrentUser, getEnterprise, updateCurrentUser, changePassword, type Enterprise, type User, type UpdateUserDto } from "@/lib/api"
 import Header from "@/components/layout/Header"
 import { useRouter } from "next/navigation"
 import { getCurrentAddress } from "@/lib/geolocation"
-import { 
-  getSavedShippingAddresses, 
-  addShippingAddress, 
-  updateShippingAddress, 
-  deleteShippingAddress, 
+import {
+  getSavedShippingAddresses,
+  addShippingAddress,
+  updateShippingAddress,
+  deleteShippingAddress,
   setDefaultShippingAddress,
   syncMainAddressFromBackend,
-  type SavedShippingAddress 
+  type SavedShippingAddress
 } from "@/lib/shipping-addresses"
+
+type NotificationItem = {
+  id: number
+  title: string
+  message: string
+  date: string
+  read: boolean
+  type?: "order" | "system" | "promotion"
+}
 
 export default function AccountPage() {
   const router = useRouter()
@@ -29,6 +38,9 @@ export default function AccountPage() {
   const [shippingAddress, setShippingAddress] = useState("")
   const [name, setName] = useState("")
   const [email, setEmail] = useState("")
+  const [phoneNumber, setPhoneNumber] = useState("")
+  const [gender, setGender] = useState<string>("female")
+  const [dateOfBirth, setDateOfBirth] = useState<{ day: string; month: string; year: string }>({ day: "", month: "", year: "" })
   const [loadingAddress, setLoadingAddress] = useState(false)
   const [saving, setSaving] = useState(false)
   const [savingProfile, setSavingProfile] = useState(false)
@@ -36,6 +48,25 @@ export default function AccountPage() {
   const [isAddingNewAddress, setIsAddingNewAddress] = useState(false)
   const [newAddressLabel, setNewAddressLabel] = useState("")
   const [editingAddressId, setEditingAddressId] = useState<string | null>(null)
+  const [newAddressValue, setNewAddressValue] = useState("")
+  const [editingAddressValue, setEditingAddressValue] = useState("")
+  const [editingAddressLabelValue, setEditingAddressLabelValue] = useState("")
+  const [activeMenu, setActiveMenu] = useState("profile")
+  const [expandedMenu, setExpandedMenu] = useState("account")
+  const [avatarPreview, setAvatarPreview] = useState<string | null>(null)
+  const [avatarFile, setAvatarFile] = useState<File | null>(null)
+  const [uploadingAvatar, setUploadingAvatar] = useState(false)
+
+  // Change password states
+  const [currentPassword, setCurrentPassword] = useState("")
+  const [newPassword, setNewPassword] = useState("")
+  const [confirmPassword, setConfirmPassword] = useState("")
+  const [changingPassword, setChangingPassword] = useState(false)
+  const [showPassword, setShowPassword] = useState({ current: false, new: false, confirm: false })
+
+  // Notifications states
+  const [notifications, setNotifications] = useState<NotificationItem[]>([])
+  const [loadingNotifications, setLoadingNotifications] = useState(false)
 
   useEffect(() => {
     const init = async () => {
@@ -47,16 +78,66 @@ export default function AccountPage() {
       // Prefer fetching from backend
       try {
         const me = await getCurrentUser()
-        setUser(me)
+        const { getUserProfile, setUserProfile } = await import("@/lib/auth")
+        const currentProfile = getUserProfile() || {}
+
+        // Đảm bảo createdAt được lấy từ backend hoặc từ profile đã lưu
+        const createdAt = me.createdAt || currentProfile.createdAt
+
+        // Lưu tất cả thông tin user (bao gồm createdAt) vào user profile
+        const updatedProfile = {
+          ...currentProfile,
+          id: me.id,
+          name: me.name,
+          email: me.email,
+          role: me.role,
+          enterpriseId: me.enterpriseId ?? undefined,
+          createdAt: createdAt, // Lưu ngày tạo tài khoản từ backend hoặc profile
+        }
+        setUserProfile(updatedProfile)
+
+        // Set user state với createdAt đã đảm bảo
+        setUser({
+          ...me,
+          createdAt: createdAt, // Đảm bảo createdAt luôn có trong user state
+        })
         setShippingAddress(me.shippingAddress || "")
         setName(me.name || "")
         setEmail(me.email || "")
-        
+        setPhoneNumber(me.phoneNumber || "")
+        setGender(me.gender || "female")
+
+        // Load date of birth from user data
+        if (me.dateOfBirth) {
+          try {
+            const dob = new Date(me.dateOfBirth)
+            setDateOfBirth({
+              day: dob.getDate().toString(),
+              month: (dob.getMonth() + 1).toString(),
+              year: dob.getFullYear().toString()
+            })
+          } catch {
+            // Ignore date parsing errors
+          }
+        }
+
+        // Load avatar từ localStorage hoặc từ user.avatarUrl nếu có
+        if (typeof window !== "undefined") {
+          if (me.avatarUrl) {
+            setAvatarPreview(me.avatarUrl)
+          } else {
+            const savedAvatar = localStorage.getItem(`user_avatar_${me.id}`)
+            if (savedAvatar) {
+              setAvatarPreview(savedAvatar)
+            }
+          }
+        }
+
         // Đồng bộ địa chỉ từ backend vào danh sách địa chỉ đã lưu
         if (me.shippingAddress) {
           syncMainAddressFromBackend(me.shippingAddress)
         }
-        
+
         // Load danh sách địa chỉ đã lưu
         setSavedAddresses(getSavedShippingAddresses())
       } catch {
@@ -73,6 +154,35 @@ export default function AccountPage() {
         setShippingAddress("")
         setName(userData.name || "")
         setEmail(userData.email || "")
+        setPhoneNumber(userData.phoneNumber || "")
+        setGender(userData.gender || "female")
+
+        // Load date of birth from user data
+        if (userData.dateOfBirth) {
+          try {
+            const dob = new Date(userData.dateOfBirth)
+            setDateOfBirth({
+              day: dob.getDate().toString(),
+              month: (dob.getMonth() + 1).toString(),
+              year: dob.getFullYear().toString()
+            })
+          } catch {
+            // Ignore date parsing errors
+          }
+        }
+
+        // Load avatar từ localStorage nếu có
+        if (typeof window !== "undefined" && userData.id) {
+          if (userData.avatarUrl) {
+            setAvatarPreview(userData.avatarUrl)
+          } else {
+            const savedAvatar = localStorage.getItem(`user_avatar_${userData.id}`)
+            if (savedAvatar) {
+              setAvatarPreview(savedAvatar)
+            }
+          }
+        }
+
         setSavedAddresses(getSavedShippingAddresses())
       } finally {
         setReady(true)
@@ -101,15 +211,60 @@ export default function AccountPage() {
   const formattedCreatedAt = useMemo(() => {
     if (!user?.createdAt) return null
     try {
+      const date = new Date(user.createdAt)
+      // Format đẹp hơn: "dd/mm/yyyy, HH:mm"
       return new Intl.DateTimeFormat("vi-VN", {
         day: "2-digit",
         month: "2-digit",
         year: "numeric",
         hour: "2-digit",
         minute: "2-digit",
-      }).format(new Date(user.createdAt))
+      }).format(date)
     } catch {
       return user.createdAt
+    }
+  }, [user?.createdAt])
+
+  const formattedCreatedAtDisplay = useMemo(() => {
+    if (!user?.createdAt) {
+      return {
+        text: "Chưa xác định",
+        isEmpty: true
+      }
+    }
+    try {
+      const date = new Date(user.createdAt)
+      // Format ngày đẹp: "Ngày dd tháng mm năm yyyy"
+      const dateStr = new Intl.DateTimeFormat("vi-VN", {
+        day: "2-digit",
+        month: "2-digit",
+        year: "numeric",
+        hour: "2-digit",
+        minute: "2-digit",
+      }).format(date)
+
+      // Format với ngày tháng năm bằng chữ
+      const day = date.getDate()
+      const month = date.getMonth() + 1
+      const year = date.getFullYear()
+      const hours = date.getHours().toString().padStart(2, '0')
+      const minutes = date.getMinutes().toString().padStart(2, '0')
+
+      const monthNames = [
+        "tháng 1", "tháng 2", "tháng 3", "tháng 4", "tháng 5", "tháng 6",
+        "tháng 7", "tháng 8", "tháng 9", "tháng 10", "tháng 11", "tháng 12"
+      ]
+
+      return {
+        text: `Ngày ${day} ${monthNames[month - 1]} năm ${year}, ${hours}:${minutes}`,
+        isEmpty: false,
+        raw: dateStr
+      }
+    } catch {
+      return {
+        text: user.createdAt || "Chưa xác định",
+        isEmpty: !user.createdAt
+      }
     }
   }, [user?.createdAt])
 
@@ -153,24 +308,24 @@ export default function AccountPage() {
 
     try {
       // Include name field as backend requires it for validation
-      const updatedUser = await updateCurrentUser({ 
-        name: user?.name || "", 
-        shippingAddress: shippingAddress.trim() 
+      const updatedUser = await updateCurrentUser({
+        name: user?.name || "",
+        shippingAddress: shippingAddress.trim()
       })
       setUser(updatedUser)
-      
+
       // Đồng bộ địa chỉ mới vào danh sách địa chỉ đã lưu
       if (shippingAddress.trim()) {
         syncMainAddressFromBackend(shippingAddress.trim())
         setSavedAddresses(getSavedShippingAddresses())
       }
-      
+
       setIsEditingAddress(false)
       setSuccess("Đã cập nhật địa chỉ giao hàng thành công!")
       setTimeout(() => setSuccess(null), 3000)
     } catch (err) {
       const errorMessage = err instanceof Error ? err.message : "Không thể cập nhật địa chỉ giao hàng"
-      
+
       // Check if it's a 403 or 404 error (endpoint might not exist or permission denied)
       if (errorMessage.includes("403") || errorMessage.includes("404")) {
         setError("Backend chưa hỗ trợ cập nhật địa chỉ giao hàng. Vui lòng liên hệ quản trị viên.")
@@ -193,8 +348,150 @@ export default function AccountPage() {
     setSuccess(null)
 
     try {
-      const updatedUser = await updateCurrentUser({ name: name.trim() })
-      setUser(updatedUser)
+      // Chuẩn bị date of birth nếu có đầy đủ ngày/tháng/năm
+      let dateOfBirthISO: string | undefined = undefined
+      if (dateOfBirth.day && dateOfBirth.month && dateOfBirth.year) {
+        try {
+          const dob = new Date(
+            parseInt(dateOfBirth.year),
+            parseInt(dateOfBirth.month) - 1,
+            parseInt(dateOfBirth.day)
+          )
+          if (!isNaN(dob.getTime())) {
+            dateOfBirthISO = dob.toISOString()
+          }
+        } catch {
+          // Ignore date parsing errors
+        }
+      }
+
+      // Chuẩn bị payload với tất cả các trường có thể cập nhật
+      const updatePayload: UpdateUserDto = {
+        name: name.trim(),
+      }
+
+      // Chỉ thêm các trường có giá trị
+      if (phoneNumber.trim()) {
+        updatePayload.phoneNumber = phoneNumber.trim()
+      }
+      if (gender) {
+        updatePayload.gender = gender
+      }
+      if (dateOfBirthISO) {
+        updatePayload.dateOfBirth = dateOfBirthISO
+      }
+
+      // Nếu có avatar mới được chọn, lưu vào localStorage
+      // (Avatar sẽ được upload riêng nếu backend hỗ trợ endpoint upload)
+      if (avatarPreview && avatarFile && user?.id && typeof window !== "undefined") {
+        localStorage.setItem(`user_avatar_${user.id}`, avatarPreview)
+        // TODO: Upload avatar lên backend nếu có endpoint
+        // updatePayload.avatarUrl = await uploadAvatar(avatarFile)
+      } else if (avatarPreview && user?.id && typeof window !== "undefined") {
+        // Nếu avatar đã có sẵn, giữ nguyên
+        localStorage.setItem(`user_avatar_${user.id}`, avatarPreview)
+      }
+
+      // Log payload trước khi gửi
+      console.log("📤 [UPDATE PROFILE] Gửi request với payload:", JSON.stringify(updatePayload, null, 2))
+
+      const updatedUser = await updateCurrentUser(updatePayload)
+
+      // Log response từ backend
+      console.log("📥 [UPDATE PROFILE] Nhận response từ backend:", JSON.stringify(updatedUser, null, 2))
+
+      // Kiểm tra xem dữ liệu có được cập nhật không
+      const fieldsUpdated: string[] = []
+      const fieldsNotInResponse: string[] = []
+
+      if (updatedUser.name === name.trim()) fieldsUpdated.push("name")
+
+      if (updatePayload.phoneNumber) {
+        if (updatedUser.phoneNumber === phoneNumber.trim()) {
+          fieldsUpdated.push("phoneNumber")
+        } else if (!updatedUser.phoneNumber) {
+          fieldsNotInResponse.push("phoneNumber")
+        }
+      }
+
+      if (updatePayload.gender) {
+        if (updatedUser.gender === gender) {
+          fieldsUpdated.push("gender")
+        } else if (!updatedUser.gender) {
+          fieldsNotInResponse.push("gender")
+        }
+      }
+
+      if (dateOfBirthISO) {
+        if (updatedUser.dateOfBirth) {
+          const updatedDob = new Date(updatedUser.dateOfBirth).toISOString()
+          if (updatedDob === dateOfBirthISO) {
+            fieldsUpdated.push("dateOfBirth")
+          }
+        } else {
+          fieldsNotInResponse.push("dateOfBirth")
+        }
+      }
+
+      console.log("✅ [UPDATE PROFILE] Các trường đã được cập nhật trong response:", fieldsUpdated)
+
+      if (fieldsNotInResponse.length > 0) {
+        console.warn(
+          "⚠️ [UPDATE PROFILE] CẢNH BÁO: Backend không trả về các trường sau trong response:",
+          fieldsNotInResponse,
+          "\n→ Có thể backend không hỗ trợ các trường này hoặc chưa map vào response DTO.",
+          "\n→ Kiểm tra backend: UserDto/UserResponse có include các trường này không?"
+        )
+      }
+
+      // Merge user data với dữ liệu đã gửi (preserve nếu backend không trả về)
+      const mergedUser: User = {
+        ...updatedUser,
+        // Preserve các giá trị đã gửi nếu backend không trả về
+        phoneNumber: updatedUser.phoneNumber ?? (updatePayload.phoneNumber || phoneNumber || undefined),
+        gender: updatedUser.gender ?? (updatePayload.gender || gender || undefined),
+        dateOfBirth: updatedUser.dateOfBirth ?? (dateOfBirthISO || undefined),
+      }
+
+      setUser(mergedUser)
+
+      // Cập nhật state: ưu tiên giá trị từ backend, nếu không có thì giữ nguyên giá trị đã gửi
+      if (updatedUser.phoneNumber !== undefined) {
+        setPhoneNumber(updatedUser.phoneNumber)
+      } else if (updatePayload.phoneNumber) {
+        // Backend không trả về, giữ nguyên giá trị đã gửi
+        // (Có thể backend đã lưu nhưng không trả về trong response)
+        console.info("ℹ️ [UPDATE PROFILE] Backend không trả về phoneNumber, giữ nguyên giá trị đã gửi:", updatePayload.phoneNumber)
+      }
+
+      if (updatedUser.gender !== undefined) {
+        setGender(updatedUser.gender)
+      } else if (updatePayload.gender) {
+        // Backend không trả về, giữ nguyên giá trị đã gửi
+        console.info("ℹ️ [UPDATE PROFILE] Backend không trả về gender, giữ nguyên giá trị đã gửi:", updatePayload.gender)
+      }
+
+      if (updatedUser.dateOfBirth) {
+        try {
+          const dob = new Date(updatedUser.dateOfBirth)
+          setDateOfBirth({
+            day: dob.getDate().toString(),
+            month: (dob.getMonth() + 1).toString(),
+            year: dob.getFullYear().toString()
+          })
+        } catch {
+          // Ignore date parsing errors
+        }
+      } else if (dateOfBirthISO) {
+        // Backend không trả về, giữ nguyên giá trị đã gửi
+        console.info("ℹ️ [UPDATE PROFILE] Backend không trả về dateOfBirth, giữ nguyên giá trị đã gửi")
+        // Giữ nguyên dateOfBirth state hiện tại (đã được set từ form)
+      }
+
+      if (updatedUser.avatarUrl) {
+        setAvatarPreview(updatedUser.avatarUrl)
+      }
+
       setIsEditingProfile(false)
       setSuccess("Đã cập nhật thông tin hồ sơ thành công!")
       setTimeout(() => setSuccess(null), 3000)
@@ -207,14 +504,15 @@ export default function AccountPage() {
   }
 
   const handleAddNewAddress = () => {
-    if (!shippingAddress.trim()) {
-      setError("Vui lòng nhập địa chỉ giao hàng")
+    if (!newAddressValue.trim()) {
+      setError("Vui lòng nhập địa chỉ mới")
       return
     }
-    
-    addShippingAddress(shippingAddress.trim(), newAddressLabel.trim() || undefined, false)
+
+    addShippingAddress(newAddressValue.trim(), newAddressLabel.trim() || undefined, savedAddresses.length === 0)
     setSavedAddresses(getSavedShippingAddresses())
     setNewAddressLabel("")
+    setNewAddressValue("")
     setIsAddingNewAddress(false)
     setSuccess("Đã thêm địa chỉ giao hàng mới!")
     setTimeout(() => setSuccess(null), 3000)
@@ -238,24 +536,24 @@ export default function AccountPage() {
 
   const handleSetAsMainAddress = async (address: string) => {
     if (!address.trim()) return
-    
+
     setSaving(true)
     setError(null)
     setSuccess(null)
 
     try {
       // Cập nhật địa chỉ chính lên backend
-      const updatedUser = await updateCurrentUser({ 
-        name: user?.name || "", 
-        shippingAddress: address.trim() 
+      const updatedUser = await updateCurrentUser({
+        name: user?.name || "",
+        shippingAddress: address.trim()
       })
       setUser(updatedUser)
       setShippingAddress(address.trim())
-      
+
       // Đồng bộ với danh sách địa chỉ đã lưu
       syncMainAddressFromBackend(address.trim())
       setSavedAddresses(getSavedShippingAddresses())
-      
+
       setSuccess("Đã cập nhật địa chỉ giao hàng chính!")
       setTimeout(() => setSuccess(null), 3000)
     } catch (err) {
@@ -265,6 +563,165 @@ export default function AccountPage() {
       setSaving(false)
     }
   }
+
+  const startEditingAddress = (address: SavedShippingAddress) => {
+    setEditingAddressId(address.id)
+    setEditingAddressValue(address.address)
+    setEditingAddressLabelValue(address.label || "")
+  }
+
+  const cancelEditingAddress = () => {
+    setEditingAddressId(null)
+    setEditingAddressValue("")
+    setEditingAddressLabelValue("")
+  }
+
+  const handleUpdateAddress = (id: string) => {
+    if (!editingAddressValue.trim()) {
+      setError("Vui lòng nhập địa chỉ")
+      return
+    }
+
+    const updated = updateShippingAddress(id, {
+      address: editingAddressValue.trim(),
+      label: editingAddressLabelValue.trim() || undefined,
+    })
+
+    if (!updated) {
+      setError("Không thể cập nhật địa chỉ. Vui lòng thử lại.")
+      return
+    }
+
+    setSavedAddresses(getSavedShippingAddresses())
+    setSuccess("Đã cập nhật địa chỉ!")
+    setTimeout(() => setSuccess(null), 3000)
+    cancelEditingAddress()
+  }
+
+  const handleChangePassword = async () => {
+    if (!currentPassword.trim()) {
+      setError("Vui lòng nhập mật khẩu hiện tại")
+      return
+    }
+    if (!newPassword.trim()) {
+      setError("Vui lòng nhập mật khẩu mới")
+      return
+    }
+    if (newPassword.length < 6) {
+      setError("Mật khẩu mới phải có ít nhất 6 ký tự")
+      return
+    }
+    if (newPassword !== confirmPassword) {
+      setError("Mật khẩu xác nhận không khớp")
+      return
+    }
+    if (currentPassword === newPassword) {
+      setError("Mật khẩu mới phải khác mật khẩu hiện tại")
+      return
+    }
+
+    setChangingPassword(true)
+    setError(null)
+    setSuccess(null)
+
+    try {
+      await changePassword({
+        currentPassword: currentPassword.trim(),
+        newPassword: newPassword.trim(),
+        confirmPassword: confirmPassword.trim(),
+      })
+
+      setCurrentPassword("")
+      setNewPassword("")
+      setConfirmPassword("")
+      setSuccess("Đã đổi mật khẩu thành công!")
+      setTimeout(() => setSuccess(null), 3000)
+    } catch (err) {
+      let errorMessage = "Không thể đổi mật khẩu"
+
+      if (err instanceof Error) {
+        errorMessage = err.message
+
+        // Hiển thị thông báo rõ ràng hơn nếu endpoint không tồn tại
+        if (errorMessage.includes("404") || errorMessage.includes("Not Found")) {
+          errorMessage = "Backend chưa hỗ trợ đổi mật khẩu. Endpoint /auth/change-password không tồn tại. Vui lòng liên hệ quản trị viên để được hỗ trợ."
+        } else if (errorMessage.includes("401") || errorMessage.includes("Unauthorized")) {
+          errorMessage = "Mật khẩu hiện tại không đúng. Vui lòng kiểm tra lại."
+        } else if (errorMessage.includes("403") || errorMessage.includes("Forbidden")) {
+          errorMessage = "Bạn không có quyền thực hiện thao tác này. Vui lòng đăng nhập lại."
+        }
+      }
+
+      setError(errorMessage)
+    } finally {
+      setChangingPassword(false)
+    }
+  }
+
+  const resetPasswordForm = () => {
+    setCurrentPassword("")
+    setNewPassword("")
+    setConfirmPassword("")
+    setShowPassword({ current: false, new: false, confirm: false })
+  }
+
+  const handleMarkNotificationAsRead = (id: number) => {
+    setNotifications((prev) =>
+      prev.map((item) => (item.id === id ? { ...item, read: true } : item))
+    )
+  }
+
+  const handleToggleNotificationRead = (id: number) => {
+    setNotifications((prev) =>
+      prev.map((item) =>
+        item.id === id ? { ...item, read: !item.read } : item
+      )
+    )
+  }
+
+  const handleMarkAllNotificationsAsRead = () => {
+    setNotifications((prev) => prev.map((item) => ({ ...item, read: true })))
+  }
+
+  const handleClearNotifications = () => {
+    setNotifications([])
+  }
+
+  const handleDeleteNotification = (id: number) => {
+    setNotifications((prev) => prev.filter((item) => item.id !== id))
+  }
+
+  const unreadNotificationCount = notifications.filter((n) => !n.read).length
+
+  const formatDateTime = (isoDate?: string) => {
+    if (!isoDate) return ""
+    try {
+      return new Intl.DateTimeFormat("vi-VN", {
+        day: "2-digit",
+        month: "2-digit",
+        year: "numeric",
+        hour: "2-digit",
+        minute: "2-digit",
+      }).format(new Date(isoDate))
+    } catch {
+      return isoDate
+    }
+  }
+
+  // Load notifications (mock data for now)
+  useEffect(() => {
+    if (activeMenu === "notifications" && ready) {
+      setLoadingNotifications(true)
+      // TODO: Load from API when available
+      setTimeout(() => {
+        setNotifications([
+          { id: 1, title: "Đơn hàng đã được xác nhận", message: "Đơn hàng #12345 của bạn đã được xác nhận", date: new Date().toISOString(), read: false },
+          { id: 2, title: "Sản phẩm mới", message: "Có sản phẩm mới phù hợp với sở thích của bạn", date: new Date(Date.now() - 86400000).toISOString(), read: false },
+        ])
+        setLoadingNotifications(false)
+      }, 500)
+    }
+  }, [activeMenu, ready])
 
   if (!ready) {
     return (
@@ -281,40 +738,156 @@ export default function AccountPage() {
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-gray-50 via-white to-indigo-50" suppressHydrationWarning>
+    <div className="min-h-screen bg-gray-50" suppressHydrationWarning>
       <Header />
-      <main>
-        <div className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 py-8 sm:py-12">
-          {/* Header Section with Gradient */}
-          <div className="mb-8">
-            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-6">
-              <div className="flex items-center gap-4">
-                <div className="w-16 h-16 bg-gradient-to-br from-indigo-600 to-purple-600 rounded-2xl flex items-center justify-center shadow-lg">
-                  <svg className="w-8 h-8 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
+      <main className="container mx-auto px-4 py-6 max-w-7xl">
+        <div className="flex gap-6">
+          {/* Sidebar Navigation */}
+          <aside className="w-64 flex-shrink-0">
+            {/* User Profile Summary */}
+            <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-4 mb-4">
+              <div className="flex flex-col items-center text-center">
+                <div className="w-20 h-20 rounded-full bg-gradient-to-br from-orange-400 to-orange-500 flex items-center justify-center text-white text-2xl font-bold mb-3">
+                  {user?.name?.charAt(0)?.toUpperCase() || "U"}
+                </div>
+                <div className="font-medium text-gray-900 mb-1">{user?.name || "Người dùng"}</div>
+                <Link
+                  href="/account"
+                  className="text-sm text-orange-500 hover:text-orange-600 flex items-center gap-1"
+                >
+                  <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" />
                   </svg>
-                </div>
-                <div>
-                  <h1 className="text-3xl font-bold text-gray-900">Hồ sơ người dùng</h1>
-                  <p className="text-sm text-gray-500 mt-1">Quản lý thông tin tài khoản của bạn</p>
-                </div>
+                  Sửa Hồ Sơ
+                </Link>
               </div>
-              <Link
-                href="/orders"
-                className="inline-flex items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-indigo-600 to-purple-600 px-6 py-3 text-sm font-semibold text-white shadow-lg hover:shadow-xl hover:from-indigo-700 hover:to-purple-700 transition-all"
-              >
-                <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" />
-                </svg>
-                Đơn hàng của tôi
-              </Link>
             </div>
-          </div>
 
-          <div className="space-y-6">
+            {/* Navigation Menu */}
+            <div className="bg-white rounded-lg shadow-sm border border-gray-200 overflow-hidden">
+              <nav className="py-2">
+                {/* Thông Báo */}
+                <button
+                  type="button"
+                  onClick={() => setActiveMenu("notifications")}
+                  className={`w-full flex items-center gap-3 px-4 py-3 transition-colors ${activeMenu === "notifications"
+                    ? "text-orange-500 bg-orange-50 border-l-4 border-orange-500"
+                    : "text-gray-700 hover:bg-gray-50"
+                    }`}
+                >
+                  <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9" />
+                  </svg>
+                  <span className="font-medium flex-1 text-left">Thông Báo</span>
+                  {unreadNotificationCount > 0 && (
+                    <span className="px-2 py-0.5 text-xs rounded-full bg-orange-500 text-white font-semibold">
+                      {unreadNotificationCount}
+                    </span>
+                  )}
+                </button>
+
+                {/* Tài Khoản Của Tôi - Expandable */}
+                <div>
+                  <button
+                    onClick={() => setExpandedMenu(expandedMenu === "account" ? "" : "account")}
+                    className="w-full flex items-center justify-between gap-3 px-4 py-3 text-gray-700 hover:bg-gray-50 transition-colors"
+                  >
+                    <div className="flex items-center gap-3">
+                      <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
+                      </svg>
+                      <span className="font-medium">Tài Khoản Của Tôi</span>
+                    </div>
+                    <svg
+                      className={`w-4 h-4 transition-transform ${expandedMenu === "account" ? "rotate-180" : ""}`}
+                      fill="none" viewBox="0 0 24 24" stroke="currentColor"
+                    >
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                    </svg>
+                  </button>
+
+                  {expandedMenu === "account" && (
+                    <div className="bg-gray-50">
+                      <Link
+                        href="/account"
+                        onClick={(e) => {
+                          e.preventDefault()
+                          setActiveMenu("profile")
+                        }}
+                        className={`flex items-center gap-3 px-4 py-2.5 text-sm transition-colors ${activeMenu === "profile"
+                          ? "text-orange-500 bg-orange-50 border-l-2 border-orange-500"
+                          : "text-gray-600 hover:bg-gray-100"
+                          }`}
+                      >
+                        <span className="w-1.5 h-1.5 rounded-full bg-current ml-2"></span>
+                        Hồ Sơ
+                      </Link>
+                      <Link
+                        href="/account/bank"
+                        onClick={(e) => {
+                          e.preventDefault()
+                          setActiveMenu("bank")
+                        }}
+                        className={`flex items-center gap-3 px-4 py-2.5 text-sm transition-colors ${activeMenu === "bank"
+                          ? "text-orange-500 bg-orange-50 border-l-2 border-orange-500"
+                          : "text-gray-600 hover:bg-gray-100"
+                          }`}
+                      >
+                        <span className="w-1.5 h-1.5 rounded-full bg-current ml-2"></span>
+                        Ngân Hàng
+                      </Link>
+                      <Link
+                        href="/account/address"
+                        onClick={(e) => {
+                          e.preventDefault()
+                          setActiveMenu("address")
+                        }}
+                        className={`flex items-center gap-3 px-4 py-2.5 text-sm transition-colors ${activeMenu === "address"
+                          ? "text-orange-500 bg-orange-50 border-l-2 border-orange-500"
+                          : "text-gray-600 hover:bg-gray-100"
+                          }`}
+                      >
+                        <span className="w-1.5 h-1.5 rounded-full bg-current ml-2"></span>
+                        Địa Chỉ
+                      </Link>
+                      <Link
+                        href="/account/password"
+                        onClick={(e) => {
+                          e.preventDefault()
+                          setActiveMenu("password")
+                        }}
+                        className={`flex items-center gap-3 px-4 py-2.5 text-sm transition-colors ${activeMenu === "password"
+                          ? "text-orange-500 bg-orange-50 border-l-2 border-orange-500"
+                          : "text-gray-600 hover:bg-gray-100"
+                          }`}
+                      >
+                        <span className="w-1.5 h-1.5 rounded-full bg-current ml-2"></span>
+                        Đổi Mật Khẩu
+                      </Link>
+                    </div>
+                  )}
+                </div>
+
+                {/* Đơn Mua */}
+                <Link
+                  href="/orders"
+                  className="flex items-center gap-3 px-4 py-3 text-gray-700 hover:bg-gray-50 transition-colors"
+                >
+                  <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                  </svg>
+                  <span className="font-medium">Đơn Mua</span>
+                </Link>
+              </nav>
+            </div>
+          </aside>
+
+          {/* Main Content */}
+          <div className="flex-1">
+
             {/* Error Message */}
             {error && (
-              <div className="rounded-xl border-2 border-red-200 bg-gradient-to-r from-red-50 to-pink-50 px-5 py-4 shadow-sm">
+              <div className="mb-6 rounded-lg border border-red-200 bg-red-50 px-4 py-3">
                 <div className="flex items-start gap-3">
                   <svg className="w-5 h-5 text-red-600 mt-0.5 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
@@ -326,7 +899,7 @@ export default function AccountPage() {
 
             {/* Success Message */}
             {success && (
-              <div className="rounded-xl border-2 border-green-200 bg-gradient-to-r from-green-50 to-emerald-50 px-5 py-4 shadow-sm">
+              <div className="mb-6 rounded-lg border border-green-200 bg-green-50 px-4 py-3">
                 <div className="flex items-start gap-3">
                   <svg className="w-5 h-5 text-green-600 mt-0.5 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
@@ -336,541 +909,754 @@ export default function AccountPage() {
               </div>
             )}
 
-            {/* Basic Information Section */}
-            <section className="bg-white rounded-2xl shadow-lg border border-gray-100 overflow-hidden">
-              <div className="bg-gradient-to-r from-indigo-600 to-purple-600 px-6 py-4">
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-3">
-                    <div className="w-10 h-10 bg-white/20 rounded-lg flex items-center justify-center">
-                      <svg className="w-6 h-6 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
-                      </svg>
-                    </div>
-                    <h2 className="text-xl font-bold text-white">Thông tin cơ bản</h2>
-                  </div>
-                  {!isEditingProfile && (
-                    <button
-                      onClick={() => setIsEditingProfile(true)}
-                      className="px-4 py-2 text-sm font-semibold text-white bg-white/20 rounded-lg hover:bg-white/30 transition-colors backdrop-blur-sm"
-                    >
-                      Chỉnh sửa
-                    </button>
-                  )}
+            {/* Conditional Content Based on activeMenu */}
+            {activeMenu === "profile" && (
+              <div className="bg-white rounded-lg shadow-sm border border-gray-200">
+                <div className="px-6 py-4 border-b border-gray-200">
+                  <h2 className="text-xl font-semibold text-gray-900">Hồ Sơ Của Tôi</h2>
+                  <p className="text-sm text-gray-500 mt-1">Quản lý thông tin hồ sơ để bảo mật tài khoản</p>
                 </div>
-              </div>
-              <div className="p-6">
-                {isEditingProfile ? (
-                  <div className="space-y-5">
-                    <div>
-                      <label htmlFor="name" className="block text-sm font-semibold text-gray-900 mb-3 flex items-center gap-2">
-                        <svg className="w-4 h-4 text-indigo-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
-                        </svg>
-                        Họ và tên <span className="text-red-500">*</span>
-                      </label>
-                      <input
-                        id="name"
-                        type="text"
-                        value={name}
-                        onChange={(e) => setName(e.target.value)}
-                        placeholder="Nhập họ và tên"
-                        className="w-full rounded-xl border-2 border-gray-200 px-4 py-3 text-sm text-gray-900 font-medium placeholder:text-gray-400 focus:border-indigo-500 focus:ring-2 focus:ring-indigo-200 focus:outline-none transition-all bg-gray-50"
-                        required
-                      />
-                    </div>
-                    <div>
-                      <label htmlFor="email" className="block text-sm font-semibold text-gray-900 mb-3 flex items-center gap-2">
-                        <svg className="w-4 h-4 text-indigo-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
-                        </svg>
-                        Email
-                      </label>
-                      <input
-                        id="email"
-                        type="email"
-                        value={email}
-                        disabled
-                        className="w-full rounded-xl border-2 border-gray-200 px-4 py-3 text-sm text-gray-500 font-medium bg-gray-100 cursor-not-allowed"
-                      />
-                      <p className="mt-2 text-xs text-gray-500">Email không thể thay đổi</p>
-                    </div>
-                    <div className="flex gap-3 pt-2">
-                      <button
-                        onClick={handleSaveProfile}
-                        disabled={savingProfile || !name.trim()}
-                        className="flex-1 px-4 py-3 text-sm font-semibold text-white bg-gradient-to-r from-indigo-600 to-purple-600 rounded-xl hover:from-indigo-700 hover:to-purple-700 transition-all shadow-lg hover:shadow-xl disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:shadow-lg flex items-center justify-center gap-2"
-                      >
-                        {savingProfile ? (
-                          <>
-                            <div className="animate-spin rounded-full h-4 w-4 border-2 border-white border-t-transparent"></div>
-                            <span>Đang lưu...</span>
-                          </>
-                        ) : (
-                          <>
-                            <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
-                            </svg>
-                            <span>Lưu thông tin</span>
-                          </>
-                        )}
-                      </button>
-                      <button
-                        onClick={() => {
-                          setIsEditingProfile(false)
-                          setName(user?.name || "")
-                          setError(null)
-                        }}
-                        disabled={savingProfile}
-                        className="px-6 py-3 text-sm font-semibold text-gray-700 bg-gray-100 rounded-xl hover:bg-gray-200 transition-colors disabled:opacity-50"
-                      >
-                        Hủy
-                      </button>
-                    </div>
-                  </div>
-                ) : (
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                    <InfoField label="Họ và tên" value={user?.name} icon="user" />
-                    <InfoField label="Email" value={user?.email} icon="email" />
-                    <InfoField label="Vai trò" value={roleLabel} badge icon="role" />
-                    <InfoField label="Ngày tạo" value={formattedCreatedAt || "(chưa xác định)"} icon="calendar" />
-                  </div>
-                )}
-              </div>
-            </section>
 
-            {/* Shipping Address Section */}
-            <section className="bg-white rounded-2xl shadow-lg border border-gray-100 overflow-hidden">
-              <div className="bg-gradient-to-r from-blue-600 to-cyan-600 px-6 py-4">
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-3">
-                    <div className="w-10 h-10 bg-white/20 rounded-lg flex items-center justify-center">
-                      <svg className="w-6 h-6 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" />
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" />
-                      </svg>
-                    </div>
-                    <h2 className="text-xl font-bold text-white">Địa chỉ giao hàng</h2>
-                  </div>
-                  {!isEditingAddress && (
-                    <button
-                      onClick={() => setIsEditingAddress(true)}
-                      className="px-4 py-2 text-sm font-semibold text-white bg-white/20 rounded-lg hover:bg-white/30 transition-colors backdrop-blur-sm"
-                    >
-                      Chỉnh sửa
-                    </button>
-                  )}
-                </div>
-              </div>
-              <div className="p-6">
-                {isEditingAddress ? (
-                  <div className="space-y-5">
-                    <div>
-                      <label htmlFor="shippingAddress" className="block text-sm font-semibold text-gray-900 mb-3 flex items-center gap-2">
-                        <svg className="w-4 h-4 text-indigo-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" />
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" />
-                        </svg>
-                        Địa chỉ giao hàng <span className="text-red-500">*</span>
-                      </label>
-                      <div className="relative">
-                        <textarea
-                          id="shippingAddress"
-                          value={shippingAddress}
-                          onChange={(e) => setShippingAddress(e.target.value)}
-                          placeholder="Nhập địa chỉ giao hàng đầy đủ (số nhà, đường, phường/xã, quận/huyện, tỉnh/thành phố)"
-                          rows={4}
-                          className="w-full rounded-xl border-2 border-gray-300 px-4 py-3 pr-36 text-sm text-gray-900 font-medium placeholder:text-gray-500 focus:border-indigo-500 focus:ring-2 focus:ring-indigo-200 focus:outline-none transition-all resize-none bg-white"
-                          required
+                <div className="p-6">
+                  <div className="flex gap-8">
+                    {/* Left Column - Form Fields */}
+                    <div className="flex-1 space-y-6">
+                      {/* Tên đăng nhập */}
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-2">
+                          Tên đăng nhập
+                        </label>
+                        <input
+                          type="text"
+                          value={user?.email?.split("@")[0] || ""}
+                          disabled
+                          className="w-full px-4 py-2.5 border border-gray-300 rounded-md bg-gray-50 text-gray-600 cursor-not-allowed"
                         />
-                        <div className="absolute bottom-3 right-3">
-                          <button
-                            type="button"
-                            onClick={handleGetCurrentLocation}
-                            disabled={loadingAddress}
-                            className="px-4 py-2 text-xs font-semibold text-indigo-600 bg-white border-2 border-indigo-200 rounded-lg hover:bg-indigo-50 hover:border-indigo-300 transition-all disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2 shadow-sm"
-                          >
-                            {loadingAddress ? (
-                              <>
-                                <div className="animate-spin rounded-full h-3 w-3 border-2 border-indigo-600 border-t-transparent"></div>
-                                <span>Đang tải...</span>
-                              </>
-                            ) : (
-                              <>
-                                <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" />
-                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" />
-                                </svg>
-                                <span>Lấy từ GPS</span>
-                              </>
-                            )}
+                        <p className="mt-1.5 text-xs text-gray-500">Tên Đăng nhập chỉ có thể thay đổi một lần.</p>
+                      </div>
+
+                      {/* Tên */}
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-2">
+                          Tên
+                        </label>
+                        {isEditingProfile ? (
+                          <input
+                            type="text"
+                            value={name}
+                            onChange={(e) => setName(e.target.value)}
+                            placeholder="Nhập tên"
+                            className="w-full px-4 py-2.5 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-orange-500 focus:border-orange-500"
+                          />
+                        ) : (
+                          <input
+                            type="text"
+                            value={name}
+                            disabled
+                            className="w-full px-4 py-2.5 border border-gray-300 rounded-md bg-gray-50 text-gray-600 cursor-not-allowed"
+                          />
+                        )}
+                      </div>
+
+                      {/* Email */}
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-2">
+                          Email
+                        </label>
+                        <div className="flex items-center gap-2">
+                          <input
+                            type="email"
+                            value={email}
+                            disabled
+                            className="flex-1 px-4 py-2.5 border border-gray-300 rounded-md bg-gray-50 text-gray-600 cursor-not-allowed"
+                          />
+                          <button className="text-sm text-orange-500 hover:text-orange-600 font-medium px-3 py-2.5">
+                            Thay Đổi
                           </button>
                         </div>
                       </div>
-                      <p className="mt-3 text-xs text-gray-500 flex items-center gap-2">
-                        <svg className="w-4 h-4 text-blue-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-                        </svg>
-                        Bấm "Lấy từ GPS" để tự động điền địa chỉ từ vị trí hiện tại của bạn
-                      </p>
-                    </div>
-                    <div className="flex gap-3 pt-2">
-                      <button
-                        onClick={handleSaveAddress}
-                        disabled={saving || !shippingAddress.trim()}
-                        className="flex-1 px-4 py-3 text-sm font-semibold text-white bg-gradient-to-r from-indigo-600 to-purple-600 rounded-xl hover:from-indigo-700 hover:to-purple-700 transition-all shadow-lg hover:shadow-xl disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:shadow-lg flex items-center justify-center gap-2"
-                      >
-                        {saving ? (
-                          <>
-                            <div className="animate-spin rounded-full h-4 w-4 border-2 border-white border-t-transparent"></div>
-                            <span>Đang lưu...</span>
-                          </>
-                        ) : (
-                          <>
-                            <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
-                            </svg>
-                            <span>Lưu địa chỉ</span>
-                          </>
-                        )}
-                      </button>
-                      <button
-                        onClick={() => {
-                          setIsEditingAddress(false)
-                          setShippingAddress(user?.shippingAddress || "")
-                          setError(null)
-                        }}
-                        disabled={saving}
-                        className="px-6 py-3 text-sm font-semibold text-gray-700 bg-gray-100 rounded-xl hover:bg-gray-200 transition-colors disabled:opacity-50"
-                      >
-                        Hủy
-                      </button>
-                    </div>
-                  </div>
-                ) : (
-                  <div className="space-y-4">
-                    <div className="bg-gradient-to-br from-blue-50 to-cyan-50 rounded-xl p-5 border-2 border-blue-100">
-                      <div className="space-y-2">
-                        <label className="block text-xs font-semibold text-gray-500 uppercase tracking-wide flex items-center gap-2">
-                          <svg className="w-4 h-4 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" />
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" />
-                          </svg>
-                          Địa chỉ giao hàng chính
+
+                      {/* Số điện thoại */}
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-2">
+                          Số điện thoại
                         </label>
-                        <div className="text-base font-semibold text-gray-900 bg-white rounded-lg px-4 py-3 border border-gray-200 min-h-[3rem] flex items-center">
-                          {(() => {
-                            // Ưu tiên địa chỉ từ user.shippingAddress
-                            const mainAddress = user?.shippingAddress?.trim()
-                            // Nếu không có, lấy địa chỉ mặc định từ danh sách đã lưu
-                            const defaultAddress = savedAddresses.find(addr => addr.isDefault)?.address
-                            const displayAddress = mainAddress || defaultAddress
-                            
-                            return displayAddress ? (
-                              <p className="text-gray-900">{displayAddress}</p>
-                            ) : (
-                              <p className="text-gray-400 italic">(chưa cập nhật)</p>
-                            )
-                          })()}
+                        {isEditingProfile ? (
+                          <input
+                            type="tel"
+                            value={phoneNumber}
+                            onChange={(e) => setPhoneNumber(e.target.value)}
+                            placeholder="Nhập số điện thoại"
+                            className="w-full px-4 py-2.5 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-orange-500 focus:border-orange-500"
+                          />
+                        ) : (
+                          <div className="flex items-center gap-2">
+                            <input
+                              type="tel"
+                              value={phoneNumber || "Chưa cập nhật"}
+                              disabled
+                              className="flex-1 px-4 py-2.5 border border-gray-300 rounded-md bg-gray-50 text-gray-600 cursor-not-allowed"
+                            />
+                            {phoneNumber && (
+                              <button
+                                onClick={() => setIsEditingProfile(true)}
+                                className="text-sm text-orange-500 hover:text-orange-600 font-medium px-3 py-2.5"
+                              >
+                                Thay Đổi
+                              </button>
+                            )}
+                          </div>
+                        )}
+                      </div>
+
+                      {/* Giới tính */}
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-2 flex items-center gap-1">
+                          Giới tính
+                          <svg className="w-4 h-4 text-gray-400 cursor-help" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8.228 9c.549-1.165 2.03-2 3.772-2 2.21 0 4 1.343 4 3 0 1.4-1.278 2.575-3.006 2.907-.542.104-.994.54-.994 1.093m0 3h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                          </svg>
+                        </label>
+                        <div className="flex gap-4">
+                          <label className="flex items-center gap-2 cursor-pointer">
+                            <input
+                              type="radio"
+                              name="gender"
+                              value="male"
+                              checked={gender === "male"}
+                              onChange={(e) => setGender(e.target.value)}
+                              disabled={!isEditingProfile}
+                              className="w-4 h-4 text-orange-500 disabled:opacity-50 disabled:cursor-not-allowed"
+                            />
+                            <span className={`text-sm ${!isEditingProfile ? "text-gray-600" : "text-gray-700"}`}>Nam</span>
+                          </label>
+                          <label className="flex items-center gap-2 cursor-pointer">
+                            <input
+                              type="radio"
+                              name="gender"
+                              value="female"
+                              checked={gender === "female"}
+                              onChange={(e) => setGender(e.target.value)}
+                              disabled={!isEditingProfile}
+                              className="w-4 h-4 text-orange-500 disabled:opacity-50 disabled:cursor-not-allowed"
+                            />
+                            <span className={`text-sm ${!isEditingProfile ? "text-gray-600" : "text-gray-700"}`}>Nữ</span>
+                          </label>
+                          <label className="flex items-center gap-2 cursor-pointer">
+                            <input
+                              type="radio"
+                              name="gender"
+                              value="other"
+                              checked={gender === "other"}
+                              onChange={(e) => setGender(e.target.value)}
+                              disabled={!isEditingProfile}
+                              className="w-4 h-4 text-orange-500 disabled:opacity-50 disabled:cursor-not-allowed"
+                            />
+                            <span className={`text-sm ${!isEditingProfile ? "text-gray-600" : "text-gray-700"}`}>Khác</span>
+                          </label>
                         </div>
                       </div>
-                    </div>
-                    
-                    {/* Danh sách địa chỉ đã lưu */}
-                    <div>
-                      <div className="flex items-center justify-between mb-3">
-                        <h3 className="text-sm font-semibold text-gray-900">Địa chỉ đã lưu</h3>
-                        <button
-                          onClick={() => {
-                            setIsAddingNewAddress(true)
-                            setShippingAddress("")
-                            setNewAddressLabel("")
-                          }}
-                          className="text-xs font-semibold text-indigo-600 hover:text-indigo-700 flex items-center gap-1"
-                        >
-                          <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
+
+                      {/* Ngày sinh */}
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-2 flex items-center gap-1">
+                          Ngày sinh
+                          <svg className="w-4 h-4 text-gray-400 cursor-help" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8.228 9c.549-1.165 2.03-2 3.772-2 2.21 0 4 1.343 4 3 0 1.4-1.278 2.575-3.006 2.907-.542.104-.994.54-.994 1.093m0 3h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
                           </svg>
-                          Thêm địa chỉ mới
+                        </label>
+                        <div className="flex gap-3">
+                          <select
+                            value={dateOfBirth.day}
+                            onChange={(e) => setDateOfBirth({ ...dateOfBirth, day: e.target.value })}
+                            disabled={!isEditingProfile}
+                            className="flex-1 px-4 py-2.5 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-orange-500 focus:border-orange-500 disabled:bg-gray-50 disabled:cursor-not-allowed"
+                          >
+                            <option value="">Ngày</option>
+                            {Array.from({ length: 31 }, (_, i) => i + 1).map(day => (
+                              <option key={day} value={day}>{day}</option>
+                            ))}
+                          </select>
+                          <select
+                            value={dateOfBirth.month}
+                            onChange={(e) => setDateOfBirth({ ...dateOfBirth, month: e.target.value })}
+                            disabled={!isEditingProfile}
+                            className="flex-1 px-4 py-2.5 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-orange-500 focus:border-orange-500 disabled:bg-gray-50 disabled:cursor-not-allowed"
+                          >
+                            <option value="">Tháng</option>
+                            {Array.from({ length: 12 }, (_, i) => i + 1).map(month => (
+                              <option key={month} value={month}>{month}</option>
+                            ))}
+                          </select>
+                          <select
+                            value={dateOfBirth.year}
+                            onChange={(e) => setDateOfBirth({ ...dateOfBirth, year: e.target.value })}
+                            disabled={!isEditingProfile}
+                            className="flex-1 px-4 py-2.5 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-orange-500 focus:border-orange-500 disabled:bg-gray-50 disabled:cursor-not-allowed"
+                          >
+                            <option value="">Năm</option>
+                            {Array.from({ length: 100 }, (_, i) => new Date().getFullYear() - i).map(year => (
+                              <option key={year} value={year}>{year}</option>
+                            ))}
+                          </select>
+                        </div>
+                      </div>
+
+                      {/* Ngày tạo */}
+                      <div>
+                        <label className="block text-sm font-semibold text-gray-700 mb-2 flex items-center gap-2">
+                          <svg className="w-4 h-4 text-purple-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                          </svg>
+                          Ngày tạo
+                        </label>
+                        <div className={`px-4 py-2.5 border rounded-md ${formattedCreatedAtDisplay.isEmpty
+                          ? "text-gray-400 bg-gray-50 border-gray-200 italic"
+                          : "text-gray-900 bg-gradient-to-r from-purple-50 via-indigo-50 to-purple-50 border-purple-200 font-medium"
+                          }`}>
+                          {formattedCreatedAtDisplay.text}
+                        </div>
+                      </div>
+
+                      {/* Nút Lưu */}
+                      <div className="pt-4">
+                        <button
+                          onClick={isEditingProfile ? handleSaveProfile : () => setIsEditingProfile(true)}
+                          disabled={savingProfile || (isEditingProfile && !name.trim())}
+                          className="w-full bg-orange-500 hover:bg-orange-600 text-white font-medium py-3 px-6 rounded-md transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                        >
+                          {savingProfile ? "Đang lưu..." : isEditingProfile ? "Lưu" : "Chỉnh sửa"}
                         </button>
                       </div>
-                      
-                      {savedAddresses.length === 0 ? (
-                        <div className="text-sm text-gray-500 p-4 bg-gray-50 rounded-lg border border-gray-200 text-center">
-                          Chưa có địa chỉ nào được lưu. Thêm địa chỉ để sử dụng khi thanh toán.
+                    </div>
+
+                    {/* Right Column - Profile Picture Upload */}
+                    <div className="w-80 flex-shrink-0">
+                      <div className="flex flex-col items-center">
+                        <div className="w-40 h-40 rounded-full bg-gradient-to-br from-orange-400 to-orange-500 flex items-center justify-center text-white text-5xl font-bold mb-4 overflow-hidden relative">
+                          {avatarPreview ? (
+                            <img
+                              src={avatarPreview}
+                              alt="Avatar preview"
+                              className="w-full h-full object-cover"
+                            />
+                          ) : (
+                            user?.name?.charAt(0)?.toUpperCase() || "U"
+                          )}
                         </div>
+                        <input
+                          type="file"
+                          id="avatar-upload"
+                          accept="image/*"
+                          className="hidden"
+                          onChange={(e) => {
+                            const file = e.target.files?.[0]
+                            if (!file) return
+
+                            // Validate file type - chấp nhận tất cả định dạng ảnh
+                            if (!file.type.match(/^image\//)) {
+                              setError("Vui lòng chọn file ảnh")
+                              return
+                            }
+
+                            // Validate file size (5 MB - tăng lên để cho phép ảnh chất lượng cao hơn)
+                            const maxSize = 5 * 1024 * 1024 // 5 MB
+                            if (file.size > maxSize) {
+                              setError(`Dụng lượng file không được vượt quá ${(maxSize / (1024 * 1024)).toFixed(0)} MB`)
+                              return
+                            }
+
+                            // Create preview
+                            const reader = new FileReader()
+                            reader.onloadend = () => {
+                              const base64Image = reader.result as string
+                              setAvatarPreview(base64Image)
+                              setAvatarFile(file)
+                              setError(null)
+                              setSuccess("Đã chọn ảnh thành công! Nhấn 'Lưu' để cập nhật.")
+                              setTimeout(() => setSuccess(null), 3000)
+
+                              // Tự động lưu vào localStorage
+                              if (user?.id && typeof window !== "undefined") {
+                                localStorage.setItem(`user_avatar_${user.id}`, base64Image)
+                              }
+                            }
+                            reader.onerror = () => {
+                              setError("Không thể đọc file ảnh. Vui lòng thử lại.")
+                            }
+                            reader.readAsDataURL(file)
+                          }}
+                        />
+                        <label
+                          htmlFor="avatar-upload"
+                          className="px-6 py-2.5 bg-white border-2 border-orange-500 text-orange-500 font-medium rounded-md hover:bg-orange-50 transition-colors mb-3 cursor-pointer"
+                        >
+                          {uploadingAvatar ? "Đang tải..." : "Chọn Ảnh"}
+                        </label>
+                        {avatarFile && (
+                          <button
+                            onClick={() => {
+                              setAvatarPreview(null)
+                              setAvatarFile(null)
+                              const fileInput = document.getElementById("avatar-upload") as HTMLInputElement
+                              if (fileInput) fileInput.value = ""
+
+                              // Xóa avatar khỏi localStorage
+                              if (user?.id && typeof window !== "undefined") {
+                                localStorage.removeItem(`user_avatar_${user.id}`)
+                              }
+
+                              setSuccess("Đã hủy chọn ảnh")
+                              setTimeout(() => setSuccess(null), 2000)
+                            }}
+                            className="px-4 py-1.5 text-xs bg-gray-100 border border-gray-300 text-gray-700 font-medium rounded-md hover:bg-gray-200 transition-colors mb-2"
+                          >
+                            Hủy chọn
+                          </button>
+                        )}
+                        <div className="text-xs text-gray-500 text-center space-y-1">
+                          <p>Dụng lượng file tối đa 5 MB</p>
+                          <p>Chấp nhận tất cả định dạng ảnh</p>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {activeMenu === "address" && (
+              <section className="bg-white rounded-lg shadow-sm border border-gray-200">
+                <div className="px-6 py-4 border-b border-gray-200 flex flex-wrap gap-4 items-center justify-between">
+                  <div>
+                    <h2 className="text-xl font-semibold text-gray-900">Địa chỉ giao hàng</h2>
+                    <p className="text-sm text-gray-500 mt-1">Quản lý địa chỉ mặc định và danh sách địa chỉ đã lưu</p>
+                  </div>
+                  <div className="text-sm text-gray-500">
+                    {savedAddresses.length > 0 ? `${savedAddresses.length} địa chỉ đã lưu` : "Chưa có địa chỉ nào"}
+                  </div>
+                </div>
+                <div className="p-6 space-y-8">
+                  {/* Main shipping address */}
+                  <div className="rounded-2xl border border-orange-100 bg-gradient-to-br from-orange-50 via-white to-orange-50 p-6 shadow-inner space-y-4">
+                    <div className="flex items-start justify-between gap-4">
+                      <div>
+                        <p className="text-sm uppercase tracking-wide text-orange-500 font-semibold">Địa chỉ giao hàng chính</p>
+                        <h3 className="text-lg font-semibold text-gray-900 mt-1">Địa chỉ đang sử dụng cho đơn hàng</h3>
+                        <p className="text-sm text-gray-600 mt-1">
+                          Địa chỉ này sẽ được dùng mặc định khi bạn đặt hàng. Bạn có thể chỉnh sửa hoặc lấy nhanh bằng GPS.
+                        </p>
+                      </div>
+                      {shippingAddress && (
+                        <span className="inline-flex items-center gap-2 text-xs font-semibold px-3 py-1 rounded-full bg-white text-orange-600 border border-orange-100 shadow-sm">
+                          <span className="w-2 h-2 rounded-full bg-green-500 inline-block" />
+                          Đang sử dụng
+                        </span>
+                      )}
+                    </div>
+                    <textarea
+                      value={shippingAddress}
+                      onChange={(e) => setShippingAddress(e.target.value)}
+                      disabled={!isEditingAddress}
+                      rows={4}
+                      placeholder="Nhập địa chỉ giao hàng mặc định của bạn"
+                      className={`w-full rounded-xl border px-4 py-3 text-sm transition-all focus:ring-2 focus:ring-orange-400 focus:border-orange-400 ${isEditingAddress ? "bg-white border-orange-300" : "bg-white/50 border-transparent text-gray-700"
+                        }`}
+                    />
+                    <div className="flex flex-wrap gap-3">
+                      {isEditingAddress ? (
+                        <>
+                          <button
+                            onClick={handleSaveAddress}
+                            disabled={saving}
+                            className="inline-flex items-center justify-center px-4 py-2 rounded-lg bg-orange-500 text-white font-medium hover:bg-orange-600 transition-colors disabled:opacity-50"
+                          >
+                            {saving ? "Đang lưu..." : "Lưu địa chỉ"}
+                          </button>
+                          <button
+                            onClick={() => {
+                              setIsEditingAddress(false)
+                              setShippingAddress(user?.shippingAddress || "")
+                            }}
+                            className="inline-flex items-center justify-center px-4 py-2 rounded-lg border border-orange-200 text-orange-600 font-medium hover:bg-orange-50 transition-colors"
+                          >
+                            Hủy
+                          </button>
+                        </>
                       ) : (
-                        <div className="space-y-2">
-                          {savedAddresses.map((addr) => (
+                        <>
+                          <button
+                            onClick={() => setIsEditingAddress(true)}
+                            className="inline-flex items-center justify-center px-4 py-2 rounded-lg bg-orange-500 text-white font-medium hover:bg-orange-600 transition-colors"
+                          >
+                            Chỉnh sửa
+                          </button>
+                          <button
+                            onClick={handleGetCurrentLocation}
+                            disabled={loadingAddress}
+                            className="inline-flex items-center justify-center px-4 py-2 rounded-lg border border-orange-200 text-orange-600 font-medium hover:bg-orange-50 transition-colors disabled:opacity-50"
+                          >
+                            {loadingAddress ? "Đang lấy vị trí..." : "Lấy từ GPS"}
+                          </button>
+                        </>
+                      )}
+                    </div>
+                  </div>
+
+                  {/* Saved addresses */}
+                  <div className="space-y-4">
+                    <div className="flex flex-wrap items-center justify-between gap-3">
+                      <div>
+                        <h3 className="text-lg font-semibold text-gray-900">Danh sách địa chỉ đã lưu</h3>
+                        <p className="text-sm text-gray-500">Thêm tối đa các địa chỉ thường dùng để chuyển đổi nhanh khi đặt hàng.</p>
+                      </div>
+                      <button
+                        onClick={() => {
+                          setIsAddingNewAddress((prev) => !prev)
+                          setNewAddressLabel("")
+                          setNewAddressValue("")
+                        }}
+                        className="inline-flex items-center gap-2 px-4 py-2 rounded-lg border border-orange-200 text-orange-600 font-medium hover:bg-orange-50 transition-colors"
+                      >
+                        <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
+                        </svg>
+                        {isAddingNewAddress ? "Đóng form" : "Thêm địa chỉ mới"}
+                      </button>
+                    </div>
+
+                    {isAddingNewAddress && (
+                      <div className="rounded-xl border border-gray-200 p-4 bg-gray-50 space-y-3">
+                        <div className="grid gap-3 md:grid-cols-2">
+                          <div className="space-y-1">
+                            <label className="text-sm font-medium text-gray-700">Nhãn địa chỉ</label>
+                            <input
+                              type="text"
+                              value={newAddressLabel}
+                              onChange={(e) => setNewAddressLabel(e.target.value)}
+                              placeholder="Ví dụ: Nhà riêng, Công ty..."
+                              className="w-full rounded-lg border border-gray-300 px-4 py-2.5 text-sm focus:ring-2 focus:ring-orange-400 focus:border-orange-400"
+                            />
+                          </div>
+                          <div className="space-y-1">
+                            <label className="text-sm font-medium text-gray-700">Địa chỉ</label>
+                            <textarea
+                              value={newAddressValue}
+                              onChange={(e) => setNewAddressValue(e.target.value)}
+                              rows={3}
+                              placeholder="Nhập địa chỉ cụ thể của bạn..."
+                              className="w-full rounded-lg border border-gray-300 px-4 py-2.5 text-sm focus:ring-2 focus:ring-orange-400 focus:border-orange-400"
+                            />
+                          </div>
+                        </div>
+                        <div className="flex justify-end gap-3">
+                          <button
+                            onClick={() => {
+                              setIsAddingNewAddress(false)
+                              setNewAddressLabel("")
+                              setNewAddressValue("")
+                            }}
+                            className="px-4 py-2 rounded-lg border border-gray-200 text-gray-600 font-medium hover:bg-white transition-colors"
+                          >
+                            Hủy
+                          </button>
+                          <button
+                            onClick={handleAddNewAddress}
+                            className="px-4 py-2 rounded-lg bg-orange-500 text-white font-semibold hover:bg-orange-600 transition-colors"
+                          >
+                            Lưu địa chỉ
+                          </button>
+                        </div>
+                      </div>
+                    )}
+
+                    {savedAddresses.length === 0 ? (
+                      <div className="rounded-xl border border-dashed border-gray-300 p-8 text-center text-gray-500">
+                        Bạn chưa lưu địa chỉ nào. Nhấn <span className="font-semibold text-orange-500">"Thêm địa chỉ mới"</span> để bắt đầu.
+                      </div>
+                    ) : (
+                      <div className="space-y-4">
+                        {savedAddresses.map((addr) => {
+                          const isEditing = editingAddressId === addr.id
+                          return (
                             <div
                               key={addr.id}
-                              className={`p-4 rounded-lg border-2 ${
-                                user?.shippingAddress?.trim() === addr.address.trim()
-                                  ? "border-blue-500 bg-blue-50"
-                                  : addr.isDefault
-                                  ? "border-indigo-500 bg-indigo-50"
-                                  : "border-gray-200 bg-white"
-                              }`}
+                              className={`rounded-2xl border p-5 shadow-sm ${addr.isDefault ? "border-orange-200 bg-orange-50/50" : "border-gray-200 bg-white"
+                                }`}
                             >
-                              <div className="flex items-start justify-between gap-3">
-                                <div className="flex-1">
-                                  <div className="flex items-center gap-2 mb-1">
-                                    {addr.label && (
-                                      <span className="text-xs font-semibold text-gray-600 bg-gray-100 px-2 py-0.5 rounded">
-                                        {addr.label}
-                                      </span>
-                                    )}
+                              <div className="flex flex-col gap-4 md:flex-row md:items-start md:justify-between">
+                                <div>
+                                  <div className="flex items-center gap-3">
+                                    <p className="text-base font-semibold text-gray-900">
+                                      {addr.label || "Địa chỉ không nhãn"}
+                                    </p>
                                     {addr.isDefault && (
-                                      <span className="text-xs font-semibold text-indigo-700 bg-indigo-100 px-2 py-0.5 rounded">
+                                      <span className="text-xs font-semibold px-2.5 py-1 rounded-full bg-orange-100 text-orange-600">
                                         Mặc định
                                       </span>
                                     )}
                                   </div>
-                                  <p className="text-sm text-gray-900">{addr.address}</p>
+                                  <p className="text-sm text-gray-700 mt-2 whitespace-pre-line">{addr.address}</p>
+                                  <p className="text-xs text-gray-400 mt-1">Đã lưu: {formatDateTime(addr.createdAt)}</p>
                                 </div>
-                                <div className="flex items-center gap-2">
-                                  {(() => {
-                                    const mainAddress = user?.shippingAddress?.trim()
-                                    const currentAddr = addr.address.trim()
-                                    const isMain = mainAddress === currentAddr
-                                    
-                                    return (
-                                      <>
-                                        {!isMain && (
-                                          <button
-                                            onClick={async () => {
-                                              await handleSetAsMainAddress(addr.address)
-                                              // Reload user data để đảm bảo UI cập nhật
-                                              try {
-                                                const updatedUser = await getCurrentUser()
-                                                setUser(updatedUser)
-                                              } catch (err) {
-                                                console.error("Failed to reload user:", err)
-                                              }
-                                            }}
-                                            disabled={saving}
-                                            className="text-xs text-blue-600 hover:text-blue-700 font-medium disabled:opacity-50"
-                                            title="Đặt làm địa chỉ giao hàng chính"
-                                          >
-                                            Đặt làm chính
-                                          </button>
-                                        )}
-                                        {isMain && (
-                                          <span className="text-xs text-green-600 font-semibold">
-                                            ✓ Địa chỉ chính
-                                          </span>
-                                        )}
-                                      </>
-                                    )
-                                  })()}
+                                <div className="flex flex-wrap gap-2">
                                   {!addr.isDefault && (
                                     <button
                                       onClick={() => handleSetDefault(addr.id)}
-                                      className="text-xs text-indigo-600 hover:text-indigo-700 font-medium"
-                                      title="Đặt làm mặc định"
+                                      className="px-3 py-1.5 rounded-lg border border-gray-200 text-gray-700 text-sm hover:bg-gray-50"
                                     >
                                       Đặt mặc định
                                     </button>
                                   )}
                                   <button
+                                    onClick={() => handleSetAsMainAddress(addr.address)}
+                                    className="px-3 py-1.5 rounded-lg border border-orange-200 text-orange-600 text-sm hover:bg-orange-50"
+                                  >
+                                    Dùng làm địa chỉ chính
+                                  </button>
+                                  <button
+                                    onClick={() => startEditingAddress(addr)}
+                                    className="px-3 py-1.5 rounded-lg border border-indigo-200 text-indigo-600 text-sm hover:bg-indigo-50"
+                                  >
+                                    Chỉnh sửa
+                                  </button>
+                                  <button
                                     onClick={() => handleDeleteAddress(addr.id)}
-                                    className="text-xs text-red-600 hover:text-red-700 font-medium"
-                                    title="Xóa"
+                                    className="px-3 py-1.5 rounded-lg border border-red-200 text-red-600 text-sm hover:bg-red-50"
                                   >
                                     Xóa
                                   </button>
                                 </div>
                               </div>
-                            </div>
-                          ))}
-                        </div>
-                      )}
-                      
-                      {/* Form thêm địa chỉ mới */}
-                      {isAddingNewAddress && (
-                        <div className="mt-4 p-4 bg-gray-50 rounded-lg border-2 border-indigo-200">
-                          <div className="space-y-3">
-                            <div>
-                              <label className="block text-xs font-semibold text-gray-700 mb-1">
-                                Nhãn (tùy chọn)
-                              </label>
-                              <input
-                                type="text"
-                                value={newAddressLabel}
-                                onChange={(e) => setNewAddressLabel(e.target.value)}
-                                placeholder="Ví dụ: Nhà riêng, Công ty"
-                                className="w-full text-sm rounded-lg border-2 border-gray-300 px-3 py-2 text-gray-900 font-medium placeholder:text-gray-500 bg-white focus:border-indigo-500 focus:ring-2 focus:ring-indigo-200 focus:outline-none"
-                              />
-                            </div>
-                            <div>
-                              <label className="block text-xs font-semibold text-gray-700 mb-1">
-                                Địa chỉ <span className="text-red-500">*</span>
-                              </label>
-                              <div className="relative">
-                                <textarea
-                                  value={shippingAddress}
-                                  onChange={(e) => setShippingAddress(e.target.value)}
-                                  placeholder="Nhập địa chỉ đầy đủ"
-                                  rows={3}
-                                  className="w-full text-sm rounded-lg border-2 border-gray-300 px-3 py-2 pr-32 text-gray-900 font-medium placeholder:text-gray-500 focus:border-indigo-500 focus:ring-2 focus:ring-indigo-200 focus:outline-none resize-none bg-white"
-                                />
-                                <div className="absolute bottom-2 right-2">
-                                  <button
-                                    type="button"
-                                    onClick={handleGetCurrentLocation}
-                                    disabled={loadingAddress}
-                                    className="px-3 py-1.5 text-xs font-semibold text-indigo-600 bg-white border-2 border-indigo-200 rounded-lg hover:bg-indigo-50 hover:border-indigo-300 transition-all disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-1.5 shadow-sm"
-                                    title="Lấy địa chỉ từ GPS"
-                                  >
-                                    {loadingAddress ? (
-                                      <>
-                                        <div className="animate-spin rounded-full h-3 w-3 border-2 border-indigo-600 border-t-transparent"></div>
-                                        <span>Đang tải...</span>
-                                      </>
-                                    ) : (
-                                      <>
-                                        <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" />
-                                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" />
-                                        </svg>
-                                        <span>GPS</span>
-                                      </>
-                                    )}
-                                  </button>
+
+                              {isEditing && (
+                                <div className="mt-4 space-y-3 border-t pt-4">
+                                  <div className="grid md:grid-cols-2 gap-3">
+                                    <div className="space-y-1">
+                                      <label className="text-sm font-medium text-gray-700">Nhãn</label>
+                                      <input
+                                        type="text"
+                                        value={editingAddressLabelValue}
+                                        onChange={(e) => setEditingAddressLabelValue(e.target.value)}
+                                        className="w-full rounded-lg border border-gray-300 px-4 py-2.5 text-sm focus:ring-2 focus:ring-orange-400 focus:border-orange-400"
+                                      />
+                                    </div>
+                                    <div className="space-y-1">
+                                      <label className="text-sm font-medium text-gray-700">Địa chỉ</label>
+                                      <textarea
+                                        value={editingAddressValue}
+                                        onChange={(e) => setEditingAddressValue(e.target.value)}
+                                        rows={3}
+                                        className="w-full rounded-lg border border-gray-300 px-4 py-2.5 text-sm focus:ring-2 focus:ring-orange-400 focus:border-orange-400"
+                                      />
+                                    </div>
+                                  </div>
+                                  <div className="flex justify-end gap-3">
+                                    <button
+                                      onClick={cancelEditingAddress}
+                                      className="px-4 py-2 rounded-lg border border-gray-200 text-gray-600 font-medium hover:bg-gray-50"
+                                    >
+                                      Hủy
+                                    </button>
+                                    <button
+                                      onClick={() => handleUpdateAddress(addr.id)}
+                                      className="px-4 py-2 rounded-lg bg-orange-500 text-white font-semibold hover:bg-orange-600"
+                                    >
+                                      Cập nhật
+                                    </button>
+                                  </div>
                                 </div>
-                              </div>
-                              <p className="mt-1.5 text-xs text-gray-500 flex items-center gap-1.5">
-                                <svg className="w-3.5 h-3.5 text-blue-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-                                </svg>
-                                Bấm "GPS" để tự động điền địa chỉ từ vị trí hiện tại
-                              </p>
+                              )}
                             </div>
-                            <div className="flex gap-2">
-                              <button
-                                onClick={handleAddNewAddress}
-                                disabled={!shippingAddress.trim()}
-                                className="flex-1 px-4 py-2 text-xs font-semibold text-white bg-indigo-600 rounded-lg hover:bg-indigo-700 disabled:opacity-50 disabled:cursor-not-allowed"
-                              >
-                                Lưu
-                              </button>
-                              <button
-                                onClick={() => {
-                                  setIsAddingNewAddress(false)
-                                  setShippingAddress(user?.shippingAddress || "")
-                                  setNewAddressLabel("")
-                                }}
-                                className="px-4 py-2 text-xs font-semibold text-gray-700 bg-gray-200 rounded-lg hover:bg-gray-300"
-                              >
-                                Hủy
-                              </button>
-                            </div>
-                          </div>
-                        </div>
-                      )}
-                    </div>
+                          )
+                        })}
+                      </div>
+                    )}
                   </div>
-                )}
-              </div>
-            </section>
+                </div>
+              </section>
+            )}
 
-            {/* Security Section */}
-            <section className="bg-white rounded-2xl shadow-lg border border-gray-100 overflow-hidden">
-              <div className="bg-gradient-to-r from-green-600 to-emerald-600 px-6 py-4">
-                <div className="flex items-center gap-3">
-                  <div className="w-10 h-10 bg-white/20 rounded-lg flex items-center justify-center">
-                    <svg className="w-6 h-6 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
-                    </svg>
+            {activeMenu === "password" && (
+              <section className="bg-white rounded-lg shadow-sm border border-gray-200">
+                <div className="px-6 py-4 border-b border-gray-200 flex items-center justify-between gap-4">
+                  <div>
+                    <h2 className="text-xl font-semibold text-gray-900">Đổi mật khẩu</h2>
+                    <p className="text-sm text-gray-500 mt-1">Nên đổi mật khẩu định kỳ để bảo vệ tài khoản của bạn.</p>
                   </div>
-                  <h2 className="text-xl font-bold text-white">Bảo mật</h2>
-                </div>
-              </div>
-              <div className="p-6 space-y-4">
-                <div className="bg-green-50 border-2 border-green-100 rounded-xl p-4">
-                  <p className="text-sm text-green-800 font-medium flex items-start gap-2">
-                    <svg className="w-5 h-5 text-green-600 mt-0.5 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z" />
-                    </svg>
-                    Tài khoản của bạn được bảo vệ bởi xác thực JWT. Không chia sẻ token cho người khác.
-                  </p>
-                </div>
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  <InfoField
-                    label="Trạng thái đăng nhập"
-                    value="Đang hoạt động"
-                    badge
-                    badgeColor="bg-green-100 text-green-700"
-                    icon="check"
-                  />
-                  <InfoField label="Loại xác thực" value="Email & Mật khẩu" icon="key" />
-                </div>
-              </div>
-            </section>
-
-            {/* Enterprise Information Section */}
-            {enterprise && (
-              <section className="bg-white rounded-2xl shadow-lg border border-gray-100 overflow-hidden">
-                <div className="bg-gradient-to-r from-purple-600 to-pink-600 px-6 py-4">
-                  <div className="flex items-center gap-3">
-                    <div className="w-10 h-10 bg-white/20 rounded-lg flex items-center justify-center">
-                      <svg className="w-6 h-6 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4" />
-                      </svg>
-                    </div>
-                    <h2 className="text-xl font-bold text-white">Thông tin doanh nghiệp</h2>
-                  </div>
+                  <span className="text-xs font-semibold px-3 py-1 rounded-full bg-gray-100 text-gray-700">Bảo mật</span>
                 </div>
                 <div className="p-6 space-y-6">
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
-                    <InfoField label="Tên doanh nghiệp" value={enterprise.name} icon="building" />
-                    <InfoField label="Mã doanh nghiệp" value={`#${enterprise.id}`} icon="id" />
-                    <InfoField label="Lĩnh vực kinh doanh" value={enterprise.businessField} icon="briefcase" />
-                    <InfoField label="Số điện thoại" value={enterprise.phoneNumber} icon="phone" />
-                    <InfoField label="Email liên hệ" value={enterprise.emailContact} icon="email" />
-                    <InfoField label="Website" value={enterprise.website} icon="globe" />
-                  </div>
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
-                    <InfoField label="Địa chỉ" value={enterprise.address} icon="location" />
-                    <InfoField
-                      label="Khu vực"
-                      value={[enterprise.ward, enterprise.district, enterprise.province].filter(Boolean).join(", ")}
-                      icon="map"
-                    />
-                  </div>
-                  {enterprise.description && (
-                    <div className="bg-gray-50 rounded-xl p-5 border-2 border-gray-200">
-                      <label className="block text-sm font-semibold text-gray-900 mb-2 flex items-center gap-2">
-                        <svg className="w-4 h-4 text-purple-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h7" />
-                        </svg>
-                        Mô tả
-                      </label>
-                      <p className="text-gray-700 leading-relaxed">{enterprise.description}</p>
+                  <div className="grid gap-4">
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">Mật khẩu hiện tại</label>
+                      <div className="relative">
+                        <input
+                          type={showPassword.current ? "text" : "password"}
+                          value={currentPassword}
+                          onChange={(e) => setCurrentPassword(e.target.value)}
+                          className="w-full rounded-lg border border-gray-300 px-4 py-2.5 pr-12 focus:ring-2 focus:ring-orange-400 focus:border-orange-400"
+                          placeholder="Nhập mật khẩu đang sử dụng"
+                        />
+                        <button
+                          type="button"
+                          onClick={() => setShowPassword((prev) => ({ ...prev, current: !prev.current }))}
+                          className="absolute inset-y-0 right-3 text-sm text-gray-500 hover:text-gray-700"
+                        >
+                          {showPassword.current ? "Ẩn" : "Hiện"}
+                        </button>
+                      </div>
                     </div>
+
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">Mật khẩu mới</label>
+                      <div className="relative">
+                        <input
+                          type={showPassword.new ? "text" : "password"}
+                          value={newPassword}
+                          onChange={(e) => setNewPassword(e.target.value)}
+                          className="w-full rounded-lg border border-gray-300 px-4 py-2.5 pr-12 focus:ring-2 focus:ring-orange-400 focus:border-orange-400"
+                          placeholder="Tối thiểu 6 ký tự"
+                        />
+                        <button
+                          type="button"
+                          onClick={() => setShowPassword((prev) => ({ ...prev, new: !prev.new }))}
+                          className="absolute inset-y-0 right-3 text-sm text-gray-500 hover:text-gray-700"
+                        >
+                          {showPassword.new ? "Ẩn" : "Hiện"}
+                        </button>
+                      </div>
+                    </div>
+
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">Nhập lại mật khẩu mới</label>
+                      <div className="relative">
+                        <input
+                          type={showPassword.confirm ? "text" : "password"}
+                          value={confirmPassword}
+                          onChange={(e) => setConfirmPassword(e.target.value)}
+                          className="w-full rounded-lg border border-gray-300 px-4 py-2.5 pr-12 focus:ring-2 focus:ring-orange-400 focus:border-orange-400"
+                          placeholder="Nhập lại mật khẩu vừa tạo"
+                        />
+                        <button
+                          type="button"
+                          onClick={() => setShowPassword((prev) => ({ ...prev, confirm: !prev.confirm }))}
+                          className="absolute inset-y-0 right-3 text-sm text-gray-500 hover:text-gray-700"
+                        >
+                          {showPassword.confirm ? "Ẩn" : "Hiện"}
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="rounded-lg bg-gray-50 border border-gray-200 px-4 py-3 text-sm text-gray-600">
+                    <p className="font-semibold text-gray-800 mb-1">Gợi ý:</p>
+                    <ul className="list-disc list-inside space-y-1">
+                      <li>Sử dụng cả chữ hoa, chữ thường, số và ký tự đặc biệt.</li>
+                      <li>Tránh dùng mật khẩu giống với các tài khoản khác.</li>
+                      <li>Không chia sẻ mật khẩu cho bất kỳ ai.</li>
+                    </ul>
+                  </div>
+
+                  <div className="flex justify-end gap-3">
+                    <button
+                      onClick={resetPasswordForm}
+                      className="px-4 py-2 rounded-lg border border-gray-200 text-gray-600 font-medium hover:bg-gray-50"
+                    >
+                      Hủy
+                    </button>
+                    <button
+                      onClick={handleChangePassword}
+                      disabled={changingPassword}
+                      className="px-4 py-2 rounded-lg bg-orange-500 text-white font-semibold hover:bg-orange-600 disabled:opacity-50"
+                    >
+                      {changingPassword ? "Đang cập nhật..." : "Đổi mật khẩu"}
+                    </button>
+                  </div>
+                </div>
+              </section>
+            )}
+
+            {activeMenu === "notifications" && (
+              <section className="bg-white rounded-lg shadow-sm border border-gray-200">
+                <div className="px-6 py-4 border-b border-gray-200 flex flex-wrap items-center justify-between gap-4">
+                  <div>
+                    <h2 className="text-xl font-semibold text-gray-900">Thông báo</h2>
+                    <p className="text-sm text-gray-500">
+                      {unreadNotificationCount > 0
+                        ? `${unreadNotificationCount} thông báo chưa đọc`
+                        : "Tất cả thông báo đã được đọc"}
+                    </p>
+                  </div>
+                  <div className="flex flex-wrap gap-2">
+                    <button
+                      onClick={handleMarkAllNotificationsAsRead}
+                      disabled={notifications.length === 0 || unreadNotificationCount === 0}
+                      className="px-3 py-1.5 rounded-lg border border-gray-200 text-gray-600 text-sm hover:bg-gray-50 disabled:opacity-40"
+                    >
+                      Đánh dấu đã đọc
+                    </button>
+                    <button
+                      onClick={handleClearNotifications}
+                      disabled={notifications.length === 0}
+                      className="px-3 py-1.5 rounded-lg border border-red-200 text-red-600 text-sm hover:bg-red-50 disabled:opacity-40"
+                    >
+                      Xóa tất cả
+                    </button>
+                  </div>
+                </div>
+
+                <div className="p-6 space-y-4">
+                  {loadingNotifications ? (
+                    <div className="space-y-3">
+                      {[1, 2, 3].map((item) => (
+                        <div key={item} className="h-20 rounded-xl bg-gray-100 animate-pulse" />
+                      ))}
+                    </div>
+                  ) : notifications.length === 0 ? (
+                    <div className="rounded-2xl border border-dashed border-gray-300 p-10 text-center text-gray-500">
+                      Bạn chưa có thông báo nào. Khi có hoạt động mới, chúng tôi sẽ gửi thông báo tại đây.
+                    </div>
+                  ) : (
+                    notifications.map((item) => (
+                      <div
+                        key={item.id}
+                        className={`rounded-2xl border p-5 transition-all ${item.read
+                          ? "border-gray-200 bg-gray-50"
+                          : "border-orange-200 bg-white shadow-sm"
+                          }`}
+                      >
+                        <div className="flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
+                          <div>
+                            <div className="flex items-center gap-2">
+                              {!item.read && <span className="w-2 h-2 rounded-full bg-orange-500 inline-block" />}
+                              <p className="text-base font-semibold text-gray-900">{item.title}</p>
+                            </div>
+                            <p className="text-sm text-gray-600 mt-1">{item.message}</p>
+                            <p className="text-xs text-gray-400 mt-2">{formatDateTime(item.date)}</p>
+                          </div>
+                          <div className="flex flex-wrap gap-2 text-sm">
+                            <button
+                              onClick={() => handleToggleNotificationRead(item.id)}
+                              className="px-3 py-1.5 rounded-lg border border-gray-200 text-gray-600 hover:bg-gray-50"
+                            >
+                              {item.read ? "Đánh dấu chưa đọc" : "Đánh dấu đã đọc"}
+                            </button>
+                            <button
+                              onClick={() => handleDeleteNotification(item.id)}
+                              className="px-3 py-1.5 rounded-lg border border-red-200 text-red-600 hover:bg-red-50"
+                            >
+                              Xóa
+                            </button>
+                          </div>
+                        </div>
+                      </div>
+                    ))
                   )}
                 </div>
               </section>
             )}
 
-            {/* No Enterprise Message */}
-            {!enterprise && (
-              <section className="bg-gradient-to-r from-blue-50 to-cyan-50 border-2 border-blue-200 rounded-2xl p-6 shadow-sm">
-                <div className="flex items-start gap-4">
-                  <div className="w-12 h-12 bg-blue-100 rounded-xl flex items-center justify-center flex-shrink-0">
-                    <svg className="w-6 h-6 text-blue-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-                    </svg>
-                  </div>
-                  <div>
-                    <h3 className="text-base font-semibold text-blue-900 mb-2">Chưa liên kết doanh nghiệp</h3>
-                    <p className="text-sm text-blue-800 leading-relaxed">
-                      Tài khoản của bạn chưa liên kết với doanh nghiệp OCOP. Nếu bạn là Enterprise Admin,
-                      vui lòng hoàn tất hồ sơ hoặc liên hệ quản trị viên để được duyệt.
-                    </p>
-                  </div>
-                </div>
-              </section>
-            )}
           </div>
         </div>
       </main>
@@ -884,11 +1670,14 @@ interface InfoFieldProps {
   badge?: boolean
   badgeColor?: string
   icon?: "user" | "email" | "role" | "calendar" | "location" | "check" | "key" | "building" | "id" | "briefcase" | "phone" | "globe" | "map"
+  isEmpty?: boolean
+  isDate?: boolean
 }
 
-function InfoField({ label, value, badge, badgeColor, icon }: InfoFieldProps) {
+function InfoField({ label, value, badge, badgeColor, icon, isEmpty, isDate }: InfoFieldProps) {
   const display = value && value !== "" ? value : "(chưa cập nhật)"
-  
+  const isDisplayEmpty = isEmpty || (!value || value === "" || value === "(chưa cập nhật)")
+
   const iconMap = {
     user: (
       <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -957,7 +1746,7 @@ function InfoField({ label, value, badge, badgeColor, icon }: InfoFieldProps) {
       </svg>
     ),
   }
-  
+
   if (badge) {
     return (
       <div className="space-y-2">
@@ -966,26 +1755,40 @@ function InfoField({ label, value, badge, badgeColor, icon }: InfoFieldProps) {
           {label}
         </label>
         <span
-          className={`inline-flex items-center gap-2 rounded-full px-4 py-2 text-sm font-semibold shadow-sm ${
-            badgeColor || "bg-indigo-100 text-indigo-700"
-          }`}
+          className={`inline-flex items-center gap-2 rounded-full px-4 py-2 text-sm font-semibold shadow-sm ${badgeColor || "bg-indigo-100 text-indigo-700"
+            }`}
         >
           {display}
         </span>
       </div>
     )
   }
+  // Xác định màu icon dựa trên trạng thái
+  const iconColorClass = isDisplayEmpty
+    ? "text-gray-400"
+    : isDate
+      ? "text-purple-500"
+      : icon === "calendar"
+        ? "text-indigo-500"
+        : "text-gray-400"
+
   return (
     <div className="space-y-2">
       <label className="block text-xs font-semibold text-gray-500 uppercase tracking-wide flex items-center gap-2">
-        {icon && <span className="text-gray-400">{iconMap[icon]}</span>}
+        {icon && <span className={iconColorClass}>{iconMap[icon]}</span>}
         {label}
       </label>
-      <div className="text-base font-semibold text-gray-900 bg-gray-50 rounded-lg px-4 py-3 border border-gray-200">
+      <div className={`text-base rounded-lg px-4 py-3 border transition-all ${isDisplayEmpty
+        ? "text-gray-400 bg-gray-50 border-gray-200 italic font-medium"
+        : isDate
+          ? "text-gray-900 bg-gradient-to-r from-purple-50 via-indigo-50 to-purple-50 border-purple-200 shadow-sm font-semibold"
+          : "text-gray-900 bg-gray-50 border-gray-200 font-semibold"
+        }`}>
         {display}
       </div>
     </div>
   )
 }
+
 
 

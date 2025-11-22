@@ -30,10 +30,18 @@ export async function isLoggedIn(): Promise<boolean> {
   return !!getAuthToken();
 }
 
-export function logout() {
+export function logout(redirectToLogin = false) {
   if (typeof window === "undefined") return;
   localStorage.removeItem(AUTH_KEY);
   localStorage.removeItem(PROFILE_KEY);
+  
+  // Optional: Redirect to login page
+  if (redirectToLogin && typeof window !== "undefined") {
+    // Use setTimeout to avoid navigation during render
+    setTimeout(() => {
+      window.location.href = '/login';
+    }, 0);
+  }
 }
 
 export type UserProfile = {

@@ -14,18 +14,23 @@ const MapSection = () => {
         setLoading(true)
         setError(null)
         
-        // Get ALL products from database
+        // ✅ FIX: Request only Approved products from backend
         const data = await getProducts({ 
           pageSize: 100, // Get all products
+          status: "Approved", // ✅ Only get approved products from backend
         })
         
         // Backend returns array of products
         const productList = Array.isArray(data) ? data : []
         
-        // FILTER: Only show products with status = "Approved"
-        const approvedProducts = productList.filter((p: Product) => 
-          p.status === "Approved"
-        )
+        // ✅ Double-check: Filter again on client-side as safety measure
+        const approvedProducts = productList.filter((p: Product) => {
+          const isApproved = p.status === "Approved"
+          if (!isApproved) {
+            console.warn(`⚠️ MapSection: Product ${p.id} (${p.name}) has status "${p.status}", not Approved. Filtered out.`)
+          }
+          return isApproved
+        })
         
         console.log(`✅ Map section: ${approvedProducts.length} approved products`)
         

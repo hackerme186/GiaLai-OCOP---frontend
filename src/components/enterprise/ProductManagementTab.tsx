@@ -27,6 +27,8 @@ export default function ProductManagementTab({ user }: ProductManagementTabProps
     imageUrl: "",
     stockStatus: "InStock" as "InStock" | "OutOfStock" | "",
   })
+  const [imageFile, setImageFile] = useState<File | null>(null)
+  const [imagePreview, setImagePreview] = useState<string | null>(null)
 
   useEffect(() => {
     loadData()
@@ -137,6 +139,8 @@ export default function ProductManagementTab({ user }: ProductManagementTabProps
       imageUrl: "",
       stockStatus: "InStock", // Default: Còn hàng
     })
+    setImageFile(null)
+    setImagePreview(null)
     setShowModal(true)
     
     console.log(`📝 Creating new product with default category: ${categories[0].name} (ID: ${defaultCategoryId})`)
@@ -152,6 +156,8 @@ export default function ProductManagementTab({ user }: ProductManagementTabProps
       imageUrl: product.imageUrl || "",
       stockStatus: (product.stockStatus || "InStock") as "InStock" | "OutOfStock" | "",
     })
+    setImageFile(null)
+    setImagePreview(product.imageUrl || null)
     setShowModal(true)
   }
 
@@ -208,11 +214,31 @@ export default function ProductManagementTab({ user }: ProductManagementTabProps
     }
 
     try {
+      // Handle image: use uploaded file (base64) or existing URL
+      let finalImageUrl = formData.imageUrl.trim()
+      
+      if (imageFile) {
+        // Convert file to base64
+        const base64Image = await new Promise<string>((resolve, reject) => {
+          const reader = new FileReader()
+          reader.onloadend = () => {
+            const result = reader.result as string
+            resolve(result)
+          }
+          reader.onerror = reject
+          reader.readAsDataURL(imageFile)
+        })
+        finalImageUrl = base64Image
+      } else if (editingProduct && !formData.imageUrl.trim() && editingProduct.imageUrl) {
+        // If editing and no new file/URL selected, keep existing image
+        finalImageUrl = editingProduct.imageUrl
+      }
+      
       // Prepare payload with validated price and default imageUrl if empty
       const payload = {
         ...formData,
         price: typeof formData.price === 'string' ? parseFloat(formData.price) : formData.price,
-        imageUrl: formData.imageUrl.trim() || '/hero.jpg', // Use default if empty
+        imageUrl: finalImageUrl || '/hero.jpg', // Use default if empty
         stockStatus: formData.stockStatus || "InStock" // Default to InStock if empty
       }
       
@@ -243,6 +269,8 @@ export default function ProductManagementTab({ user }: ProductManagementTabProps
       }
 
       setShowModal(false)
+      setImageFile(null)
+      setImagePreview(null)
       setTimeout(() => setSuccess(null), 5000)
       await loadData() // Reload to get latest data
     } catch (err) {
@@ -459,7 +487,11 @@ export default function ProductManagementTab({ user }: ProductManagementTabProps
                 {editingProduct ? "Chỉnh sửa sản phẩm" : "Tạo sản phẩm mới"}
               </h2>
               <button
-                onClick={() => setShowModal(false)}
+                onClick={() => {
+                  setShowModal(false)
+                  setImageFile(null)
+                  setImagePreview(null)
+                }}
                 className="text-gray-400 hover:text-gray-600 transition-colors"
               >
                 <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -544,20 +576,125 @@ export default function ProductManagementTab({ user }: ProductManagementTabProps
                 </div>
               </div>
 
-              {/* Image URL */}
+              {/* Image Upload */}
               <div>
                 <label className="block text-sm font-semibold text-gray-900 mb-2">
-                  URL hình ảnh
+                  Hình ảnh sản phẩm
                 </label>
-                <input
-                  type="text"
-                  value={formData.imageUrl}
-                  onChange={(e) => setFormData({ ...formData, imageUrl: e.target.value })}
-                  className="w-full px-4 py-3 border-2 border-gray-200 rounded-lg focus:border-green-500 focus:ring-2 focus:ring-green-200 transition-all"
-                  placeholder="https://example.com/image.jpg"
-                />
-                <p className="text-xs text-gray-500 mt-1">
-                  💡 Để trống nếu không có ảnh, hệ thống sẽ dùng ảnh mặc định
+                
+                {/* Image Preview */}
+                {(imagePreview || (editingProduct && editingProduct.imageUrl)) && (
+                  <div className="mb-3">
+                    <div className="relative w-full h-48 bg-gray-100 rounded-lg overflow-hidden border-2 border-gray-200">
+                      <Image
+                        src={imagePreview || editingProduct?.imageUrl || '/hero.jpg'}
+                        alt="Preview"
+                        fill
+                        className="object-cover"
+                      />
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setImageFile(null)
+                          setImagePreview(null)
+                          setFormData({ ...formData, imageUrl: "" })
+                        }}
+                        className="absolute top-2 right-2 bg-red-500 text-white rounded-full p-2 hover:bg-red-600 transition-colors"
+                        title="Xóa ảnh"
+                      >
+                        <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                        </svg>
+                      </button>
+                    </div>
+                  </div>
+                )}
+                
+                {/* File Input */}
+                <div className="relative">
+                  <input
+                    type="file"
+                    accept="image/*"
+                    onChange={(e) => {
+                      const file = e.target.files?.[0]
+                      if (!file) return
+                      
+                      // Validate file type
+                      if (!file.type.match(/^image\//)) {
+                        setError("Vui lòng chọn file ảnh hợp lệ (JPG, PNG, GIF, etc.)")
+                        setTimeout(() => setError(null), 5000)
+                        return
+                      }
+                      
+                      // Validate file size (5 MB)
+                      const maxSize = 5 * 1024 * 1024 // 5 MB
+                      if (file.size > maxSize) {
+                        setError(`Dung lượng file không được vượt quá 5 MB. File hiện tại: ${(file.size / (1024 * 1024)).toFixed(2)} MB`)
+                        setTimeout(() => setError(null), 5000)
+                        return
+                      }
+                      
+                      // Create preview
+                      const reader = new FileReader()
+                      reader.onloadend = () => {
+                        setImagePreview(reader.result as string)
+                        setImageFile(file)
+                        setFormData({ ...formData, imageUrl: "" }) // Clear URL if file is selected
+                        setError(null)
+                      }
+                      reader.onerror = () => {
+                        setError("Không thể đọc file ảnh. Vui lòng thử lại.")
+                        setTimeout(() => setError(null), 5000)
+                      }
+                      reader.readAsDataURL(file)
+                    }}
+                    className="hidden"
+                    id="image-upload"
+                  />
+                  <label
+                    htmlFor="image-upload"
+                    className="flex items-center justify-center w-full px-4 py-3 border-2 border-dashed border-gray-300 rounded-lg cursor-pointer hover:border-green-500 hover:bg-green-50 transition-all group"
+                  >
+                    <div className="flex flex-col items-center">
+                      <svg className="w-8 h-8 text-gray-400 group-hover:text-green-600 mb-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                      </svg>
+                      <span className="text-sm font-medium text-gray-700 group-hover:text-green-600">
+                        {imagePreview ? "Chọn ảnh khác" : "Chọn ảnh từ thiết bị"}
+                      </span>
+                      <span className="text-xs text-gray-500 mt-1">
+                        JPG, PNG, GIF (tối đa 5 MB)
+                      </span>
+                    </div>
+                  </label>
+                </div>
+                
+                {/* Alternative: URL Input (optional) */}
+                <div className="mt-3">
+                  <details className="group">
+                    <summary className="text-xs text-gray-500 cursor-pointer hover:text-gray-700">
+                      💡 Hoặc nhập URL hình ảnh (tùy chọn)
+                    </summary>
+                    <div className="mt-2">
+                      <input
+                        type="text"
+                        value={formData.imageUrl}
+                        onChange={(e) => {
+                          setFormData({ ...formData, imageUrl: e.target.value })
+                          if (e.target.value.trim()) {
+                            setImageFile(null)
+                            setImagePreview(e.target.value.trim())
+                          }
+                        }}
+                        className="w-full px-4 py-2 border-2 border-gray-200 rounded-lg focus:border-green-500 focus:ring-2 focus:ring-green-200 transition-all text-sm"
+                        placeholder="https://example.com/image.jpg"
+                      />
+                    </div>
+                  </details>
+                </div>
+                
+                <p className="text-xs text-gray-500 mt-2">
+                  📸 Để trống nếu không có ảnh, hệ thống sẽ dùng ảnh mặc định
                 </p>
               </div>
 
@@ -600,7 +737,11 @@ export default function ProductManagementTab({ user }: ProductManagementTabProps
               <div className="flex gap-3 pt-4">
                 <button
                   type="button"
-                  onClick={() => setShowModal(false)}
+                  onClick={() => {
+                    setShowModal(false)
+                    setImageFile(null)
+                    setImagePreview(null)
+                  }}
                   className="flex-1 px-6 py-3 bg-gray-100 text-gray-700 rounded-lg font-semibold hover:bg-gray-200 transition-colors"
                 >
                   Hủy
