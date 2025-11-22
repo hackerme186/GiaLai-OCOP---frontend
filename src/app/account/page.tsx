@@ -123,15 +123,9 @@ export default function AccountPage() {
 
         // Load avatar từ localStorage hoặc từ user.avatarUrl nếu có
         if (typeof window !== "undefined") {
-          // Ưu tiên avatarUrl từ backend
           if (me.avatarUrl) {
             setAvatarPreview(me.avatarUrl)
-            // Lưu vào localStorage để cache
-            if (me.id) {
-              localStorage.setItem(`user_avatar_${me.id}`, me.avatarUrl)
-            }
           } else {
-            // Nếu không có từ backend, thử load từ localStorage
             const savedAvatar = localStorage.getItem(`user_avatar_${me.id}`)
             if (savedAvatar) {
               setAvatarPreview(savedAvatar)
@@ -179,13 +173,9 @@ export default function AccountPage() {
 
         // Load avatar từ localStorage nếu có
         if (typeof window !== "undefined" && userData.id) {
-          // Ưu tiên avatarUrl từ profile
           if (userData.avatarUrl) {
             setAvatarPreview(userData.avatarUrl)
-            // Lưu vào localStorage để cache
-            localStorage.setItem(`user_avatar_${userData.id}`, userData.avatarUrl)
           } else {
-            // Nếu không có từ profile, thử load từ localStorage
             const savedAvatar = localStorage.getItem(`user_avatar_${userData.id}`)
             if (savedAvatar) {
               setAvatarPreview(savedAvatar)
@@ -513,25 +503,6 @@ export default function AccountPage() {
         setAvatarPreview(updatedUser.avatarUrl)
       }
 
-      // Cập nhật profile với avatarUrl mới nếu có
-      if (typeof window !== "undefined" && user?.id) {
-        const { getUserProfile, setUserProfile } = await import("@/lib/auth")
-        const currentProfile = getUserProfile() || {}
-        const updatedProfile = {
-          ...currentProfile,
-          ...updatedUser,
-          avatarUrl: avatarPreview || updatedUser.avatarUrl || currentProfile.avatarUrl,
-        }
-        setUserProfile(updatedProfile)
-        
-        // Lưu avatar vào localStorage nếu có
-        if (avatarPreview) {
-          localStorage.setItem(`user_avatar_${user.id}`, avatarPreview)
-        } else if (updatedUser.avatarUrl) {
-          localStorage.setItem(`user_avatar_${user.id}`, updatedUser.avatarUrl)
-        }
-      }
-
       setIsEditingProfile(false)
       setSuccess("Đã cập nhật thông tin hồ sơ thành công!")
       setTimeout(() => setSuccess(null), 3000)
@@ -792,25 +763,8 @@ export default function AccountPage() {
             {/* User Profile Summary */}
             <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-4 mb-4">
               <div className="flex flex-col items-center text-center">
-                <div className="w-20 h-20 rounded-full bg-gradient-to-br from-orange-400 to-orange-500 flex items-center justify-center text-white text-2xl font-bold mb-3 overflow-hidden relative">
-                  {(avatarPreview || user?.avatarUrl) ? (
-                    <img
-                      src={avatarPreview || user?.avatarUrl || ""}
-                      alt="Avatar"
-                      className="w-full h-full object-cover"
-                      onError={(e) => {
-                        // Fallback to initial if image fails to load
-                        const target = e.target as HTMLImageElement
-                        target.style.display = 'none'
-                        const parent = target.parentElement
-                        if (parent) {
-                          parent.innerHTML = `<span class="text-white text-2xl font-bold">${user?.name?.charAt(0)?.toUpperCase() || "U"}</span>`
-                        }
-                      }}
-                    />
-                  ) : (
-                    user?.name?.charAt(0)?.toUpperCase() || "U"
-                  )}
+                <div className="w-20 h-20 rounded-full bg-gradient-to-br from-orange-400 to-orange-500 flex items-center justify-center text-white text-2xl font-bold mb-3">
+                  {user?.name?.charAt(0)?.toUpperCase() || "U"}
                 </div>
                 <div className="font-medium text-gray-900 mb-1">{user?.name || "Người dùng"}</div>
                 <Link
@@ -1196,20 +1150,11 @@ export default function AccountPage() {
                     <div className="w-80 flex-shrink-0">
                       <div className="flex flex-col items-center">
                         <div className="w-40 h-40 rounded-full bg-gradient-to-br from-orange-400 to-orange-500 flex items-center justify-center text-white text-5xl font-bold mb-4 overflow-hidden relative">
-                          {(avatarPreview || user?.avatarUrl) ? (
+                          {avatarPreview ? (
                             <img
-                              src={avatarPreview || user?.avatarUrl || ""}
-                              alt="Avatar"
+                              src={avatarPreview}
+                              alt="Avatar preview"
                               className="w-full h-full object-cover"
-                              onError={(e) => {
-                                // Fallback to initial if image fails to load
-                                const target = e.target as HTMLImageElement
-                                target.style.display = 'none'
-                                const parent = target.parentElement
-                                if (parent) {
-                                  parent.innerHTML = `<span class="text-white text-5xl font-bold">${user?.name?.charAt(0)?.toUpperCase() || "U"}</span>`
-                                }
-                              }}
                             />
                           ) : (
                             user?.name?.charAt(0)?.toUpperCase() || "U"

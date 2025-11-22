@@ -53,38 +53,6 @@ const Navbar = () => {
     }
   }, [userDropdownOpen, contactDropdownOpen])
 
-  // Load avatar từ profile.avatarUrl hoặc localStorage
-  useEffect(() => {
-    const loadAvatar = () => {
-      if (typeof window !== "undefined" && profile.id) {
-        // Ưu tiên avatarUrl từ profile
-        if (profile.avatarUrl) {
-          setAvatarUrl(profile.avatarUrl)
-          // Cache vào localStorage
-          localStorage.setItem(`user_avatar_${profile.id}`, profile.avatarUrl)
-        } else {
-          // Nếu không có từ profile, thử load từ localStorage
-          const savedAvatar = localStorage.getItem(`user_avatar_${profile.id}`)
-          if (savedAvatar) {
-            setAvatarUrl(savedAvatar)
-          } else {
-            setAvatarUrl(null)
-          }
-        }
-      } else {
-        setAvatarUrl(null)
-      }
-    }
-    
-    loadAvatar()
-    
-    // Listen for profile updates
-    window.addEventListener("profileUpdated", loadAvatar)
-    return () => {
-      window.removeEventListener("profileUpdated", loadAvatar)
-    }
-  }, [profile.avatarUrl, profile.id])
-
   useEffect(() => {
     setMounted(true)
     

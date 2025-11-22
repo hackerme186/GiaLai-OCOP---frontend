@@ -32,18 +32,30 @@ export default function MapPage() {
         setLoading(true)
         setError(null)
         try {
-            const data = await searchMap({
+            const searchParams = {
                 keyword: params?.keyword || undefined,
                 ocopRating: params?.rating,
                 province: params?.province || undefined,
                 pageSize: 100,
-            })
+            }
+            console.log("[Map Search] Calling searchMap with:", searchParams)
+            const data = await searchMap(searchParams)
             const list = Array.isArray(data)
                 ? data
                 : ((data as any)?.items ?? (data as any)?.data ?? [])
-            setEnterprises(list)
-            if (list.length > 0) {
-                setSelectedId(list[0].id)
+            console.log("[Map Search] Results received:", list.length, "enterprises")
+            console.log("[Map Search] Ratings in results:", list.map((e: EnterpriseMapDto) => e.ocopRating))
+            
+            // Filter by rating on frontend if backend doesn't filter correctly
+            let filteredList = list
+            if (params?.rating !== undefined) {
+                filteredList = list.filter((e: EnterpriseMapDto) => e.ocopRating === params.rating)
+                console.log("[Map Search] After filtering by rating", params.rating + ":", filteredList.length, "enterprises")
+            }
+            
+            setEnterprises(filteredList)
+            if (filteredList.length > 0) {
+                setSelectedId(filteredList[0].id)
             } else {
                 setSelectedId(null)
             }
@@ -65,7 +77,8 @@ export default function MapPage() {
 
     const handleSearch = (e: React.FormEvent) => {
         e.preventDefault()
-        const rating = selectedRating ? Number(selectedRating) : undefined
+        const rating = selectedRating && selectedRating !== "" ? Number(selectedRating) : undefined
+        console.log("[Map Search] Search params:", { keyword, rating, province: selectedProvince || undefined })
         loadResults({ keyword, rating, province: selectedProvince || undefined })
     }
 
