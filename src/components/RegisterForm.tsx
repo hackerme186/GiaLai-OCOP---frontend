@@ -57,7 +57,8 @@ export default function RegisterForm() {
           id: userInfo.id,
           name: userInfo.name || fullName.trim(),
           email: userInfo.email || normalizedEmail,
-          role: userInfo.role || "Customer"
+          role: userInfo.role || "Customer",
+          createdAt: userInfo.createdAt, // Lưu ngày tạo tài khoản
         })
       } catch (profileErr) {
         // Nếu không lấy được user info, dùng thông tin từ form

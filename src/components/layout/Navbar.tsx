@@ -16,11 +16,14 @@ const Navbar = () => {
   const [mounted, setMounted] = useState(false)
   const [loggedIn, setLoggedIn] = useState(false)
   const [profile, setProfile] = useState(getUserProfile() || {})
+  const [avatarUrl, setAvatarUrl] = useState<string | null>(null)
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false)
   const [isAdmin, setIsAdmin] = useState(false)
   const [isEnterpriseAdmin, setIsEnterpriseAdmin] = useState(false)
   const [userDropdownOpen, setUserDropdownOpen] = useState(false)
+  const [contactDropdownOpen, setContactDropdownOpen] = useState(false)
   const userDropdownRef = useRef<HTMLDivElement>(null)
+  const contactDropdownRef = useRef<HTMLDivElement>(null)
 
   // Helper function to check if a link is active
   const isActive = (href: string) => {
@@ -36,16 +39,51 @@ const Navbar = () => {
       if (userDropdownRef.current && !userDropdownRef.current.contains(event.target as Node)) {
         setUserDropdownOpen(false)
       }
+      if (contactDropdownRef.current && !contactDropdownRef.current.contains(event.target as Node)) {
+        setContactDropdownOpen(false)
+      }
     }
 
-    if (userDropdownOpen) {
+    if (userDropdownOpen || contactDropdownOpen) {
       document.addEventListener('mousedown', handleClickOutside)
     }
 
     return () => {
       document.removeEventListener('mousedown', handleClickOutside)
     }
-  }, [userDropdownOpen])
+  }, [userDropdownOpen, contactDropdownOpen])
+
+  // Load avatar từ profile.avatarUrl hoặc localStorage
+  useEffect(() => {
+    const loadAvatar = () => {
+      if (typeof window !== "undefined" && profile.id) {
+        // Ưu tiên avatarUrl từ profile
+        if (profile.avatarUrl) {
+          setAvatarUrl(profile.avatarUrl)
+          // Cache vào localStorage
+          localStorage.setItem(`user_avatar_${profile.id}`, profile.avatarUrl)
+        } else {
+          // Nếu không có từ profile, thử load từ localStorage
+          const savedAvatar = localStorage.getItem(`user_avatar_${profile.id}`)
+          if (savedAvatar) {
+            setAvatarUrl(savedAvatar)
+          } else {
+            setAvatarUrl(null)
+          }
+        }
+      } else {
+        setAvatarUrl(null)
+      }
+    }
+    
+    loadAvatar()
+    
+    // Listen for profile updates
+    window.addEventListener("profileUpdated", loadAvatar)
+    return () => {
+      window.removeEventListener("profileUpdated", loadAvatar)
+    }
+  }, [profile.avatarUrl, profile.id])
 
   useEffect(() => {
     setMounted(true)
@@ -53,7 +91,23 @@ const Navbar = () => {
     const checkAuthStatus = async () => {
       const authStatus = await isLoggedIn()
       setLoggedIn(authStatus)
-      setProfile(getUserProfile() || {})
+      const currentProfile = getUserProfile() || {}
+      setProfile(currentProfile)
+      
+      // Load avatar khi profile được set
+      if (currentProfile.id && typeof window !== "undefined") {
+        if (currentProfile.avatarUrl) {
+          setAvatarUrl(currentProfile.avatarUrl)
+          localStorage.setItem(`user_avatar_${currentProfile.id}`, currentProfile.avatarUrl)
+        } else {
+          const savedAvatar = localStorage.getItem(`user_avatar_${currentProfile.id}`)
+          if (savedAvatar) {
+            setAvatarUrl(savedAvatar)
+          } else {
+            setAvatarUrl(null)
+          }
+        }
+      }
       
       // Only check admin role if user is logged in
       if (authStatus) {
@@ -62,6 +116,12 @@ const Navbar = () => {
           const role = (me.role || (me as any).roles)?.toString?.().toLowerCase() || ''
           setIsAdmin(role === 'admin' || role === 'systemadmin' || role === 'sysadmin')
           setIsEnterpriseAdmin(role === 'enterpriseadmin')
+          
+          // Update avatar nếu có từ backend
+          if (me.avatarUrl && currentProfile.id) {
+            setAvatarUrl(me.avatarUrl)
+            localStorage.setItem(`user_avatar_${currentProfile.id}`, me.avatarUrl)
+          }
         } catch (error) {
           // Backend might be offline - skip admin check
           console.log('⚠️ Cannot check admin role - backend may be offline')
@@ -151,16 +211,72 @@ const Navbar = () => {
               >
                 Tin tức
               </Link>
-              <Link 
-                href="/contact"
-                className={`inline-flex items-center px-3 py-2 text-sm whitespace-nowrap rounded-lg hover:bg-indigo-50 hover:text-indigo-600 transition-all duration-200 ${
-                  isActive('/contact') 
-                    ? 'text-gray-900 font-semibold' 
-                    : 'text-gray-600 font-medium'
-                }`}
-              >
-                Liên hệ
-              </Link>
+              {/* Contact Dropdown */}
+              <div className="relative" ref={contactDropdownRef}>
+                <button
+                  onClick={() => setContactDropdownOpen(!contactDropdownOpen)}
+                  className={`inline-flex items-center px-3 py-2 text-sm whitespace-nowrap rounded-lg hover:bg-indigo-50 hover:text-indigo-600 transition-all duration-200 ${
+                    isActive('/contact') || contactDropdownOpen
+                      ? 'text-gray-900 font-semibold' 
+                      : 'text-gray-600 font-medium'
+                  }`}
+                >
+                  Liên hệ
+                  <svg 
+                    className={`ml-1 h-4 w-4 transition-transform duration-200 ${contactDropdownOpen ? 'rotate-180' : ''}`}
+                    fill="none" 
+                    stroke="currentColor" 
+                    viewBox="0 0 24 24"
+                  >
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                  </svg>
+                </button>
+                
+                {contactDropdownOpen && (
+                  <div className="absolute left-0 mt-2 w-56 bg-white rounded-lg shadow-lg border border-gray-200 py-2 z-50">
+                    <a
+                      href="https://www.facebook.com/GIALAIOCOPPORTAL"
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="flex items-center px-4 py-3 text-sm text-gray-700 hover:bg-blue-50 hover:text-blue-600 transition-colors group"
+                      onClick={() => setContactDropdownOpen(false)}
+                    >
+                      <div className="w-8 h-8 rounded-full bg-blue-600 flex items-center justify-center mr-3 group-hover:scale-110 transition-transform">
+                        <svg 
+                          width="16" 
+                          height="16" 
+                          viewBox="0 0 24 24" 
+                          fill="currentColor"
+                          className="text-white"
+                        >
+                          <path d="M24 12.073c0-6.627-5.373-12-12-12s-12 5.373-12 12c0 5.99 4.388 10.954 10.125 11.854v-8.385H7.078v-3.47h3.047V9.43c0-3.007 1.792-4.669 4.533-4.669 1.312 0 2.686.235 2.686.235v2.953H15.83c-1.491 0-1.956.925-1.956 1.874v2.25h3.328l-.532 3.47h-2.796v8.385C19.612 23.027 24 18.062 24 12.073z"/>
+                        </svg>
+                      </div>
+                      <span className="font-medium">Facebook</span>
+                    </a>
+                    <a
+                      href="https://www.tiktok.com/@gialaiocop_portal?_r=1&_t=ZS-91a94nkkAwE"
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="flex items-center px-4 py-3 text-sm text-gray-700 hover:bg-gray-50 hover:text-gray-900 transition-colors group"
+                      onClick={() => setContactDropdownOpen(false)}
+                    >
+                      <div className="w-8 h-8 rounded-full bg-black flex items-center justify-center mr-3 group-hover:scale-110 transition-transform">
+                        <svg 
+                          width="16" 
+                          height="16" 
+                          viewBox="0 0 24 24" 
+                          fill="currentColor"
+                          className="text-white"
+                        >
+                          <path d="M19.59 6.69a4.83 4.83 0 0 1-3.77-4.25V2h-3.45v13.67a2.89 2.89 0 0 1-5.2 1.74 2.89 2.89 0 0 1 2.31-4.64 2.93 2.93 0 0 1 .88.13V9.4a6.84 6.84 0 0 0-1-.05A6.33 6.33 0 0 0 5 20.1a6.34 6.34 0 0 0 10.86-4.43v-7a8.16 8.16 0 0 0 4.77 1.52v-3.4a4.85 4.85 0 0 1-1-.1z"/>
+                        </svg>
+                      </div>
+                      <span className="font-medium">TikTok</span>
+                    </a>
+                  </div>
+                )}
+              </div>
             </div>
           </div>
 
@@ -311,17 +427,78 @@ const Navbar = () => {
               >
                 Tin tức
               </Link>
-              <Link
-                href="/contact"
-                className={`block px-4 py-3 text-base rounded-lg mx-2 transition-colors hover:text-indigo-600 hover:bg-indigo-50 ${
-                  isActive('/contact') 
-                    ? 'font-semibold text-gray-900' 
-                    : 'font-medium text-gray-600'
-                }`}
-                onClick={() => setMobileMenuOpen(false)}
-              >
-                Liên hệ
-              </Link>
+              {/* Mobile Contact Dropdown */}
+              <div className="mx-2">
+                <button
+                  onClick={() => setContactDropdownOpen(!contactDropdownOpen)}
+                  className={`w-full flex items-center justify-between px-4 py-3 text-base rounded-lg transition-colors hover:text-indigo-600 hover:bg-indigo-50 ${
+                    isActive('/contact') || contactDropdownOpen
+                      ? 'font-semibold text-gray-900' 
+                      : 'font-medium text-gray-600'
+                  }`}
+                >
+                  <span>Liên hệ</span>
+                  <svg 
+                    className={`h-5 w-5 transition-transform duration-200 ${contactDropdownOpen ? 'rotate-180' : ''}`}
+                    fill="none" 
+                    stroke="currentColor" 
+                    viewBox="0 0 24 24"
+                  >
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                  </svg>
+                </button>
+                
+                {contactDropdownOpen && (
+                  <div className="mt-1 space-y-1 bg-gray-50 rounded-lg py-2">
+                    <a
+                      href="https://www.facebook.com/GIALAIOCOPPORTAL"
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="flex items-center px-4 py-2.5 text-sm text-gray-700 hover:bg-blue-50 hover:text-blue-600 transition-colors"
+                      onClick={() => {
+                        setContactDropdownOpen(false)
+                        setMobileMenuOpen(false)
+                      }}
+                    >
+                      <div className="w-8 h-8 rounded-full bg-blue-600 flex items-center justify-center mr-3">
+                        <svg 
+                          width="16" 
+                          height="16" 
+                          viewBox="0 0 24 24" 
+                          fill="currentColor"
+                          className="text-white"
+                        >
+                          <path d="M24 12.073c0-6.627-5.373-12-12-12s-12 5.373-12 12c0 5.99 4.388 10.954 10.125 11.854v-8.385H7.078v-3.47h3.047V9.43c0-3.007 1.792-4.669 4.533-4.669 1.312 0 2.686.235 2.686.235v2.953H15.83c-1.491 0-1.956.925-1.956 1.874v2.25h3.328l-.532 3.47h-2.796v8.385C19.612 23.027 24 18.062 24 12.073z"/>
+                        </svg>
+                      </div>
+                      <span className="font-medium">Facebook</span>
+                    </a>
+                    <a
+                      href="https://www.tiktok.com/@gialaiocop_portal?_r=1&_t=ZS-91a94nkkAwE"
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="flex items-center px-4 py-2.5 text-sm text-gray-700 hover:bg-gray-100 hover:text-gray-900 transition-colors"
+                      onClick={() => {
+                        setContactDropdownOpen(false)
+                        setMobileMenuOpen(false)
+                      }}
+                    >
+                      <div className="w-8 h-8 rounded-full bg-black flex items-center justify-center mr-3">
+                        <svg 
+                          width="16" 
+                          height="16" 
+                          viewBox="0 0 24 24" 
+                          fill="currentColor"
+                          className="text-white"
+                        >
+                          <path d="M19.59 6.69a4.83 4.83 0 0 1-3.77-4.25V2h-3.45v13.67a2.89 2.89 0 0 1-5.2 1.74 2.89 2.89 0 0 1 2.31-4.64 2.93 2.93 0 0 1 .88.13V9.4a6.84 6.84 0 0 0-1-.05A6.33 6.33 0 0 0 5 20.1a6.34 6.34 0 0 0 10.86-4.43v-7a8.16 8.16 0 0 0 4.77 1.52v-3.4a4.85 4.85 0 0 1-1-.1z"/>
+                        </svg>
+                      </div>
+                      <span className="font-medium">TikTok</span>
+                    </a>
+                  </div>
+                )}
+              </div>
               
               {/* Cart for mobile */}
               <Link
@@ -357,14 +534,24 @@ const Navbar = () => {
                     </Link>
                     <Link
                       href="/account"
-                      className="flex items-center px-4 py-3 text-base font-medium text-gray-700 hover:text-indigo-600 hover:bg-indigo-50 rounded-lg transition-colors"
+                      className="flex items-center px-4 py-3 text-base font-medium text-gray-700 hover:text-orange-600 hover:bg-orange-50 rounded-lg transition-all duration-200"
                       onClick={() => setMobileMenuOpen(false)}
                     >
-                      <div className="w-8 h-8 rounded-full overflow-hidden bg-gradient-to-br from-indigo-400 to-purple-500 flex items-center justify-center mr-3 ring-2 ring-indigo-200">
-                        {profile.avatarUrl ? (
-                          <Image src={profile.avatarUrl} alt={profile.name || 'avatar'} width={32} height={32} className="object-cover" />
+                      <div className="w-9 h-9 rounded-full overflow-hidden bg-gradient-to-br from-orange-400 to-orange-500 flex items-center justify-center mr-3 ring-2 ring-orange-200 shadow-md hover:ring-orange-300 hover:shadow-lg transition-all duration-200">
+                        {avatarUrl ? (
+                          <Image 
+                            src={avatarUrl} 
+                            alt={profile.name || 'avatar'} 
+                            width={36} 
+                            height={36} 
+                            className="object-cover w-full h-full"
+                            onError={() => {
+                              // Fallback to initial if image fails to load
+                              setAvatarUrl(null)
+                            }}
+                          />
                         ) : (
-                          <span className="text-white text-sm font-bold">{profile.name?.[0]?.toUpperCase() || '👤'}</span>
+                          <span className="text-white text-base font-bold">{profile.name?.[0]?.toUpperCase() || 'U'}</span>
                         )}
                       </div>
                       <span className="font-semibold">{profile.name || 'Account'}</span>
