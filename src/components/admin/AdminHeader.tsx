@@ -46,6 +46,7 @@ export default function AdminHeader({ activeTab, onTabChange }: AdminHeaderProps
     { id: 'enterprise-management', label: 'Quản lý doanh nghiệp', icon: '🏢' },
     { id: 'ocop-approval', label: 'Duyệt sản phẩm OCOP', icon: '⭐' },
     { id: 'categories', label: 'Quản lý danh mục', icon: '📁' },
+    { id: 'images', label: 'Quản lý ảnh', icon: '🖼️' },
     { id: 'reports', label: 'Báo cáo toàn tỉnh', icon: '📉' },
   ]
 

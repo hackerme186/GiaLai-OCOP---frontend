@@ -606,6 +606,13 @@ export async function getUser(id: number): Promise<User> {
   });
 }
 
+export async function updateUser(id: number, payload: UpdateUserDto): Promise<User> {
+  return request<User>(`/users/${id}`, {
+    method: "PUT",
+    json: payload,
+  });
+}
+
 export async function updateCurrentUser(payload: UpdateUserDto): Promise<User> {
   // Log để debug
   if (typeof window !== "undefined") {
@@ -868,6 +875,16 @@ export async function updateProduct(id: number, payload: Partial<CreateProductDt
   return request<Product>(`/products/${id}`, {
     method: "PUT",
     json: payload,
+  });
+}
+
+/// <summary>
+/// SystemAdmin: Cập nhật chỉ ảnh sản phẩm
+/// </summary>
+export async function updateProductImage(id: number, imageUrl: string): Promise<void> {
+  return request<void>(`/products/${id}/image`, {
+    method: "PUT",
+    json: { imageUrl },
   });
 }
 
