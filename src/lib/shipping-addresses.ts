@@ -1,6 +1,7 @@
 /**
  * Shipping Address Management Service
  * Quản lý danh sách địa chỉ giao hàng đã lưu
+ * Mỗi user có danh sách địa chỉ riêng biệt, không bị trùng lặp
  */
 
 export interface SavedShippingAddress {
@@ -12,7 +13,35 @@ export interface SavedShippingAddress {
   updatedAt?: string;
 }
 
-const STORAGE_KEY = 'saved_shipping_addresses';
+const STORAGE_KEY_PREFIX = 'saved_shipping_addresses';
+
+/**
+ * Lấy user ID hiện tại từ user profile
+ */
+function getCurrentUserId(): number | null {
+  if (typeof window === 'undefined') return null;
+  
+  try {
+    const { getUserProfile } = require("@/lib/auth");
+    const profile = getUserProfile();
+    return profile?.id || null;
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * Lấy storage key cho user hiện tại
+ * Mỗi user có storage key riêng: saved_shipping_addresses_user_{userId}
+ */
+function getStorageKey(): string | null {
+  const userId = getCurrentUserId();
+  if (!userId) {
+    console.warn('⚠️ Không tìm thấy user ID. Không thể lưu/tải địa chỉ giao hàng.');
+    return null;
+  }
+  return `${STORAGE_KEY_PREFIX}_user_${userId}`;
+}
 
 /**
  * Lấy ngày tạo tài khoản từ user profile hoặc API
@@ -64,13 +93,17 @@ function getAccountCreatedAtSync(): string | null {
 }
 
 /**
- * Lấy danh sách địa chỉ giao hàng đã lưu
+ * Lấy danh sách địa chỉ giao hàng đã lưu cho user hiện tại
+ * Mỗi user có danh sách địa chỉ riêng biệt
  */
 export function getSavedShippingAddresses(): SavedShippingAddress[] {
   if (typeof window === 'undefined') return [];
 
+  const storageKey = getStorageKey();
+  if (!storageKey) return [];
+
   try {
-    const stored = localStorage.getItem(STORAGE_KEY);
+    const stored = localStorage.getItem(storageKey);
     if (!stored) return [];
     return JSON.parse(stored) as SavedShippingAddress[];
   } catch (error) {
@@ -80,13 +113,20 @@ export function getSavedShippingAddresses(): SavedShippingAddress[] {
 }
 
 /**
- * Lưu danh sách địa chỉ giao hàng
+ * Lưu danh sách địa chỉ giao hàng cho user hiện tại
+ * Mỗi user có danh sách địa chỉ riêng biệt
  */
 function saveShippingAddresses(addresses: SavedShippingAddress[]): void {
   if (typeof window === 'undefined') return;
 
+  const storageKey = getStorageKey();
+  if (!storageKey) {
+    console.warn('⚠️ Không thể lưu địa chỉ: không tìm thấy user ID');
+    return;
+  }
+
   try {
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(addresses));
+    localStorage.setItem(storageKey, JSON.stringify(addresses));
   } catch (error) {
     console.error('Error saving shipping addresses:', error);
   }
@@ -237,6 +277,42 @@ export function syncMainAddressFromBackend(mainAddress: string | undefined): voi
         address: trimmedMainAddress
       });
     }
+  }
+}
+
+/**
+ * Xóa tất cả địa chỉ giao hàng của user hiện tại
+ * Hữu ích khi user muốn xóa toàn bộ hoặc cleanup dữ liệu
+ */
+export function clearAllShippingAddresses(): boolean {
+  const storageKey = getStorageKey();
+  if (!storageKey) return false;
+
+  if (typeof window === 'undefined') return false;
+
+  try {
+    localStorage.removeItem(storageKey);
+    return true;
+  } catch (error) {
+    console.error('Error clearing shipping addresses:', error);
+    return false;
+  }
+}
+
+/**
+ * Xóa tất cả địa chỉ giao hàng của một user cụ thể (theo userId)
+ * Hữu ích khi cần cleanup dữ liệu của user đã xóa hoặc khi đăng xuất
+ */
+export function clearShippingAddressesByUserId(userId: number): boolean {
+  if (typeof window === 'undefined') return false;
+
+  try {
+    const storageKey = `${STORAGE_KEY_PREFIX}_user_${userId}`;
+    localStorage.removeItem(storageKey);
+    return true;
+  } catch (error) {
+    console.error('Error clearing shipping addresses for user:', error);
+    return false;
   }
 }
 

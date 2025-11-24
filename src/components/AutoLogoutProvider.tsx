@@ -6,7 +6,7 @@ import { useToast } from "@/components/Toast"
 /**
  * Provider component để tự động đăng xuất khi:
  * 1. Không hoạt động trong X phút (default: 15 phút)
- * 2. Đóng tab/trình duyệt/refresh
+ * 2. Khi refresh trang, nếu thời gian không hoạt động đã vượt quá giới hạn sẽ tự động logout
  */
 export default function AutoLogoutProvider({ 
   children,

@@ -13,8 +13,41 @@ interface UserDropdownProps {
 
 const UserDropdown = ({ profile, isAdmin, isEnterpriseAdmin }: UserDropdownProps) => {
   const [isOpen, setIsOpen] = useState(false)
+  const [avatarUrl, setAvatarUrl] = useState<string | null>(null)
   const dropdownRef = useRef<HTMLDivElement>(null)
   const router = useRouter()
+
+  // Load avatar từ profile.avatarUrl hoặc localStorage
+  useEffect(() => {
+    const loadAvatar = () => {
+      if (typeof window !== "undefined" && profile.id) {
+        // Ưu tiên avatarUrl từ profile
+        if (profile.avatarUrl) {
+          setAvatarUrl(profile.avatarUrl)
+          // Cache vào localStorage
+          localStorage.setItem(`user_avatar_${profile.id}`, profile.avatarUrl)
+        } else {
+          // Nếu không có từ profile, thử load từ localStorage
+          const savedAvatar = localStorage.getItem(`user_avatar_${profile.id}`)
+          if (savedAvatar) {
+            setAvatarUrl(savedAvatar)
+          } else {
+            setAvatarUrl(null)
+          }
+        }
+      }
+    }
+    
+    loadAvatar()
+    
+    // Listen for profile updates
+    if (typeof window !== "undefined") {
+      window.addEventListener("profileUpdated", loadAvatar)
+      return () => {
+        window.removeEventListener("profileUpdated", loadAvatar)
+      }
+    }
+  }, [profile.avatarUrl, profile.id])
 
   // Close dropdown when clicking outside
   useEffect(() => {
@@ -61,21 +94,27 @@ const UserDropdown = ({ profile, isAdmin, isEnterpriseAdmin }: UserDropdownProps
       {/* User button/trigger */}
       <button
         onClick={() => setIsOpen(!isOpen)}
-        className="flex items-center gap-2 text-gray-700 hover:text-gray-900 transition-colors focus:outline-none focus:ring-2 focus:ring-indigo-500 rounded-md px-2 py-1"
+        className="flex items-center gap-2 text-gray-700 hover:text-gray-900 transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-orange-500 rounded-lg px-2 py-1.5 hover:bg-orange-50"
         aria-expanded={isOpen}
         aria-haspopup="true"
       >
-        <div className="w-7 h-7 rounded-full overflow-hidden bg-gray-200 flex items-center justify-center">
-          {profile.avatarUrl ? (
+        <div className="w-9 h-9 rounded-full overflow-hidden bg-gradient-to-br from-orange-400 to-orange-500 flex items-center justify-center ring-2 ring-orange-200 shadow-md hover:ring-orange-300 hover:shadow-lg transition-all duration-200">
+          {avatarUrl ? (
             <Image 
-              src={profile.avatarUrl} 
+              src={avatarUrl} 
               alt={profile.name || 'avatar'} 
-              width={28} 
-              height={28}
-              className="object-cover"
+              width={36} 
+              height={36}
+              className="object-cover w-full h-full"
+              onError={() => {
+                // Fallback to initial if image fails to load
+                setAvatarUrl(null)
+              }}
             />
           ) : (
-            <span className="text-sm">👤</span>
+            <span className="text-white text-base font-bold">
+              {profile.name?.[0]?.toUpperCase() || 'U'}
+            </span>
           )}
         </div>
         <span className="text-sm font-medium max-w-[120px] md:max-w-[160px] truncate">

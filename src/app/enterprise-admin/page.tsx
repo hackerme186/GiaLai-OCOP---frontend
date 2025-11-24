@@ -8,8 +8,12 @@ import ProductManagementTab from "@/components/enterprise/ProductManagementTab"
 import OrderManagementTab from "@/components/enterprise/OrderManagementTab"
 import OcopStatusTab from "@/components/enterprise/OcopStatusTab"
 import ReportsTab from "@/components/enterprise/ReportsTab"
+import EnterpriseProfileTab from "@/components/enterprise/EnterpriseProfileTab"
+import InventoryTab from "@/components/enterprise/InventoryTab"
+import SettingsTab from "@/components/enterprise/SettingsTab"
+import NotificationsTab from "@/components/enterprise/NotificationsTab"
 
-type TabType = "products" | "orders" | "ocop-status" | "reports"
+type TabType = "products" | "orders" | "ocop-status" | "reports" | "profile" | "inventory" | "settings" | "notifications"
 
 export default function EnterpriseAdminPage() {
   const router = useRouter()
@@ -81,8 +85,12 @@ export default function EnterpriseAdminPage() {
   const tabs: Array<{ id: TabType; label: string; icon: string }> = [
     { id: "products", label: "Quản lý sản phẩm", icon: "📦" },
     { id: "orders", label: "Quản lý đơn hàng", icon: "📋" },
+    { id: "inventory", label: "Quản lý kho", icon: "📦" },
+    { id: "profile", label: "Hồ sơ doanh nghiệp", icon: "🏢" },
     { id: "ocop-status", label: "Trạng thái OCOP", icon: "⭐" },
     { id: "reports", label: "Báo cáo", icon: "📊" },
+    { id: "notifications", label: "Thông báo", icon: "🔔" },
+    { id: "settings", label: "Cài đặt", icon: "⚙️" },
   ]
 
   return (
@@ -150,8 +158,12 @@ export default function EnterpriseAdminPage() {
       <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         {activeTab === "products" && <ProductManagementTab user={user} />}
         {activeTab === "orders" && <OrderManagementTab user={user} />}
+        {activeTab === "inventory" && <InventoryTab user={user} />}
+        {activeTab === "profile" && <EnterpriseProfileTab user={user} />}
         {activeTab === "ocop-status" && <OcopStatusTab user={user} />}
         {activeTab === "reports" && <ReportsTab user={user} />}
+        {activeTab === "notifications" && <NotificationsTab user={user} />}
+        {activeTab === "settings" && <SettingsTab user={user} />}
       </main>
     </div>
   )

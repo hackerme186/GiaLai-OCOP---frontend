@@ -6,7 +6,7 @@ import { useState, useEffect, useMemo } from "react"
 import { logout } from "@/lib/auth"
 import { getCurrentUser } from "@/lib/api"
 
-export type TabType = 'dashboard' | 'enterprise-approval' | 'ocop-approval' | 'categories' | 'reports'
+export type TabType = 'dashboard' | 'enterprise-approval' | 'enterprise-management' | 'ocop-approval' | 'categories' | 'reports'
 
 interface AdminHeaderProps {
   activeTab: TabType
@@ -43,6 +43,7 @@ export default function AdminHeader({ activeTab, onTabChange }: AdminHeaderProps
   const allTabs: Array<{ id: TabType; label: string; icon: string }> = [
     { id: 'dashboard', label: 'Tổng quan', icon: '📊' },
     { id: 'enterprise-approval', label: 'Duyệt đơn đăng ký DN', icon: '📅' },
+    { id: 'enterprise-management', label: 'Quản lý doanh nghiệp', icon: '🏢' },
     { id: 'ocop-approval', label: 'Duyệt sản phẩm OCOP', icon: '⭐' },
     { id: 'categories', label: 'Quản lý danh mục', icon: '📁' },
     { id: 'reports', label: 'Báo cáo toàn tỉnh', icon: '📉' },
@@ -51,7 +52,7 @@ export default function AdminHeader({ activeTab, onTabChange }: AdminHeaderProps
   const roleNormalized = (userRole || "").toLowerCase()
 
   const roleTabMap: Record<string, TabType[]> = {
-    systemadmin: ['dashboard', 'enterprise-approval', 'ocop-approval', 'categories', 'reports'],
+    systemadmin: ['dashboard', 'enterprise-approval', 'enterprise-management', 'ocop-approval', 'categories', 'reports'],
     enterpriseadmin: ['dashboard', 'ocop-approval'],
     customer: ['dashboard'],
   }
