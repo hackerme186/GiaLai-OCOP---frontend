@@ -17,6 +17,8 @@ import {
   type SavedShippingAddress
 } from "@/lib/shipping-addresses"
 import NewAddressForm, { type AddressFormData } from "@/components/address/NewAddressForm"
+import ImageUploader from "@/components/upload/ImageUploader"
+import Image from "next/image"
 
 type NotificationItem = {
   id: number
@@ -773,8 +775,27 @@ export default function AccountPage() {
             {/* User Profile Summary */}
             <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-4 mb-4">
               <div className="flex flex-col items-center text-center">
-                <div className="w-20 h-20 rounded-full bg-gradient-to-br from-orange-400 to-orange-500 flex items-center justify-center text-white text-2xl font-bold mb-3">
-                  {user?.name?.charAt(0)?.toUpperCase() || "U"}
+                <div className="w-20 h-20 rounded-full bg-gradient-to-br from-orange-400 to-orange-500 flex items-center justify-center text-white text-2xl font-bold mb-3 overflow-hidden relative border-2 border-white shadow-md">
+                  {(avatarPreview || user?.avatarUrl) ? (
+                    <Image
+                      src={avatarPreview || user?.avatarUrl || ""}
+                      alt={user?.name || "Avatar"}
+                      fill
+                      className="object-cover"
+                      unoptimized={
+                        (() => {
+                          const avatarUrl = avatarPreview || user?.avatarUrl || ""
+                          return (
+                            avatarUrl.includes("gialai-ocop-be.onrender.com") ||
+                            avatarUrl.includes("res.cloudinary.com") ||
+                            avatarUrl.startsWith("blob:")
+                          )
+                        })()
+                      }
+                    />
+                  ) : (
+                    <span>{user?.name?.charAt(0)?.toUpperCase() || "U"}</span>
+                  )}
                 </div>
                 <div className="font-medium text-gray-900 mb-1">{user?.name || "Người dùng"}</div>
                 <Link
@@ -1159,7 +1180,8 @@ export default function AccountPage() {
                     {/* Right Column - Profile Picture Upload */}
                     <div className="w-80 flex-shrink-0">
                       <div className="flex flex-col items-center">
-                        <div className="w-40 h-40 rounded-full bg-gradient-to-br from-orange-400 to-orange-500 flex items-center justify-center text-white text-5xl font-bold mb-4 overflow-hidden relative">
+                        {/* Avatar Preview */}
+                        <div className="w-40 h-40 rounded-full bg-gradient-to-br from-orange-400 to-orange-500 flex items-center justify-center text-white text-5xl font-bold mb-4 overflow-hidden relative border-4 border-white shadow-lg">
                           {avatarPreview ? (
                             <img
                               src={avatarPreview}
@@ -1170,79 +1192,62 @@ export default function AccountPage() {
                             user?.name?.charAt(0)?.toUpperCase() || "U"
                           )}
                         </div>
-                        <input
-                          type="file"
-                          id="avatar-upload"
-                          accept="image/*"
-                          className="hidden"
-                          onChange={(e) => {
-                            const file = e.target.files?.[0]
-                            if (!file) return
 
-                            // Validate file type - chấp nhận tất cả định dạng ảnh
-                            if (!file.type.match(/^image\//)) {
-                              setError("Vui lòng chọn file ảnh")
-                              return
-                            }
+                        {/* Image Uploader */}
+                        <ImageUploader
+                          folder="GiaLaiOCOP/Users"
+                          currentImageUrl={avatarPreview || user?.avatarUrl || undefined}
+                          onUploaded={async (imageUrl) => {
+                            setAvatarPreview(imageUrl)
+                            setAvatarFile(null) // No need to store file anymore
+                            setError(null)
 
-                            // Validate file size (5 MB - tăng lên để cho phép ảnh chất lượng cao hơn)
-                            const maxSize = 5 * 1024 * 1024 // 5 MB
-                            if (file.size > maxSize) {
-                              setError(`Dụng lượng file không được vượt quá ${(maxSize / (1024 * 1024)).toFixed(0)} MB`)
-                              return
-                            }
+                            // Auto-save avatar URL to user profile
+                            try {
+                              setUploadingAvatar(true)
+                              const updatedUser = await updateCurrentUser({
+                                name: user?.name || "",
+                                avatarUrl: imageUrl,
+                              })
+                              setUser(updatedUser)
 
-                            // Create preview
-                            const reader = new FileReader()
-                            reader.onloadend = () => {
-                              const base64Image = reader.result as string
-                              setAvatarPreview(base64Image)
-                              setAvatarFile(file)
-                              setError(null)
-                              setSuccess("Đã chọn ảnh thành công! Nhấn 'Lưu' để cập nhật.")
-                              setTimeout(() => setSuccess(null), 3000)
+                              // Update avatar preview
+                              setAvatarPreview(updatedUser.avatarUrl || imageUrl)
 
-                              // Tự động lưu vào localStorage
-                              if (user?.id && typeof window !== "undefined") {
-                                localStorage.setItem(`user_avatar_${user.id}`, base64Image)
-                              }
-                            }
-                            reader.onerror = () => {
-                              setError("Không thể đọc file ảnh. Vui lòng thử lại.")
-                            }
-                            reader.readAsDataURL(file)
-                          }}
-                        />
-                        <label
-                          htmlFor="avatar-upload"
-                          className="px-6 py-2.5 bg-white border-2 border-orange-500 text-orange-500 font-medium rounded-md hover:bg-orange-50 transition-colors mb-3 cursor-pointer"
-                        >
-                          {uploadingAvatar ? "Đang tải..." : "Chọn Ảnh"}
-                        </label>
-                        {avatarFile && (
-                          <button
-                            onClick={() => {
-                              setAvatarPreview(null)
-                              setAvatarFile(null)
-                              const fileInput = document.getElementById("avatar-upload") as HTMLInputElement
-                              if (fileInput) fileInput.value = ""
-
-                              // Xóa avatar khỏi localStorage
+                              // Remove old localStorage avatar if exists
                               if (user?.id && typeof window !== "undefined") {
                                 localStorage.removeItem(`user_avatar_${user.id}`)
                               }
 
-                              setSuccess("Đã hủy chọn ảnh")
-                              setTimeout(() => setSuccess(null), 2000)
-                            }}
-                            className="px-4 py-1.5 text-xs bg-gray-100 border border-gray-300 text-gray-700 font-medium rounded-md hover:bg-gray-200 transition-colors mb-2"
-                          >
-                            Hủy chọn
-                          </button>
-                        )}
-                        <div className="text-xs text-gray-500 text-center space-y-1">
-                          <p>Dụng lượng file tối đa 5 MB</p>
-                          <p>Chấp nhận tất cả định dạng ảnh</p>
+                              setSuccess("Đã upload và lưu avatar thành công!")
+                              setTimeout(() => setSuccess(null), 3000)
+                            } catch (err) {
+                              // Avatar was uploaded but failed to save to profile
+                              // Keep the preview so user can retry saving
+                              const errorMessage = err instanceof Error ? err.message : "Không thể lưu avatar"
+                              setError(`Avatar đã được upload nhưng không thể lưu vào hồ sơ: ${errorMessage}`)
+                              // Still keep preview so user can save manually
+                            } finally {
+                              setUploadingAvatar(false)
+                            }
+                          }}
+                          onRemove={() => {
+                            setAvatarPreview(null)
+                            setAvatarFile(null)
+                            // Clear localStorage
+                            if (user?.id && typeof window !== "undefined") {
+                              localStorage.removeItem(`user_avatar_${user.id}`)
+                            }
+                          }}
+                          showRemoveButton={!!avatarPreview}
+                          placeholder="Chọn ảnh đại diện"
+                          maxPreviewSize={160}
+                          disabled={uploadingAvatar}
+                        />
+
+                        <div className="text-xs text-gray-500 text-center mt-2 space-y-1">
+                          <p>Ảnh sẽ tự động upload và lưu</p>
+                          <p>Kích thước tối đa: 10MB</p>
                         </div>
                       </div>
                     </div>

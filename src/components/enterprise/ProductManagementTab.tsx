@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react"
 import Image from "next/image"
 import { getProducts, getCategories, createProduct, updateProduct, deleteProduct, type Product, type Category, type User } from "@/lib/api"
+import ImageUploader from "@/components/upload/ImageUploader"
 
 interface ProductManagementTabProps {
   user: User | null
@@ -544,21 +545,38 @@ export default function ProductManagementTab({ user }: ProductManagementTabProps
                 </div>
               </div>
 
-              {/* Image URL */}
+              {/* Image Upload */}
               <div>
                 <label className="block text-sm font-semibold text-gray-900 mb-2">
-                  URL hình ảnh
+                  Hình ảnh sản phẩm
                 </label>
+                <ImageUploader
+                  folder="GiaLaiOCOP/Products"
+                  currentImageUrl={formData.imageUrl || undefined}
+                  onUploaded={(imageUrl) => {
+                    setFormData({ ...formData, imageUrl })
+                    setSuccess("Upload ảnh thành công!")
+                    setTimeout(() => setSuccess(null), 3000)
+                  }}
+                  onRemove={() => {
+                    setFormData({ ...formData, imageUrl: "" })
+                  }}
+                  showRemoveButton={!!formData.imageUrl}
+                  placeholder="Chọn ảnh sản phẩm"
+                  maxPreviewSize={300}
+                  disabled={false}
+                />
+                <p className="text-xs text-gray-500 mt-2">
+                  💡 Bạn cũng có thể nhập URL ảnh trực tiếp vào ô bên dưới nếu cần
+                </p>
+                {/* Fallback: Manual URL input */}
                 <input
                   type="text"
                   value={formData.imageUrl}
                   onChange={(e) => setFormData({ ...formData, imageUrl: e.target.value })}
-                  className="w-full px-4 py-3 border-2 border-gray-200 rounded-lg focus:border-green-500 focus:ring-2 focus:ring-green-200 transition-all"
-                  placeholder="https://example.com/image.jpg"
+                  className="w-full mt-2 px-4 py-2 border border-gray-300 rounded-lg focus:border-green-500 focus:ring-1 focus:ring-green-200 transition-all text-sm"
+                  placeholder="Hoặc nhập URL ảnh: https://example.com/image.jpg"
                 />
-                <p className="text-xs text-gray-500 mt-1">
-                  💡 Để trống nếu không có ảnh, hệ thống sẽ dùng ảnh mặc định
-                </p>
               </div>
 
               {/* Stock Status */}

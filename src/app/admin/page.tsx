@@ -10,6 +10,7 @@ import EnterpriseApprovalTab from "@/components/admin/EnterpriseApprovalTab"
 import OcopApprovalTab from "@/components/admin/OcopApprovalTab"
 import CategoryManagementTab from "@/components/admin/CategoryManagementTab"
 import ProvinceReportTab from "@/components/admin/ProvinceReportTab"
+import ImageManagementTab from "@/components/admin/ImageManagementTab"
 
 export default function AdminPage() {
   const router = useRouter()
@@ -96,6 +97,9 @@ export default function AdminPage() {
             )}
             {activeTab === 'categories' && (
               <CategoryManagementTab />
+            )}
+            {activeTab === 'images' && (
+              <ImageManagementTab />
             )}
             {activeTab === 'reports' && (
               <ProvinceReportTab />
