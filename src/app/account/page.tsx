@@ -195,6 +195,17 @@ export default function AccountPage() {
     init()
   }, [router])
 
+  // Sync avatarPreview với user.avatarUrl khi user state thay đổi
+  useEffect(() => {
+    if (user?.avatarUrl && !avatarPreview) {
+      setAvatarPreview(user.avatarUrl)
+      // Cache vào localStorage
+      if (user.id && typeof window !== "undefined") {
+        localStorage.setItem(`user_avatar_${user.id}`, user.avatarUrl)
+      }
+    }
+  }, [user?.avatarUrl, user?.id, avatarPreview])
+
   useEffect(() => {
     const loadEnterprise = async () => {
       if (!user?.enterpriseId) {
@@ -499,6 +510,11 @@ export default function AccountPage() {
       setIsEditingProfile(false)
       setSuccess("Đã cập nhật thông tin hồ sơ thành công!")
       setTimeout(() => setSuccess(null), 3000)
+      
+      // Trigger window event để các component khác có thể reload avatar
+      if (typeof window !== "undefined") {
+        window.dispatchEvent(new Event("profileUpdated"))
+      }
     } catch (err) {
       const errorMessage = err instanceof Error ? err.message : "Không thể cập nhật thông tin hồ sơ"
       setError(errorMessage)

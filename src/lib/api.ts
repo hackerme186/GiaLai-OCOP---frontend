@@ -211,6 +211,7 @@ export interface Product {
   imageUrl?: string;
   ocopRating?: number; // 3, 4, 5 sao
   stockStatus: string; // "InStock" | "LowStock" | "OutOfStock"
+  stockQuantity?: number; // Số lượng tồn kho thực tế (nếu backend có)
   averageRating?: number;
   status: string; // "PendingApproval" | "Approved" | "Rejected"
   categoryId?: number;
@@ -255,7 +256,7 @@ export interface Enterprise {
   businessField: string;
   imageUrl?: string;
   averageRating?: number;
-  approvalStatus?: string;
+  approvalStatus?: string; // "Pending" | "Approved" | "Rejected"
   rejectionReason?: string;
 }
 
@@ -401,6 +402,76 @@ export interface CreatePaymentDto {
 
 export interface UpdatePaymentStatusDto {
   status: "Paid" | "Cancelled";
+}
+
+// Shipper
+export interface Shipper {
+  id: number;
+  name: string;
+  email: string;
+  phoneNumber?: string;
+}
+
+// Inventory History
+export interface InventoryHistory {
+  id: number;
+  productId: number;
+  productName: string;
+  enterpriseId: number;
+  enterpriseName: string;
+  type: "import" | "export" | "adjustment";
+  quantity: number;
+  previousQuantity: number;
+  newQuantity: number;
+  reason?: string;
+  createdAt: string;
+  createdByUserId?: number;
+  createdByName?: string;
+}
+
+export interface AdjustInventoryDto {
+  productId: number;
+  type: "import" | "export" | "adjustment";
+  quantity: number;
+  reason?: string;
+  lowStockThreshold?: number;
+}
+
+// Notification
+export interface Notification {
+  id: number;
+  type: string;
+  title: string;
+  message: string;
+  read: boolean;
+  createdAt: string;
+  link?: string;
+  enterpriseId?: number;
+  userId?: number;
+  productId?: number;
+  orderId?: number;
+  productName?: string;
+  orderCode?: string;
+}
+
+// Enterprise Settings
+export interface ShippingMethod {
+  id: string;
+  name: string;
+  enabled: boolean;
+  fee: number;
+}
+
+export interface EnterpriseSettings {
+  enterpriseId: number;
+  shippingMethods: ShippingMethod[];
+  contactEmail: string;
+  contactPhone: string;
+  contactAddress: string;
+  businessHours: string;
+  returnPolicy?: string;
+  shippingPolicy?: string;
+  updatedAt?: string;
 }
 
 // Map
@@ -1133,6 +1204,226 @@ export async function getReportRevenueByMonth(): Promise<RevenueByMonth[]> {
   return request<RevenueByMonth[]>("/reports/revenue-by-month", {
     method: "GET",
   });
+}
+
+// ------ SHIPPERS (EnterpriseAdmin/SystemAdmin) ------
+export async function getShippers(): Promise<Shipper[]> {
+  return request<Shipper[]>("/shippers", {
+    method: "GET",
+  });
+}
+
+export async function assignOrderToShipper(orderId: number, shipperId: number): Promise<{ message: string }> {
+  return request<{ message: string }>(`/shippers/orders/${orderId}/assign`, {
+    method: "POST",
+    json: { shipperId },
+  });
+}
+
+// ------ INVENTORY (EnterpriseAdmin) ------
+export interface InventoryHistoryResponse {
+  items: InventoryHistory[];
+  page: number;
+  pageSize: number;
+  totalItems: number;
+  totalPages: number;
+}
+
+export async function getInventoryHistory(params?: {
+  productId?: number;
+  page?: number;
+  pageSize?: number;
+}): Promise<InventoryHistoryResponse> {
+  const searchParams = new URLSearchParams();
+  if (params?.productId) searchParams.append("productId", String(params.productId));
+  if (params?.page) searchParams.append("page", String(params.page));
+  if (params?.pageSize) searchParams.append("pageSize", String(params.pageSize));
+
+  const query = searchParams.toString();
+  try {
+    return request<InventoryHistoryResponse>(`/inventory/history${query ? "?" + query : ""}`, {
+      method: "GET",
+    });
+  } catch (error) {
+    // Fallback to empty array if 404
+    if (error instanceof Error && error.message.includes("404")) {
+      console.warn("Inventory history endpoint not found, returning empty array");
+      return {
+        items: [],
+        page: 1,
+        pageSize: 50,
+        totalItems: 0,
+        totalPages: 0,
+      };
+    }
+    throw error;
+  }
+}
+
+export async function adjustInventory(payload: AdjustInventoryDto): Promise<InventoryHistory> {
+  return request<InventoryHistory>("/inventory/adjust", {
+    method: "POST",
+    json: payload,
+  });
+}
+
+// ------ NOTIFICATIONS (EnterpriseAdmin) ------
+export async function getNotifications(params?: {
+  unreadOnly?: boolean;
+  type?: string;
+}): Promise<Notification[]> {
+  const searchParams = new URLSearchParams();
+  if (params?.unreadOnly) searchParams.append("unreadOnly", "true");
+  if (params?.type) searchParams.append("type", params.type);
+
+  const query = searchParams.toString();
+  try {
+    return request<Notification[]>(`/notifications${query ? "?" + query : ""}`, {
+      method: "GET",
+    });
+  } catch (error) {
+    // Fallback to empty array if 404
+    if (error instanceof Error && error.message.includes("404")) {
+      console.warn("Notifications endpoint not found, returning empty array");
+      return [];
+    }
+    throw error;
+  }
+}
+
+export async function markNotificationAsRead(id: number): Promise<void> {
+  return request<void>(`/notifications/${id}/read`, {
+    method: "PUT",
+  });
+}
+
+export async function markAllNotificationsAsRead(): Promise<void> {
+  return request<void>("/notifications/read-all", {
+    method: "PUT",
+  });
+}
+
+export async function deleteNotification(id: number): Promise<void> {
+  return request<void>(`/notifications/${id}`, {
+    method: "DELETE",
+  });
+}
+
+// ------ ENTERPRISE SETTINGS (EnterpriseAdmin) ------
+export async function getEnterpriseSettings(): Promise<EnterpriseSettings> {
+  return request<EnterpriseSettings>("/enterprises/me/settings", {
+    method: "GET",
+  });
+}
+
+export async function updateEnterpriseSettings(payload: EnterpriseSettings): Promise<EnterpriseSettings> {
+  return request<EnterpriseSettings>("/enterprises/me/settings", {
+    method: "PUT",
+    json: payload,
+  });
+}
+
+// ------ ENTERPRISE PROFILE (EnterpriseAdmin) ------
+export async function getMyEnterprise(): Promise<Enterprise> {
+  return request<Enterprise>("/enterprises/me", {
+    method: "GET",
+  });
+}
+
+export interface UpdateMyEnterpriseDto {
+  name?: string;
+  description?: string;
+  address?: string;
+  ward?: string;
+  district?: string;
+  province?: string;
+  latitude?: number;
+  longitude?: number;
+  phoneNumber?: string;
+  emailContact?: string;
+  website?: string;
+  businessField?: string;
+  imageUrl?: string;
+}
+
+export async function updateMyEnterprise(payload: UpdateMyEnterpriseDto): Promise<void> {
+  return request<void>("/enterprises/me", {
+    method: "PUT",
+    json: payload,
+  });
+}
+
+// ------ FILE UPLOAD ------
+export interface UploadImageResponse {
+  success: boolean;
+  message?: string;
+  imageUrl: string;
+  publicId?: string;
+  width?: number;
+  height?: number;
+  format?: string;
+}
+
+export async function uploadImage(file: File, folder?: string): Promise<UploadImageResponse> {
+  const formData = new FormData();
+  formData.append("file", file);
+  if (folder) {
+    formData.append("folder", folder);
+  }
+
+  const token = getAuthToken();
+  const headers: HeadersInit = {};
+  if (token) {
+    headers["Authorization"] = `Bearer ${token}`;
+  }
+
+  const url = `${API_BASE_URL}/fileupload/image${folder ? `?folder=${encodeURIComponent(folder)}` : ""}`;
+  const response = await fetch(url, {
+    method: "POST",
+    headers,
+    body: formData,
+    credentials: "omit",
+  });
+
+  if (!response.ok) {
+    const errorText = await response.text();
+    throw new Error(`Upload failed: ${response.status} ${errorText}`);
+  }
+
+  return response.json();
+}
+
+export interface UploadDocumentResponse {
+  success: boolean;
+  message?: string;
+  documentUrl: string;
+  fileName: string;
+}
+
+export async function uploadDocument(file: File): Promise<UploadDocumentResponse> {
+  const formData = new FormData();
+  formData.append("file", file);
+
+  const token = getAuthToken();
+  const headers: HeadersInit = {};
+  if (token) {
+    headers["Authorization"] = `Bearer ${token}`;
+  }
+
+  const url = `${API_BASE_URL}/fileupload/document`;
+  const response = await fetch(url, {
+    method: "POST",
+    headers,
+    body: formData,
+    credentials: "omit",
+  });
+
+  if (!response.ok) {
+    const errorText = await response.text();
+    throw new Error(`Upload failed: ${response.status} ${errorText}`);
+  }
+
+  return response.json();
 }
 
 function extractUserIdFromToken(): number | null {

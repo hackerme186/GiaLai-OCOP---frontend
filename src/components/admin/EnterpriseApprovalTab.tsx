@@ -172,8 +172,11 @@ export default function EnterpriseApprovalTab() {
         <div className="mt-3 flex items-center gap-2">
           <button
             onClick={handleSearch}
-            className="px-4 py-2 bg-indigo-600 text-white rounded hover:bg-indigo-700 text-sm font-medium"
+            className="inline-flex items-center gap-2 px-5 py-2.5 bg-gradient-to-r from-indigo-500 to-indigo-600 text-white rounded-lg shadow-md hover:shadow-lg hover:from-indigo-600 hover:to-indigo-700 text-sm font-medium transition-all duration-200 transform hover:scale-105 active:scale-95"
           >
+            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+            </svg>
             Tìm kiếm
           </button>
           <button
@@ -186,8 +189,11 @@ export default function EnterpriseApprovalTab() {
               })
               setPage(1)
             }}
-            className="px-4 py-2 bg-gray-100 text-gray-700 rounded hover:bg-gray-200 text-sm font-medium"
+            className="inline-flex items-center gap-2 px-5 py-2.5 bg-gradient-to-r from-gray-100 to-gray-200 text-gray-700 rounded-lg shadow-md hover:shadow-lg hover:from-gray-200 hover:to-gray-300 text-sm font-medium transition-all duration-200 transform hover:scale-105 active:scale-95"
           >
+            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+            </svg>
             Xóa lọc
           </button>
         </div>
@@ -248,26 +254,34 @@ export default function EnterpriseApprovalTab() {
                       {item.status || "Pending"}
                     </span>
                   </td>
-                  <td className="px-4 py-3 text-right space-x-2">
-                    {(item.status || "").toLowerCase() === "pending" && (
-                      <>
-                        <button
-                          onClick={() => handleApprove(item.id)}
-                          className="px-3 py-1 rounded bg-green-600 text-white hover:bg-green-700 text-xs font-medium"
-                        >
-                          Duyệt
-                        </button>
-                        <button
-                          onClick={() => setShowRejectModal(item.id)}
-                          className="px-3 py-1 rounded bg-red-600 text-white hover:bg-red-700 text-xs font-medium"
-                        >
-                          Từ chối
-                        </button>
-                      </>
-                    )}
-                    {(item.status || "").toLowerCase() !== "pending" && (
-                      <span className="text-gray-400 text-xs">Đã xử lý</span>
-                    )}
+                  <td className="px-4 py-3 text-right">
+                    <div className="flex items-center justify-end gap-2">
+                      {(item.status || "").toLowerCase() === "pending" && (
+                        <>
+                          <button
+                            onClick={() => handleApprove(item.id)}
+                            className="inline-flex items-center gap-1.5 px-4 py-2 rounded-lg bg-gradient-to-r from-green-500 to-green-600 text-white text-sm font-medium shadow-md hover:shadow-lg hover:from-green-600 hover:to-green-700 transition-all duration-200 transform hover:scale-105 active:scale-95"
+                          >
+                            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                            </svg>
+                            Duyệt
+                          </button>
+                          <button
+                            onClick={() => setShowRejectModal(item.id)}
+                            className="inline-flex items-center gap-1.5 px-4 py-2 rounded-lg bg-gradient-to-r from-red-500 to-red-600 text-white text-sm font-medium shadow-md hover:shadow-lg hover:from-red-600 hover:to-red-700 transition-all duration-200 transform hover:scale-105 active:scale-95"
+                          >
+                            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                            </svg>
+                            Từ chối
+                          </button>
+                        </>
+                      )}
+                      {(item.status || "").toLowerCase() !== "pending" && (
+                        <span className="text-gray-400 text-sm font-medium">Đã xử lý</span>
+                      )}
+                    </div>
                   </td>
                 </tr>
               ))}
@@ -281,23 +295,29 @@ export default function EnterpriseApprovalTab() {
             <span className="text-gray-600">
               Tổng: {filteredApplications.length}
             </span>
-            <div className="space-x-2">
+            <div className="flex items-center gap-2">
               <button
                 disabled={page <= 1}
                 onClick={() => setPage((p) => Math.max(1, p - 1))}
-                className="px-3 py-1 rounded bg-gray-100 disabled:opacity-50 hover:bg-gray-200"
+                className="inline-flex items-center gap-1.5 px-4 py-2 rounded-lg bg-gradient-to-r from-gray-100 to-gray-200 text-gray-700 disabled:opacity-50 disabled:cursor-not-allowed hover:from-gray-200 hover:to-gray-300 text-sm font-medium shadow-sm hover:shadow-md transition-all duration-200 transform hover:scale-105 active:scale-95 disabled:transform-none"
               >
+                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
+                </svg>
                 Trước
               </button>
-              <span className="px-3 py-1">
+              <span className="px-4 py-2 text-sm font-medium text-gray-700">
                 Trang {page}/{totalPages}
               </span>
               <button
                 disabled={page >= totalPages}
                 onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
-                className="px-3 py-1 rounded bg-gray-100 hover:bg-gray-200 disabled:opacity-50"
+                className="inline-flex items-center gap-1.5 px-4 py-2 rounded-lg bg-gradient-to-r from-gray-100 to-gray-200 text-gray-700 disabled:opacity-50 disabled:cursor-not-allowed hover:from-gray-200 hover:to-gray-300 text-sm font-medium shadow-sm hover:shadow-md transition-all duration-200 transform hover:scale-105 active:scale-95 disabled:transform-none"
               >
                 Sau
+                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+                </svg>
               </button>
             </div>
           </div>
@@ -320,20 +340,26 @@ export default function EnterpriseApprovalTab() {
               placeholder="Nhập lý do từ chối..."
               className="w-full border border-gray-300 rounded px-3 py-2 mb-4 min-h-[100px]"
             />
-            <div className="flex justify-end gap-2">
+            <div className="flex justify-end gap-3">
               <button
                 onClick={() => {
                   setRejectReason((prev) => ({ ...prev, [showRejectModal]: "" }))
                   setShowRejectModal(null)
                 }}
-                className="px-4 py-2 bg-gray-100 text-gray-700 rounded hover:bg-gray-200"
+                className="inline-flex items-center gap-2 px-5 py-2.5 bg-gradient-to-r from-gray-100 to-gray-200 text-gray-700 rounded-lg shadow-md hover:shadow-lg hover:from-gray-200 hover:to-gray-300 text-sm font-medium transition-all duration-200 transform hover:scale-105 active:scale-95"
               >
+                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                </svg>
                 Hủy
               </button>
               <button
                 onClick={() => handleReject(showRejectModal)}
-                className="px-4 py-2 bg-red-600 text-white rounded hover:bg-red-700"
+                className="inline-flex items-center gap-2 px-5 py-2.5 bg-gradient-to-r from-red-500 to-red-600 text-white rounded-lg shadow-md hover:shadow-lg hover:from-red-600 hover:to-red-700 text-sm font-medium transition-all duration-200 transform hover:scale-105 active:scale-95"
               >
+                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                </svg>
                 Xác nhận từ chối
               </button>
             </div>

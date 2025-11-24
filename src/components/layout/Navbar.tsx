@@ -16,6 +16,7 @@ const Navbar = () => {
   const [mounted, setMounted] = useState(false)
   const [loggedIn, setLoggedIn] = useState(false)
   const [profile, setProfile] = useState(getUserProfile() || {})
+  const [avatarUrl, setAvatarUrl] = useState<string | null>(null)
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false)
   const [isAdmin, setIsAdmin] = useState(false)
   const [isEnterpriseAdmin, setIsEnterpriseAdmin] = useState(false)
@@ -58,7 +59,23 @@ const Navbar = () => {
     const checkAuthStatus = async () => {
       const authStatus = await isLoggedIn()
       setLoggedIn(authStatus)
-      setProfile(getUserProfile() || {})
+      const currentProfile = getUserProfile() || {}
+      setProfile(currentProfile)
+      
+      // Load avatar khi profile được set
+      if (currentProfile.id && typeof window !== "undefined") {
+        if (currentProfile.avatarUrl) {
+          setAvatarUrl(currentProfile.avatarUrl)
+          localStorage.setItem(`user_avatar_${currentProfile.id}`, currentProfile.avatarUrl)
+        } else {
+          const savedAvatar = localStorage.getItem(`user_avatar_${currentProfile.id}`)
+          if (savedAvatar) {
+            setAvatarUrl(savedAvatar)
+          } else {
+            setAvatarUrl(null)
+          }
+        }
+      }
       
       // Only check admin role if user is logged in
       if (authStatus) {
@@ -67,6 +84,12 @@ const Navbar = () => {
           const role = (me.role || (me as any).roles)?.toString?.().toLowerCase() || ''
           setIsAdmin(role === 'admin' || role === 'systemadmin' || role === 'sysadmin')
           setIsEnterpriseAdmin(role === 'enterpriseadmin')
+          
+          // Update avatar nếu có từ backend
+          if (me.avatarUrl && currentProfile.id) {
+            setAvatarUrl(me.avatarUrl)
+            localStorage.setItem(`user_avatar_${currentProfile.id}`, me.avatarUrl)
+          }
         } catch (error) {
           // Backend might be offline - skip admin check
           console.log('⚠️ Cannot check admin role - backend may be offline')
@@ -479,14 +502,24 @@ const Navbar = () => {
                     </Link>
                     <Link
                       href="/account"
-                      className="flex items-center px-4 py-3 text-base font-medium text-gray-700 hover:text-indigo-600 hover:bg-indigo-50 rounded-lg transition-colors"
+                      className="flex items-center px-4 py-3 text-base font-medium text-gray-700 hover:text-orange-600 hover:bg-orange-50 rounded-lg transition-all duration-200"
                       onClick={() => setMobileMenuOpen(false)}
                     >
-                      <div className="w-8 h-8 rounded-full overflow-hidden bg-gradient-to-br from-indigo-400 to-purple-500 flex items-center justify-center mr-3 ring-2 ring-indigo-200">
-                        {profile.avatarUrl ? (
-                          <Image src={profile.avatarUrl} alt={profile.name || 'avatar'} width={32} height={32} className="object-cover" />
+                      <div className="w-9 h-9 rounded-full overflow-hidden bg-gradient-to-br from-orange-400 to-orange-500 flex items-center justify-center mr-3 ring-2 ring-orange-200 shadow-md hover:ring-orange-300 hover:shadow-lg transition-all duration-200">
+                        {avatarUrl ? (
+                          <Image 
+                            src={avatarUrl} 
+                            alt={profile.name || 'avatar'} 
+                            width={36} 
+                            height={36} 
+                            className="object-cover w-full h-full"
+                            onError={() => {
+                              // Fallback to initial if image fails to load
+                              setAvatarUrl(null)
+                            }}
+                          />
                         ) : (
-                          <span className="text-white text-sm font-bold">{profile.name?.[0]?.toUpperCase() || '👤'}</span>
+                          <span className="text-white text-base font-bold">{profile.name?.[0]?.toUpperCase() || 'U'}</span>
                         )}
                       </div>
                       <span className="font-semibold">{profile.name || 'Account'}</span>

@@ -1,7 +1,8 @@
 "use client"
 
 import { useEffect, useMemo, useState } from "react"
-import { Product, getProducts, updateProductStatus } from "@/lib/api"
+import Image from "next/image"
+import { Product, getProducts, updateProductStatus, getEnterprise, Enterprise } from "@/lib/api"
 
 const PAGE_SIZE = 10
 
@@ -14,6 +15,8 @@ export default function OcopApprovalTab() {
   const [rejectReason, setRejectReason] = useState<Record<number, string>>({})
   const [showRejectModal, setShowRejectModal] = useState<number | null>(null)
   const [selectedProduct, setSelectedProduct] = useState<Product | null>(null)
+  const [enterpriseData, setEnterpriseData] = useState<Record<number, Enterprise>>({})
+  const [loadingEnterprise, setLoadingEnterprise] = useState<Record<number, boolean>>({})
 
   useEffect(() => {
     loadProducts()
@@ -110,6 +113,61 @@ export default function OcopApprovalTab() {
     setPage(1)
   }
 
+  const loadEnterpriseData = async (enterpriseId: number) => {
+    if (!enterpriseId) {
+      console.warn('⚠️ Product has no enterpriseId')
+      return
+    }
+
+    // Skip if already loaded or loading
+    if (enterpriseData[enterpriseId] || loadingEnterprise[enterpriseId]) {
+      return
+    }
+
+    console.log(`📡 Loading enterprise data for ID: ${enterpriseId}`)
+    setLoadingEnterprise(prev => ({ ...prev, [enterpriseId]: true }))
+    try {
+      const enterprise = await getEnterprise(enterpriseId)
+      console.log(`✅ Loaded enterprise:`, enterprise)
+      setEnterpriseData(prev => ({ ...prev, [enterpriseId]: enterprise }))
+    } catch (err) {
+      console.error(`❌ Failed to load enterprise ${enterpriseId}:`, err)
+      // Don't show error to user, just log it
+    } finally {
+      setLoadingEnterprise(prev => ({ ...prev, [enterpriseId]: false }))
+    }
+  }
+
+  const handleShowProductDetails = (product: Product) => {
+    console.log('🔍 Opening product details:', {
+      id: product.id,
+      name: product.name,
+      enterpriseId: product.enterpriseId,
+      hasEnterprise: !!product.enterprise,
+      enterpriseName: product.enterprise?.name
+    })
+    setSelectedProduct(product)
+    // Load enterprise data if we have enterpriseId but no enterprise object
+    if (product.enterpriseId && !product.enterprise) {
+      loadEnterpriseData(product.enterpriseId)
+    } else if (!product.enterpriseId) {
+      console.warn(`⚠️ Product ${product.id} (${product.name}) has no enterpriseId`)
+    }
+  }
+
+  const getEnterpriseName = (product: Product): string => {
+    // First try to get from nested enterprise object
+    if (product.enterprise?.name) {
+      return product.enterprise.name
+    }
+    // Then try to get from loaded enterprise data
+    if (product.enterpriseId && enterpriseData[product.enterpriseId]?.name) {
+      return enterpriseData[product.enterpriseId].name
+    }
+    // Fallback to "-"
+    return "-"
+  }
+
   return (
     <div>
       <h2 className="text-2xl font-semibold text-gray-900 mb-6">Duyệt sản phẩm OCOP</h2>
@@ -140,8 +198,11 @@ export default function OcopApprovalTab() {
           <div className="flex gap-2">
             <button
               onClick={handleSearch}
-              className="px-4 py-2 bg-indigo-600 text-white rounded hover:bg-indigo-700 text-sm font-medium"
+              className="inline-flex items-center gap-2 px-5 py-2.5 bg-gradient-to-r from-indigo-500 to-indigo-600 text-white rounded-lg shadow-md hover:shadow-lg hover:from-indigo-600 hover:to-indigo-700 text-sm font-medium transition-all duration-200 transform hover:scale-105 active:scale-95"
             >
+              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+              </svg>
               Tìm kiếm
             </button>
             <button
@@ -149,8 +210,11 @@ export default function OcopApprovalTab() {
                 setFilters({ search: "", status: "PendingApproval" })
                 setPage(1)
               }}
-              className="px-4 py-2 bg-gray-100 text-gray-700 rounded hover:bg-gray-200 text-sm font-medium"
+              className="inline-flex items-center gap-2 px-5 py-2.5 bg-gradient-to-r from-gray-100 to-gray-200 text-gray-700 rounded-lg shadow-md hover:shadow-lg hover:from-gray-200 hover:to-gray-300 text-sm font-medium transition-all duration-200 transform hover:scale-105 active:scale-95"
             >
+              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+              </svg>
               Xóa lọc
             </button>
           </div>
@@ -202,29 +266,41 @@ export default function OcopApprovalTab() {
                           : "Đã từ chối"}
                     </span>
                   </td>
-                  <td className="px-4 py-3 text-right space-x-2">
-                    <button
-                      onClick={() => setSelectedProduct(item)}
-                      className="px-3 py-1 rounded bg-blue-100 text-blue-700 hover:bg-blue-200 text-xs font-medium"
-                    >
-                      Chi tiết
-                    </button>
-                    {item.status === "PendingApproval" && (
-                      <>
-                        <button
-                          onClick={() => handleApprove(item)}
-                          className="px-3 py-1 rounded bg-green-600 text-white hover:bg-green-700 text-xs font-medium"
-                        >
-                          Duyệt
-                        </button>
-                        <button
-                          onClick={() => setShowRejectModal(item.id)}
-                          className="px-3 py-1 rounded bg-red-600 text-white hover:bg-red-700 text-xs font-medium"
-                        >
-                          Từ chối
-                        </button>
-                      </>
-                    )}
+                  <td className="px-4 py-3 text-right">
+                    <div className="flex items-center justify-end gap-2">
+                      <button
+                        onClick={() => handleShowProductDetails(item)}
+                        className="inline-flex items-center gap-1.5 px-4 py-2 rounded-lg bg-gradient-to-r from-blue-500 to-blue-600 text-white text-sm font-medium shadow-md hover:shadow-lg hover:from-blue-600 hover:to-blue-700 transition-all duration-200 transform hover:scale-105 active:scale-95"
+                      >
+                        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
+                        </svg>
+                        Chi tiết
+                      </button>
+                      {item.status === "PendingApproval" && (
+                        <>
+                          <button
+                            onClick={() => handleApprove(item)}
+                            className="inline-flex items-center gap-1.5 px-4 py-2 rounded-lg bg-gradient-to-r from-green-500 to-green-600 text-white text-sm font-medium shadow-md hover:shadow-lg hover:from-green-600 hover:to-green-700 transition-all duration-200 transform hover:scale-105 active:scale-95"
+                          >
+                            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                            </svg>
+                            Duyệt
+                          </button>
+                          <button
+                            onClick={() => setShowRejectModal(item.id)}
+                            className="inline-flex items-center gap-1.5 px-4 py-2 rounded-lg bg-gradient-to-r from-red-500 to-red-600 text-white text-sm font-medium shadow-md hover:shadow-lg hover:from-red-600 hover:to-red-700 transition-all duration-200 transform hover:scale-105 active:scale-95"
+                          >
+                            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                            </svg>
+                            Từ chối
+                          </button>
+                        </>
+                      )}
+                    </div>
                   </td>
                 </tr>
               ))}
@@ -238,23 +314,29 @@ export default function OcopApprovalTab() {
             <span className="text-gray-600">
               Tổng: {filteredProducts.length}
             </span>
-            <div className="space-x-2">
+            <div className="flex items-center gap-2">
               <button
                 disabled={page <= 1}
                 onClick={() => setPage((p) => Math.max(1, p - 1))}
-                className="px-3 py-1 rounded bg-gray-100 disabled:opacity-50 hover:bg-gray-200"
+                className="inline-flex items-center gap-1.5 px-4 py-2 rounded-lg bg-gradient-to-r from-gray-100 to-gray-200 text-gray-700 disabled:opacity-50 disabled:cursor-not-allowed hover:from-gray-200 hover:to-gray-300 text-sm font-medium shadow-sm hover:shadow-md transition-all duration-200 transform hover:scale-105 active:scale-95 disabled:transform-none"
               >
+                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
+                </svg>
                 Trước
               </button>
-              <span className="px-3 py-1">
+              <span className="px-4 py-2 text-sm font-medium text-gray-700">
                 Trang {page}/{totalPages}
               </span>
               <button
                 disabled={page >= totalPages}
                 onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
-                className="px-3 py-1 rounded bg-gray-100 hover:bg-gray-200 disabled:opacity-50"
+                className="inline-flex items-center gap-1.5 px-4 py-2 rounded-lg bg-gradient-to-r from-gray-100 to-gray-200 text-gray-700 disabled:opacity-50 disabled:cursor-not-allowed hover:from-gray-200 hover:to-gray-300 text-sm font-medium shadow-sm hover:shadow-md transition-all duration-200 transform hover:scale-105 active:scale-95 disabled:transform-none"
               >
                 Sau
+                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+                </svg>
               </button>
             </div>
           </div>
@@ -264,56 +346,179 @@ export default function OcopApprovalTab() {
       {/* Detail Modal */}
       {selectedProduct && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-lg p-6 max-w-2xl w-full max-h-[90vh] overflow-y-auto">
-            <div className="flex justify-between items-center mb-4">
-              <h3 className="text-lg font-semibold">Chi tiết sản phẩm OCOP</h3>
+          <div className="bg-white rounded-2xl shadow-2xl max-w-3xl w-full max-h-[90vh] overflow-y-auto">
+            <div className="sticky top-0 bg-white border-b border-gray-200 px-6 py-4 flex items-center justify-between z-10">
+              <h3 className="text-2xl font-bold text-gray-900">Chi tiết sản phẩm OCOP</h3>
               <button
                 onClick={() => setSelectedProduct(null)}
-                className="text-gray-400 hover:text-gray-600"
+                className="text-gray-400 hover:text-gray-600 transition-colors"
               >
-                ✕
+                <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                </svg>
               </button>
             </div>
-            <div className="space-y-3 text-sm">
-              <div>
-                <strong>Tên sản phẩm:</strong> {selectedProduct.name}
-              </div>
-              <div>
-                <strong>Doanh nghiệp:</strong>{" "}
-                {selectedProduct.enterprise?.name || "-"}
-              </div>
-              <div>
-                <strong>Danh mục:</strong>{" "}
-                {selectedProduct.categoryName || "-"}
-              </div>
-              <div>
-                <strong>Giá:</strong>{" "}
-                {selectedProduct.price
-                  ? selectedProduct.price.toLocaleString("vi-VN") + " ₫"
-                  : "-"}
-              </div>
-              <div>
-                <strong>OCOP Rating:</strong>{" "}
-                {selectedProduct.ocopRating
-                  ? `${selectedProduct.ocopRating} sao`
-                  : "Chưa gán"}
-              </div>
-              <div>
-                <strong>Mô tả:</strong>{" "}
-                {selectedProduct.description || "-"}
-              </div>
+            
+            <div className="p-6">
+              {/* Image Section */}
               {selectedProduct.imageUrl && (
-                <div>
-                  <strong>Hình ảnh:</strong>{" "}
-                  <a
-                    href={selectedProduct.imageUrl}
-                    target="_blank"
-                    className="text-indigo-600 underline"
-                  >
-                    Xem ảnh
-                  </a>
+                <div className="mb-6">
+                  <label className="block text-sm font-semibold text-gray-700 mb-2">
+                    Hình ảnh sản phẩm
+                  </label>
+                  <div className="relative w-full h-64 bg-gray-100 rounded-lg overflow-hidden border-2 border-gray-200">
+                    <Image
+                      src={selectedProduct.imageUrl}
+                      alt={selectedProduct.name}
+                      fill
+                      className="object-cover"
+                      unoptimized
+                      onError={(e) => {
+                        const target = e.target as HTMLImageElement;
+                        if (target.src !== '/hero.jpg') {
+                          target.src = '/hero.jpg';
+                        }
+                      }}
+                    />
+                  </div>
+                  {selectedProduct.imageUrl.startsWith('http') && (
+                    <a
+                      href={selectedProduct.imageUrl}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="mt-2 text-sm text-indigo-600 hover:text-indigo-800 underline inline-flex items-center gap-1"
+                    >
+                      Mở ảnh trong tab mới
+                      <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
+                      </svg>
+                    </a>
+                  )}
                 </div>
               )}
+
+              {/* Product Information Grid */}
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                {/* Left Column */}
+                <div className="space-y-4">
+                  <div>
+                    <label className="block text-sm font-semibold text-gray-700 mb-1">
+                      Tên sản phẩm
+                    </label>
+                    <p className="text-base text-gray-900 font-medium">
+                      {selectedProduct.name || "-"}
+                    </p>
+                  </div>
+
+                  <div>
+                    <label className="block text-sm font-semibold text-gray-700 mb-1">
+                      Doanh nghiệp
+                    </label>
+                    {loadingEnterprise[selectedProduct.enterpriseId || 0] ? (
+                      <p className="text-base text-gray-500 italic">Đang tải...</p>
+                    ) : (
+                      <p className="text-base text-gray-900">
+                        {getEnterpriseName(selectedProduct)}
+                      </p>
+                    )}
+                  </div>
+
+                  <div>
+                    <label className="block text-sm font-semibold text-gray-700 mb-1">
+                      Danh mục
+                    </label>
+                    <p className="text-base text-gray-900">
+                      {selectedProduct.categoryName || "-"}
+                    </p>
+                  </div>
+
+                  <div>
+                    <label className="block text-sm font-semibold text-gray-700 mb-1">
+                      Giá (VNĐ)
+                    </label>
+                    <p className="text-lg text-green-600 font-bold">
+                      {selectedProduct.price
+                        ? selectedProduct.price.toLocaleString("vi-VN") + " ₫"
+                        : "-"}
+                    </p>
+                  </div>
+                </div>
+
+                {/* Right Column */}
+                <div className="space-y-4">
+                  <div>
+                    <label className="block text-sm font-semibold text-gray-700 mb-1">
+                      Tình trạng kho
+                    </label>
+                    <span
+                      className={`inline-block px-3 py-1 rounded-full text-sm font-medium ${
+                        selectedProduct.stockStatus === "InStock"
+                          ? "bg-green-100 text-green-800"
+                          : selectedProduct.stockStatus === "OutOfStock"
+                          ? "bg-red-100 text-red-800"
+                          : "bg-gray-100 text-gray-800"
+                      }`}
+                    >
+                      {selectedProduct.stockStatus === "InStock"
+                        ? "Còn hàng"
+                        : selectedProduct.stockStatus === "OutOfStock"
+                        ? "Hết hàng"
+                        : selectedProduct.stockStatus || "Không xác định"}
+                    </span>
+                  </div>
+
+                  <div>
+                    <label className="block text-sm font-semibold text-gray-700 mb-1">
+                      OCOP Rating
+                    </label>
+                    {selectedProduct.ocopRating ? (
+                      <div className="flex items-center gap-2">
+                        <span className="text-lg font-bold text-yellow-600">
+                          ⭐ {selectedProduct.ocopRating}
+                        </span>
+                        <span className="text-sm text-gray-600">sao</span>
+                      </div>
+                    ) : (
+                      <p className="text-base text-gray-500 italic">Chưa gán</p>
+                    )}
+                  </div>
+
+                  <div>
+                    <label className="block text-sm font-semibold text-gray-700 mb-1">
+                      Trạng thái duyệt
+                    </label>
+                    <span
+                      className={`inline-block px-3 py-1 rounded-full text-sm font-medium ${
+                        selectedProduct.status === "Approved"
+                          ? "bg-green-100 text-green-800"
+                          : selectedProduct.status === "PendingApproval"
+                          ? "bg-yellow-100 text-yellow-800"
+                          : "bg-red-100 text-red-800"
+                      }`}
+                    >
+                      {selectedProduct.status === "Approved"
+                        ? "Đã duyệt"
+                        : selectedProduct.status === "PendingApproval"
+                        ? "Chờ duyệt"
+                        : "Đã từ chối"}
+                    </span>
+                  </div>
+                </div>
+              </div>
+
+              {/* Description Section */}
+              <div className="mt-6 pt-6 border-t border-gray-200">
+                <label className="block text-sm font-semibold text-gray-700 mb-2">
+                  Mô tả sản phẩm
+                </label>
+                <div className="bg-gray-50 rounded-lg p-4 min-h-[100px]">
+                  <p className="text-base text-gray-700 whitespace-pre-wrap">
+                    {selectedProduct.description || (
+                      <span className="text-gray-400 italic">Không có mô tả</span>
+                    )}
+                  </p>
+                </div>
+              </div>
             </div>
           </div>
         </div>
@@ -335,14 +540,17 @@ export default function OcopApprovalTab() {
               placeholder="Nhập lý do từ chối..."
               className="w-full border border-gray-300 rounded px-3 py-2 mb-4 min-h-[100px]"
             />
-            <div className="flex justify-end gap-2">
+            <div className="flex justify-end gap-3">
               <button
                 onClick={() => {
                   setRejectReason((prev) => ({ ...prev, [showRejectModal]: "" }))
                   setShowRejectModal(null)
                 }}
-                className="px-4 py-2 bg-gray-100 text-gray-700 rounded hover:bg-gray-200"
+                className="inline-flex items-center gap-2 px-5 py-2.5 bg-gradient-to-r from-gray-100 to-gray-200 text-gray-700 rounded-lg shadow-md hover:shadow-lg hover:from-gray-200 hover:to-gray-300 text-sm font-medium transition-all duration-200 transform hover:scale-105 active:scale-95"
               >
+                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                </svg>
                 Hủy
               </button>
               <button
@@ -352,8 +560,11 @@ export default function OcopApprovalTab() {
                     handleReject(product)
                   }
                 }}
-                className="px-4 py-2 bg-red-600 text-white rounded hover:bg-red-700"
+                className="inline-flex items-center gap-2 px-5 py-2.5 bg-gradient-to-r from-red-500 to-red-600 text-white rounded-lg shadow-md hover:shadow-lg hover:from-red-600 hover:to-red-700 text-sm font-medium transition-all duration-200 transform hover:scale-105 active:scale-95"
               >
+                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                </svg>
                 Xác nhận từ chối
               </button>
             </div>
