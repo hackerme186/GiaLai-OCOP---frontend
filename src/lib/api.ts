@@ -255,6 +255,8 @@ export interface Enterprise {
   businessField: string;
   imageUrl?: string;
   averageRating?: number;
+  approvalStatus?: string;
+  rejectionReason?: string;
 }
 
 // Enterprise Application (OCOP Registration)
