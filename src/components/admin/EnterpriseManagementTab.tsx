@@ -63,6 +63,7 @@ export default function EnterpriseManagementTab() {
         longitude: editingEnterprise.longitude,
         averageRating: editingEnterprise.averageRating,
         approvalStatus: "Approved",
+        rejectionReason: null,
         products: [],
         users: [],
       }
