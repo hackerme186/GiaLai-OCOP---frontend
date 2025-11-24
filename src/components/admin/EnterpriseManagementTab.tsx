@@ -46,7 +46,7 @@ export default function EnterpriseManagementTab() {
 
     try {
       // Update Enterprise với ApprovalStatus = "Approved"
-      await updateEnterprise(editingEnterprise.id, {
+      const payload: Partial<Enterprise> = {
         id: editingEnterprise.id,
         name: editingEnterprise.name,
         description: editingEnterprise.description || "",
@@ -63,10 +63,11 @@ export default function EnterpriseManagementTab() {
         longitude: editingEnterprise.longitude,
         averageRating: editingEnterprise.averageRating,
         approvalStatus: "Approved",
-        rejectionReason: undefined,
         products: [],
         users: [],
-      })
+      }
+      // Không gửi rejectionReason khi approve
+      await updateEnterprise(editingEnterprise.id, payload)
       alert("Đã duyệt doanh nghiệp thành công!")
       setShowApproveModal(false)
       setEditingEnterprise(null)
