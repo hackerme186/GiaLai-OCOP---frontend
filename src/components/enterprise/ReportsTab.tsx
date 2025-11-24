@@ -21,20 +21,17 @@ export default function ReportsTab({ user }: ReportsTabProps) {
       setLoading(true)
       
       // Load orders
+      // Backend đã tự động filter orders theo EnterpriseId từ JWT token
       const ordersData = await getOrders()
       const ordersList = Array.isArray(ordersData) ? ordersData : (ordersData as any)?.items || []
-      
-      // Filter orders by enterprise
-      const enterpriseOrders = ordersList.filter((order: Order) => 
-        order.orderItems?.some(item => item.enterpriseId === user?.enterpriseId)
-      )
-      setOrders(enterpriseOrders)
+      setOrders(ordersList)
 
       // Load products
-      if (user?.enterpriseId) {
-            const productsData = await getProducts({ pageSize: 100 })
-        setProducts(productsData)
-      }
+      // Backend đã tự động filter products theo EnterpriseId từ JWT token
+      const productsData = await getProducts({ pageSize: 100 })
+      setProducts(productsData)
+      
+      console.log(`✅ Loaded ${ordersList.length} orders and ${productsData.length} products for Reports`)
     } catch (err) {
       console.error("Failed to load data:", err)
     } finally {
@@ -45,12 +42,12 @@ export default function ReportsTab({ user }: ReportsTabProps) {
   // Calculate statistics
   const stats = useMemo(() => {
     // Total revenue (only Completed orders)
+    // Backend đã filter orders theo EnterpriseId, nên tất cả orders đều thuộc enterprise này
     const completedOrders = orders.filter(o => o.status?.toLowerCase() === "completed")
     const totalRevenue = completedOrders.reduce((sum, order) => {
-      const enterpriseTotal = order.orderItems
-        ?.filter(item => item.enterpriseId === user?.enterpriseId)
-        ?.reduce((itemSum, item) => itemSum + (item.price * item.quantity), 0) || 0
-      return sum + enterpriseTotal
+      // Tất cả orderItems trong orders đã được filter đều thuộc enterprise này
+      const orderTotal = order.orderItems?.reduce((itemSum, item) => itemSum + (item.price * item.quantity), 0) || 0
+      return sum + orderTotal
     }, 0)
 
     // Orders by status
@@ -65,18 +62,17 @@ export default function ReportsTab({ user }: ReportsTabProps) {
     // Best selling products
     const productSales = new Map<number, { product: Product; totalSold: number; revenue: number }>()
     
+    // Backend đã filter orders theo EnterpriseId, nên tất cả orderItems đều thuộc enterprise này
     orders.forEach(order => {
       order.orderItems?.forEach(item => {
-        if (item.enterpriseId === user?.enterpriseId) {
-          const current = productSales.get(item.productId) || {
-            product: products.find(p => p.id === item.productId) || {} as Product,
-            totalSold: 0,
-            revenue: 0
-          }
-          current.totalSold += item.quantity
-          current.revenue += item.price * item.quantity
-          productSales.set(item.productId, current)
+        const current = productSales.get(item.productId) || {
+          product: products.find(p => p.id === item.productId) || {} as Product,
+          totalSold: 0,
+          revenue: 0
         }
+        current.totalSold += item.quantity
+        current.revenue += item.price * item.quantity
+        productSales.set(item.productId, current)
       })
     })
 

@@ -1,22 +1,10 @@
 "use client"
 
 import { useEffect, useState } from "react"
-import { getProducts, type Product, type User } from "@/lib/api"
+import { getProducts, getInventoryHistory, adjustInventory, type Product, type User, type InventoryHistory } from "@/lib/api"
 
 interface InventoryTabProps {
   user: User | null
-}
-
-interface InventoryHistory {
-  id: number
-  productId: number
-  productName: string
-  type: "import" | "export" | "adjustment"
-  quantity: number
-  previousQuantity: number
-  newQuantity: number
-  reason: string
-  createdAt: string
 }
 
 export default function InventoryTab({ user }: InventoryTabProps) {
@@ -28,6 +16,8 @@ export default function InventoryTab({ user }: InventoryTabProps) {
   const [adjustReason, setAdjustReason] = useState("")
   const [lowStockThreshold, setLowStockThreshold] = useState(10)
   const [inventoryHistory, setInventoryHistory] = useState<InventoryHistory[]>([])
+  const [loadingHistory, setLoadingHistory] = useState(false)
+  const [saving, setSaving] = useState(false)
 
   useEffect(() => {
     if (user?.enterpriseId) {
@@ -48,10 +38,17 @@ export default function InventoryTab({ user }: InventoryTabProps) {
     }
   }
 
-  const loadInventoryHistory = async () => {
-    // TODO: Implement API call to get inventory history
-    // For now, use mock data
-    setInventoryHistory([])
+  const loadInventoryHistory = async (productId?: number) => {
+    try {
+      setLoadingHistory(true)
+      const response = await getInventoryHistory({ productId, pageSize: 50 })
+      setInventoryHistory(response.items || [])
+    } catch (err) {
+      console.error("Failed to load inventory history:", err)
+      setInventoryHistory([])
+    } finally {
+      setLoadingHistory(false)
+    }
   }
 
   const handleAdjustStock = async () => {
@@ -67,40 +64,20 @@ export default function InventoryTab({ user }: InventoryTabProps) {
     }
 
     try {
-      // TODO: Implement API call to adjust stock
-      // Calculate new quantity
-      const currentQuantity = selectedProduct.stockQuantity ?? 0
-      const newQuantity = Math.max(0, currentQuantity + quantity) // Không cho phép số âm
+      setSaving(true)
       
-      // Determine new stock status based on quantity
-      let newStockStatus: string
-      if (newQuantity === 0) {
-        newStockStatus = "OutOfStock"
-      } else if (newQuantity <= lowStockThreshold) {
-        newStockStatus = "LowStock"
-      } else {
-        newStockStatus = "InStock"
-      }
-      
-      // Add to history
-      const historyItem: InventoryHistory = {
-        id: Date.now(),
+      // Call API to adjust inventory
+      const history = await adjustInventory({
         productId: selectedProduct.id,
-        productName: selectedProduct.name,
         type: quantity > 0 ? "import" : "export",
-        quantity: Math.abs(quantity),
-        previousQuantity: currentQuantity,
-        newQuantity: newQuantity,
+        quantity: quantity,
         reason: adjustReason,
-        createdAt: new Date().toISOString(),
-      }
+        lowStockThreshold: lowStockThreshold,
+      })
       
-      setInventoryHistory(prev => [historyItem, ...prev])
-      setProducts(prev => prev.map(p => 
-        p.id === selectedProduct.id 
-          ? { ...p, stockQuantity: newQuantity, stockStatus: newStockStatus }
-          : p
-      ))
+      // Refresh products and history
+      await loadProducts()
+      await loadInventoryHistory(selectedProduct.id)
       
       setShowAdjustModal(false)
       setAdjustQuantity("")
@@ -109,7 +86,9 @@ export default function InventoryTab({ user }: InventoryTabProps) {
       alert("Đã cập nhật tồn kho thành công!")
     } catch (err) {
       console.error("Failed to adjust stock:", err)
-      alert("Không thể cập nhật tồn kho")
+      alert(err instanceof Error ? err.message : "Không thể cập nhật tồn kho")
+    } finally {
+      setSaving(false)
     }
   }
 
@@ -290,8 +269,9 @@ export default function InventoryTab({ user }: InventoryTabProps) {
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap">
                       <button
-                        onClick={() => {
+                        onClick={async () => {
                           setSelectedProduct(product)
+                          await loadInventoryHistory(product.id)
                           setShowAdjustModal(true)
                         }}
                         className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 text-sm font-medium"
@@ -310,7 +290,12 @@ export default function InventoryTab({ user }: InventoryTabProps) {
       {/* Inventory History */}
       <div className="bg-white rounded-xl shadow-lg p-6">
         <h3 className="text-xl font-bold text-gray-900 mb-4">Lịch sử thay đổi tồn kho</h3>
-        {inventoryHistory.length === 0 ? (
+        {loadingHistory ? (
+          <div className="text-center py-8">
+            <div className="animate-spin rounded-full h-8 w-8 border-4 border-green-200 border-t-green-600 mx-auto mb-4" />
+            <p className="text-gray-600">Đang tải lịch sử...</p>
+          </div>
+        ) : inventoryHistory.length === 0 ? (
           <p className="text-gray-500 text-center py-8">Chưa có lịch sử thay đổi</p>
         ) : (
           <div className="space-y-3">
@@ -414,9 +399,10 @@ export default function InventoryTab({ user }: InventoryTabProps) {
               </button>
               <button
                 onClick={handleAdjustStock}
-                className="flex-1 px-6 py-3 bg-gradient-to-r from-green-600 to-emerald-600 text-white rounded-lg font-semibold hover:from-green-700 hover:to-emerald-700"
+                disabled={saving}
+                className="flex-1 px-6 py-3 bg-gradient-to-r from-green-600 to-emerald-600 text-white rounded-lg font-semibold hover:from-green-700 hover:to-emerald-700 disabled:bg-gray-300 disabled:cursor-not-allowed"
               >
-                Xác nhận
+                {saving ? "Đang lưu..." : "Xác nhận"}
               </button>
             </div>
           </div>

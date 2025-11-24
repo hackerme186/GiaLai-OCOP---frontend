@@ -7,6 +7,7 @@ import { getCurrentUser } from "@/lib/api"
 import { getAuthToken, getRoleFromToken } from "@/lib/auth"
 import AdminHeader, { type TabType } from "@/components/admin/AdminHeader"
 import EnterpriseApprovalTab from "@/components/admin/EnterpriseApprovalTab"
+import EnterpriseManagementTab from "@/components/admin/EnterpriseManagementTab"
 import OcopApprovalTab from "@/components/admin/OcopApprovalTab"
 import CategoryManagementTab from "@/components/admin/CategoryManagementTab"
 import ProvinceReportTab from "@/components/admin/ProvinceReportTab"
@@ -90,6 +91,9 @@ export default function AdminPage() {
             )}
             {activeTab === 'enterprise-approval' && (
               <EnterpriseApprovalTab />
+            )}
+            {activeTab === 'enterprise-management' && (
+              <EnterpriseManagementTab />
             )}
             {activeTab === 'ocop-approval' && (
               <OcopApprovalTab />

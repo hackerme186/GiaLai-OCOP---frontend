@@ -1,20 +1,10 @@
 "use client"
 
 import { useEffect, useState } from "react"
-import { type User } from "@/lib/api"
+import { getNotifications, markNotificationAsRead, markAllNotificationsAsRead, deleteNotification, type User, type Notification } from "@/lib/api"
 
 interface NotificationsTabProps {
   user: User | null
-}
-
-interface Notification {
-  id: number
-  type: "product_approved" | "product_rejected" | "new_order" | "low_stock" | "system"
-  title: string
-  message: string
-  read: boolean
-  createdAt: string
-  link?: string
 }
 
 export default function NotificationsTab({ user }: NotificationsTabProps) {
@@ -27,63 +17,51 @@ export default function NotificationsTab({ user }: NotificationsTabProps) {
     // Poll for new notifications every 30 seconds
     const interval = setInterval(loadNotifications, 30000)
     return () => clearInterval(interval)
-  }, [])
+  }, [filter])
 
   const loadNotifications = async () => {
     try {
       setLoading(true)
-      // TODO: Implement API call to get notifications
-      // For now, use mock data
-      const mockNotifications: Notification[] = [
-        {
-          id: 1,
-          type: "product_approved",
-          title: "Sản phẩm đã được duyệt",
-          message: "Sản phẩm 'Cà phê Gia Lai' đã được System Admin phê duyệt",
-          read: false,
-          createdAt: new Date().toISOString(),
-          link: "/enterprise-admin?tab=products",
-        },
-        {
-          id: 2,
-          type: "new_order",
-          title: "Đơn hàng mới",
-          message: "Bạn có đơn hàng mới #1234",
-          read: false,
-          createdAt: new Date(Date.now() - 3600000).toISOString(),
-          link: "/enterprise-admin?tab=orders",
-        },
-        {
-          id: 3,
-          type: "low_stock",
-          title: "Cảnh báo tồn thấp",
-          message: "Sản phẩm 'Hạt điều' đang tồn thấp",
-          read: true,
-          createdAt: new Date(Date.now() - 7200000).toISOString(),
-          link: "/enterprise-admin?tab=inventory",
-        },
-      ]
-      setNotifications(mockNotifications)
+      const params: { unreadOnly?: boolean } = {}
+      if (filter === "unread") params.unreadOnly = true
+      const data = await getNotifications(params)
+      setNotifications(data)
     } catch (err) {
       console.error("Failed to load notifications:", err)
+      setNotifications([])
     } finally {
       setLoading(false)
     }
   }
 
   const markAsRead = async (id: number) => {
-    // TODO: Implement API call to mark notification as read
-    setNotifications(prev => prev.map(n => n.id === id ? { ...n, read: true } : n))
+    try {
+      await markNotificationAsRead(id)
+      setNotifications(prev => prev.map(n => n.id === id ? { ...n, read: true } : n))
+    } catch (err) {
+      console.error("Failed to mark as read:", err)
+    }
   }
 
-  const markAllAsRead = async () => {
-    // TODO: Implement API call to mark all as read
-    setNotifications(prev => prev.map(n => ({ ...n, read: true })))
+  const handleMarkAllAsRead = async () => {
+    try {
+      await markAllNotificationsAsRead()
+      setNotifications(prev => prev.map(n => ({ ...n, read: true })))
+    } catch (err) {
+      console.error("Failed to mark all as read:", err)
+    }
   }
 
-  const deleteNotification = async (id: number) => {
-    // TODO: Implement API call to delete notification
-    setNotifications(prev => prev.filter(n => n.id !== id))
+  const handleDeleteNotification = async (id: number) => {
+    if (!confirm("Bạn có chắc muốn xóa thông báo này?")) return
+    
+    try {
+      await deleteNotification(id)
+      setNotifications(prev => prev.filter(n => n.id !== id))
+    } catch (err) {
+      console.error("Failed to delete notification:", err)
+      alert("Không thể xóa thông báo")
+    }
   }
 
   const getNotificationIcon = (type: string) => {
@@ -136,7 +114,7 @@ export default function NotificationsTab({ user }: NotificationsTabProps) {
           </div>
           {unreadCount > 0 && (
             <button
-              onClick={markAllAsRead}
+              onClick={handleMarkAllAsRead}
               className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 text-sm font-medium"
             >
               Đánh dấu tất cả đã đọc
@@ -214,7 +192,7 @@ export default function NotificationsTab({ user }: NotificationsTabProps) {
                         </button>
                       )}
                       <button
-                        onClick={() => deleteNotification(notification.id)}
+                        onClick={() => handleDeleteNotification(notification.id)}
                         className="text-xs text-red-600 hover:text-red-800 font-medium"
                       >
                         Xóa
