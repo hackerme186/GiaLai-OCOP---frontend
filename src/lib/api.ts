@@ -360,6 +360,7 @@ export interface Order {
   orderItems?: OrderItem[];
   payments?: Payment[];
   enterpriseApprovalStatus?: string;
+  shipperId?: number;
 }
 
 export interface CreateOrderDto {
@@ -460,6 +461,7 @@ export interface ShippingMethod {
   name: string;
   enabled: boolean;
   fee: number;
+  description?: string;
 }
 
 export interface EnterpriseSettings {

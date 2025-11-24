@@ -6,7 +6,7 @@ import { useState, useEffect, useMemo } from "react"
 import { logout } from "@/lib/auth"
 import { getCurrentUser } from "@/lib/api"
 
-export type TabType = 'dashboard' | 'enterprise-approval' | 'enterprise-management' | 'ocop-approval' | 'categories' | 'reports'
+export type TabType = 'dashboard' | 'enterprise-approval' | 'enterprise-management' | 'ocop-approval' | 'categories' | 'images' | 'reports'
 
 interface AdminHeaderProps {
   activeTab: TabType
@@ -53,7 +53,7 @@ export default function AdminHeader({ activeTab, onTabChange }: AdminHeaderProps
   const roleNormalized = (userRole || "").toLowerCase()
 
   const roleTabMap: Record<string, TabType[]> = {
-    systemadmin: ['dashboard', 'enterprise-approval', 'enterprise-management', 'ocop-approval', 'categories', 'reports'],
+    systemadmin: ['dashboard', 'enterprise-approval', 'enterprise-management', 'ocop-approval', 'categories', 'images', 'reports'],
     enterpriseadmin: ['dashboard', 'ocop-approval'],
     customer: ['dashboard'],
   }
