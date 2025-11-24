@@ -16,6 +16,7 @@ import {
   syncMainAddressFromBackend,
   type SavedShippingAddress
 } from "@/lib/shipping-addresses"
+import NewAddressForm, { type AddressFormData } from "@/components/address/NewAddressForm"
 
 type NotificationItem = {
   id: number
@@ -46,6 +47,7 @@ export default function AccountPage() {
   const [savingProfile, setSavingProfile] = useState(false)
   const [savedAddresses, setSavedAddresses] = useState<SavedShippingAddress[]>([])
   const [isAddingNewAddress, setIsAddingNewAddress] = useState(false)
+  const [showNewAddressForm, setShowNewAddressForm] = useState(false)
   const [newAddressLabel, setNewAddressLabel] = useState("")
   const [editingAddressId, setEditingAddressId] = useState<string | null>(null)
   const [newAddressValue, setNewAddressValue] = useState("")
@@ -532,6 +534,30 @@ export default function AccountPage() {
     setIsAddingNewAddress(false)
     setSuccess("Đã thêm địa chỉ giao hàng mới!")
     setTimeout(() => setSuccess(null), 3000)
+  }
+
+  const handleNewAddressFormSubmit = async (data: AddressFormData) => {
+    // Form đã tự gọi API updateShippingAddressDetail trong handleSubmit
+    // Chỉ cần reload user data và đóng form
+    try {
+      const updatedUser = await getCurrentUser()
+      setUser(updatedUser)
+      setShippingAddress(updatedUser.shippingAddress || "")
+
+      // Đồng bộ địa chỉ mới vào danh sách địa chỉ đã lưu
+      if (updatedUser.shippingAddress) {
+        syncMainAddressFromBackend(updatedUser.shippingAddress)
+        setSavedAddresses(getSavedShippingAddresses())
+      }
+
+      setShowNewAddressForm(false)
+      setSuccess("Đã cập nhật địa chỉ giao hàng thành công!")
+      setTimeout(() => setSuccess(null), 3000)
+    } catch (err) {
+      // Error đã được xử lý trong form, nhưng vẫn cần đóng form
+      setShowNewAddressForm(false)
+      console.error("Error reloading user data:", err)
+    }
   }
 
   const handleDeleteAddress = (id: string) => {
@@ -1326,22 +1352,58 @@ export default function AccountPage() {
                         <h3 className="text-lg font-semibold text-gray-900">Danh sách địa chỉ đã lưu</h3>
                         <p className="text-sm text-gray-500">Thêm tối đa các địa chỉ thường dùng để chuyển đổi nhanh khi đặt hàng.</p>
                       </div>
-                      <button
-                        onClick={() => {
-                          setIsAddingNewAddress((prev) => !prev)
-                          setNewAddressLabel("")
-                          setNewAddressValue("")
-                        }}
-                        className="inline-flex items-center gap-2 px-4 py-2 rounded-lg border border-orange-200 text-orange-600 font-medium hover:bg-orange-50 transition-colors"
-                      >
-                        <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
-                        </svg>
-                        {isAddingNewAddress ? "Đóng form" : "Thêm địa chỉ mới"}
-                      </button>
+                      <div className="flex gap-2">
+                        <button
+                          onClick={() => {
+                            setShowNewAddressForm(true)
+                            setIsAddingNewAddress(false)
+                            setError(null) // Clear error khi mở form
+                          }}
+                          className="inline-flex items-center gap-2 px-4 py-2 rounded-lg border border-orange-200 text-orange-600 font-medium hover:bg-orange-50 transition-colors"
+                        >
+                          <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
+                          </svg>
+                          Thêm địa chỉ mới (Form đầy đủ)
+                        </button>
+                        <button
+                          onClick={() => {
+                            setIsAddingNewAddress((prev) => !prev)
+                            setShowNewAddressForm(false)
+                            setNewAddressLabel("")
+                            setNewAddressValue("")
+                          }}
+                          className="inline-flex items-center gap-2 px-4 py-2 rounded-lg border border-gray-300 text-gray-700 font-medium hover:bg-gray-50 transition-colors"
+                        >
+                          <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
+                          </svg>
+                          {isAddingNewAddress ? "Đóng form" : "Thêm nhanh"}
+                        </button>
+                      </div>
                     </div>
 
-                    {isAddingNewAddress && (
+                    {showNewAddressForm && (
+                      <div className="border-t border-gray-200 pt-6">
+                        <NewAddressForm
+                          onBack={() => {
+                            setShowNewAddressForm(false)
+                            setError(null)
+                          }}
+                          onSubmit={handleNewAddressFormSubmit}
+                          initialData={{
+                            fullName: user?.name || "",
+                            phoneNumber: user?.phoneNumber || "",
+                            provinceId: user?.provinceId || 0,
+                            districtId: user?.districtId || 0,
+                            wardId: user?.wardId || 0,
+                            specificAddress: user?.addressDetail || "",
+                          }}
+                        />
+                      </div>
+                    )}
+
+                    {isAddingNewAddress && !showNewAddressForm && (
                       <div className="rounded-xl border border-gray-200 p-4 bg-gray-50 space-y-3">
                         <div className="grid gap-3 md:grid-cols-2">
                           <div className="space-y-1">
