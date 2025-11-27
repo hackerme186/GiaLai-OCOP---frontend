@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation"
 import Header from "@/components/layout/Header"
 import Footer from "@/components/layout/Footer"
 import { isLoggedIn } from "@/lib/auth"
-import { getCurrentUser, getOrders, updateOrderStatus, getPaymentsByOrder, updatePaymentStatus, type Order, type User, type Payment } from "@/lib/api"
+import { getCurrentUser, getShipperOrders, shipOrder, deliverOrder, getPaymentsByOrder, updatePaymentStatus, type Order, type User, type Payment } from "@/lib/api"
 import Image from "next/image"
 
 export default function ShipperOrdersPage() {
@@ -15,7 +15,7 @@ export default function ShipperOrdersPage() {
     const [orders, setOrders] = useState<Order[]>([])
     const [error, setError] = useState<string | null>(null)
     const [successMessage, setSuccessMessage] = useState<string | null>(null)
-    const [filter, setFilter] = useState<string>("shipped")
+    const [filter, setFilter] = useState<string>("all")
     const [searchQuery, setSearchQuery] = useState("")
 
     useEffect(() => {
@@ -38,18 +38,8 @@ export default function ShipperOrdersPage() {
                     return
                 }
 
-                // Load orders with status Shipped or Completed
-                const data = await getOrders()
-                const list = Array.isArray(data)
-                    ? data
-                    : (data as any)?.items || (data as any)?.data || []
-                
-                // Filter orders that are Shipped or Completed (for shipper to manage)
-                const shipperOrders = list.filter((order: Order) => {
-                    const status = order.status?.toLowerCase() || ""
-                    return status.includes("shipped") || status.includes("completed")
-                })
-                
+                // Load orders assigned to this shipper using getShipperOrders API
+                const shipperOrders = await getShipperOrders()
                 setOrders(shipperOrders)
             } catch (err) {
                 console.error("Failed to load orders:", err)
@@ -75,6 +65,7 @@ export default function ShipperOrdersPage() {
         // Filter by status
         if (filter !== "all") {
             const statusMap: Record<string, string[]> = {
+                "processing": ["Processing"],
                 "shipped": ["Shipped"],
                 "completed": ["Completed"],
             }
@@ -102,13 +93,26 @@ export default function ShipperOrdersPage() {
         return filtered
     }, [orders, filter, searchQuery])
 
+    const handleShipOrder = async (orderId: number) => {
+        try {
+            await shipOrder(orderId)
+            // Reload orders
+            const shipperOrders = await getShipperOrders()
+            setOrders(shipperOrders)
+            setSuccessMessage(`Đã xác nhận bắt đầu giao hàng cho đơn hàng #${orderId}!`)
+            setTimeout(() => setSuccessMessage(null), 3000)
+        } catch (err) {
+            alert(err instanceof Error ? err.message : "Không thể xác nhận bắt đầu giao hàng")
+        }
+    }
+
     const handleConfirmDelivery = async (orderId: number) => {
         try {
-            // Update order status to Completed
-            await updateOrderStatus(orderId, { status: "Completed" })
-            setOrders(prev => prev.map(order => 
-                order.id === orderId ? { ...order, status: "Completed" } : order
-            ))
+            // Use deliverOrder API which handles COD payment automatically
+            await deliverOrder(orderId)
+            // Reload orders
+            const shipperOrders = await getShipperOrders()
+            setOrders(shipperOrders)
             setSuccessMessage(`Đã xác nhận giao hàng thành công cho đơn hàng #${orderId}!`)
             setTimeout(() => setSuccessMessage(null), 3000)
         } catch (err) {
@@ -131,14 +135,7 @@ export default function ShipperOrdersPage() {
             setTimeout(() => setSuccessMessage(null), 3000)
             
             // Reload orders to refresh payment status
-            const data = await getOrders()
-            const list = Array.isArray(data)
-                ? data
-                : (data as any)?.items || (data as any)?.data || []
-            const shipperOrders = list.filter((order: Order) => {
-                const status = order.status?.toLowerCase() || ""
-                return status.includes("shipped") || status.includes("completed")
-            })
+            const shipperOrders = await getShipperOrders()
             setOrders(shipperOrders)
         } catch (err) {
             alert(err instanceof Error ? err.message : "Không thể chuyển tiền")
@@ -182,6 +179,7 @@ export default function ShipperOrdersPage() {
                     <div className="flex space-x-1 min-w-max">
                         {[
                             { id: "all", label: "Tất cả" },
+                            { id: "processing", label: "Chờ giao" },
                             { id: "shipped", label: "Đang giao" },
                             { id: "completed", label: "Đã giao" },
                         ].map((tab) => (
@@ -252,6 +250,7 @@ export default function ShipperOrdersPage() {
                             <ShipperOrderCard
                                 key={order.id}
                                 order={order}
+                                onShipOrder={handleShipOrder}
                                 onConfirmDelivery={handleConfirmDelivery}
                                 onTransferPayment={handleTransferPayment}
                             />
@@ -266,11 +265,12 @@ export default function ShipperOrdersPage() {
 
 interface ShipperOrderCardProps {
     order: Order
+    onShipOrder?: (orderId: number) => void
     onConfirmDelivery: (orderId: number) => void
     onTransferPayment: (orderId: number) => void
 }
 
-function ShipperOrderCard({ order, onConfirmDelivery, onTransferPayment }: ShipperOrderCardProps) {
+function ShipperOrderCard({ order, onShipOrder, onConfirmDelivery, onTransferPayment }: ShipperOrderCardProps) {
     const [payments, setPayments] = useState<Payment[]>([])
     const [loadingPayments, setLoadingPayments] = useState(false)
 
@@ -289,6 +289,7 @@ function ShipperOrderCard({ order, onConfirmDelivery, onTransferPayment }: Shipp
         loadPayments()
     }, [order.id])
 
+    const isProcessing = order.status?.toLowerCase().includes("processing")
     const isShipped = order.status?.toLowerCase().includes("shipped")
     const isCompleted = order.status?.toLowerCase().includes("completed")
     const hasUnpaidPayments = payments.some(p => p.status?.toLowerCase() !== "paid")
@@ -316,9 +317,11 @@ function ShipperOrderCard({ order, onConfirmDelivery, onTransferPayment }: Shipp
                     </div>
                 </div>
                 <div className={`px-4 py-2 rounded-lg font-semibold text-sm ${
-                    isCompleted ? "bg-green-100 text-green-600" : "bg-blue-100 text-blue-600"
+                    isCompleted ? "bg-green-100 text-green-600" : 
+                    isShipped ? "bg-blue-100 text-blue-600" : 
+                    "bg-yellow-100 text-yellow-600"
                 }`}>
-                    {isCompleted ? "ĐÃ GIAO" : "ĐANG GIAO"}
+                    {isCompleted ? "ĐÃ GIAO" : isShipped ? "ĐANG GIAO" : "CHỜ GIAO"}
                 </div>
             </div>
 
@@ -362,6 +365,18 @@ function ShipperOrderCard({ order, onConfirmDelivery, onTransferPayment }: Shipp
 
             {/* Actions */}
             <div className="px-4 py-3 bg-gray-50 border-t border-gray-200 flex flex-wrap gap-2">
+                {isProcessing && onShipOrder && (
+                    <button
+                        onClick={() => {
+                            if (confirm(`Xác nhận bắt đầu giao hàng cho đơn hàng #${order.id}?`)) {
+                                onShipOrder(order.id)
+                            }
+                        }}
+                        className="px-4 py-2 text-sm font-semibold text-white bg-blue-600 rounded hover:bg-blue-700 transition-colors"
+                    >
+                        Bắt đầu giao hàng
+                    </button>
+                )}
                 {isShipped && (
                     <button
                         onClick={() => {

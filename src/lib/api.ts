@@ -364,7 +364,8 @@ export interface Order {
 }
 
 export interface CreateOrderDto {
-  shippingAddress: string;
+  shippingAddress?: string; // String address (backward compatibility)
+  shippingAddressId?: number; // ID from ShippingAddresses table (preferred)
   items: Array<{
     productId: number;
     quantity: number;
@@ -575,6 +576,76 @@ export async function register(payload: RegisterPayload): Promise<AuthResponse> 
 
 export async function login(payload: LoginPayload): Promise<AuthResponse> {
   return request<AuthResponse>("/auth/login", {
+    method: "POST",
+    json: payload,
+  });
+}
+
+// OTP Login
+export interface SendOtpDto {
+  email: string;
+  purpose?: "Login" | "Register";
+}
+
+export interface VerifyOtpDto {
+  email: string;
+  otpCode: string;
+  purpose?: "Login" | "Register";
+}
+
+export interface LoginWithOtpDto {
+  email: string;
+  otpCode: string;
+}
+
+export interface RegisterWithOtpDto {
+  name: string;
+  email: string;
+  password: string;
+  otpCode: string;
+}
+
+export interface ResendVerificationOtpDto {
+  email: string;
+}
+
+export async function sendOtp(payload: SendOtpDto): Promise<{ message: string; otpCode?: string }> {
+  return request<{ message: string; otpCode?: string }>("/auth/send-otp", {
+    method: "POST",
+    json: payload,
+  });
+}
+
+export async function verifyOtp(payload: VerifyOtpDto): Promise<{ message: string; verified: boolean }> {
+  return request<{ message: string; verified: boolean }>("/auth/verify-otp", {
+    method: "POST",
+    json: payload,
+  });
+}
+
+export async function loginWithOtp(payload: LoginWithOtpDto): Promise<AuthResponse> {
+  return request<AuthResponse>("/auth/login-with-otp", {
+    method: "POST",
+    json: payload,
+  });
+}
+
+export async function registerWithOtp(payload: RegisterWithOtpDto): Promise<AuthResponse> {
+  return request<AuthResponse>("/auth/register-with-otp", {
+    method: "POST",
+    json: payload,
+  });
+}
+
+export async function resendVerificationOtp(payload: ResendVerificationOtpDto): Promise<{ message: string; otpCode?: string }> {
+  return request<{ message: string; otpCode?: string }>("/auth/resend-verification-otp", {
+    method: "POST",
+    json: payload,
+  });
+}
+
+export async function verifyEmail(payload: VerifyOtpDto): Promise<{ message: string; isEmailVerified: boolean }> {
+  return request<{ message: string; isEmailVerified: boolean }>("/auth/verify-email", {
     method: "POST",
     json: payload,
   });
@@ -1019,6 +1090,13 @@ export async function updateOrderStatus(id: number, payload: UpdateOrderStatusDt
   });
 }
 
+export async function updateOrderShippingAddress(id: number, shippingAddress: string): Promise<void> {
+  return request<void>(`/orders/${id}/shipping-address`, {
+    method: "PUT",
+    json: { shippingAddress },
+  });
+}
+
 export async function deleteOrder(id: number): Promise<void> {
   return request<void>(`/orders/${id}`, {
     method: "DELETE",
@@ -1215,10 +1293,29 @@ export async function getShippers(): Promise<Shipper[]> {
   });
 }
 
+export async function getShipperOrders(): Promise<Order[]> {
+  return request<Order[]>("/shippers/orders", {
+    method: "GET",
+  });
+}
+
 export async function assignOrderToShipper(orderId: number, shipperId: number): Promise<{ message: string }> {
   return request<{ message: string }>(`/shippers/orders/${orderId}/assign`, {
     method: "POST",
     json: { shipperId },
+  });
+}
+
+export async function shipOrder(orderId: number): Promise<{ message: string }> {
+  return request<{ message: string }>(`/shippers/orders/${orderId}/ship`, {
+    method: "POST",
+  });
+}
+
+export async function deliverOrder(orderId: number, notes?: string): Promise<{ message: string }> {
+  return request<{ message: string }>(`/shippers/orders/${orderId}/deliver`, {
+    method: "POST",
+    json: notes ? { notes } : undefined,
   });
 }
 
@@ -1400,6 +1497,201 @@ export interface UploadDocumentResponse {
   message?: string;
   documentUrl: string;
   fileName: string;
+}
+
+// ------ REVIEWS ------
+export interface Review {
+  id: number;
+  userId: number;
+  productId: number;
+  rating: number; // 1-5
+  comment?: string;
+  createdAt?: string;
+  updatedAt?: string;
+  user?: User;
+  product?: Product;
+}
+
+export async function getReviews(): Promise<Review[]> {
+  return request<Review[]>("/reviews", {
+    method: "GET",
+  });
+}
+
+export async function getReview(id: number): Promise<Review> {
+  return request<Review>(`/reviews/${id}`, {
+    method: "GET",
+  });
+}
+
+export async function createReview(payload: Omit<Review, "id" | "createdAt" | "updatedAt" | "user" | "product">): Promise<Review> {
+  return request<Review>("/reviews", {
+    method: "POST",
+    json: payload,
+  });
+}
+
+export async function updateReview(id: number, payload: Partial<Omit<Review, "id" | "userId" | "productId" | "createdAt" | "updatedAt" | "user" | "product">>): Promise<Review> {
+  return request<Review>(`/reviews/${id}`, {
+    method: "PUT",
+    json: payload,
+  });
+}
+
+export async function deleteReview(id: number): Promise<void> {
+  return request<void>(`/reviews/${id}`, {
+    method: "DELETE",
+  });
+}
+
+// ------ SHIPPING ADDRESSES ------
+export interface ShippingAddress {
+  id: number;
+  userId: number;
+  fullName: string;
+  phoneNumber: string;
+  addressLine: string;
+  ward: string;
+  district: string;
+  province: string;
+  label?: string;
+  isDefault: boolean;
+  createdAt?: string;
+  updatedAt?: string;
+}
+
+export interface CreateShippingAddressDto {
+  fullName: string;
+  phoneNumber: string;
+  addressLine: string;
+  ward: string;
+  district: string;
+  province: string;
+  label?: string;
+  isDefault?: boolean;
+}
+
+export interface UpdateShippingAddressDto {
+  fullName: string;
+  phoneNumber: string;
+  addressLine: string;
+  ward: string;
+  district: string;
+  province: string;
+  label?: string;
+  isDefault?: boolean;
+}
+
+export async function getShippingAddresses(): Promise<ShippingAddress[]> {
+  return request<ShippingAddress[]>("/shipping-addresses", {
+    method: "GET",
+  });
+}
+
+export async function getShippingAddress(id: number): Promise<ShippingAddress> {
+  return request<ShippingAddress>(`/shipping-addresses/${id}`, {
+    method: "GET",
+  });
+}
+
+export async function createShippingAddress(payload: CreateShippingAddressDto): Promise<ShippingAddress> {
+  return request<ShippingAddress>("/shipping-addresses", {
+    method: "POST",
+    json: payload,
+  });
+}
+
+export async function updateShippingAddress(id: number, payload: UpdateShippingAddressDto): Promise<ShippingAddress> {
+  return request<ShippingAddress>(`/shipping-addresses/${id}`, {
+    method: "PUT",
+    json: payload,
+  });
+}
+
+export async function setDefaultShippingAddress(id: number): Promise<ShippingAddress> {
+  return request<ShippingAddress>(`/shipping-addresses/${id}/set-default`, {
+    method: "PATCH",
+  });
+}
+
+export async function deleteShippingAddress(id: number): Promise<void> {
+  return request<void>(`/shipping-addresses/${id}`, {
+    method: "DELETE",
+  });
+}
+
+// ------ PROFILE AVATAR ------
+export interface AvatarResponse {
+  success: boolean;
+  message: string;
+  imageId?: number;
+  imageUrl?: string;
+  fileName?: string;
+  createdAt?: string;
+}
+
+export async function uploadAvatar(file: File): Promise<AvatarResponse> {
+  const formData = new FormData();
+  formData.append("file", file);
+
+  const token = getAuthToken();
+  const headers: HeadersInit = {};
+  if (token) {
+    headers["Authorization"] = `Bearer ${token}`;
+  }
+
+  const url = `${API_BASE_URL}/profile/avatar`;
+  const response = await fetch(url, {
+    method: "POST",
+    headers,
+    body: formData,
+    credentials: "omit",
+  });
+
+  if (!response.ok) {
+    const errorText = await response.text();
+    throw new Error(`Upload avatar failed: ${response.status} ${errorText}`);
+  }
+
+  return response.json();
+}
+
+export async function updateAvatar(file: File): Promise<AvatarResponse> {
+  const formData = new FormData();
+  formData.append("file", file);
+
+  const token = getAuthToken();
+  const headers: HeadersInit = {};
+  if (token) {
+    headers["Authorization"] = `Bearer ${token}`;
+  }
+
+  const url = `${API_BASE_URL}/profile/avatar`;
+  const response = await fetch(url, {
+    method: "PUT",
+    headers,
+    body: formData,
+    credentials: "omit",
+  });
+
+  if (!response.ok) {
+    const errorText = await response.text();
+    throw new Error(`Update avatar failed: ${response.status} ${errorText}`);
+  }
+
+  return response.json();
+}
+
+export async function deleteAvatar(): Promise<{ success: boolean; message: string }> {
+  return request<{ success: boolean; message: string }>("/profile/avatar", {
+    method: "DELETE",
+  });
+}
+
+export async function getAvatar(): Promise<AvatarResponse> {
+  return request<AvatarResponse>("/profile/avatar", {
+    method: "GET",
+  });
 }
 
 export async function uploadDocument(file: File): Promise<UploadDocumentResponse> {
