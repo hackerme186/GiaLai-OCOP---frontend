@@ -12,6 +12,9 @@ import OcopApprovalTab from "@/components/admin/OcopApprovalTab"
 import CategoryManagementTab from "@/components/admin/CategoryManagementTab"
 import ProvinceReportTab from "@/components/admin/ProvinceReportTab"
 import ImageManagementTab from "@/components/admin/ImageManagementTab"
+import LocationsTab from "@/components/admin/LocationsTab"
+import ProducersTab from "@/components/admin/ProducersTab"
+import TransactionsTab from "@/components/admin/TransactionsTab"
 
 export default function AdminPage() {
   const router = useRouter()
