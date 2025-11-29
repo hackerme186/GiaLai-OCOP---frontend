@@ -148,7 +148,6 @@ export interface User {
   districtId?: number;
   wardId?: number;
   addressDetail?: string;
-  isEmailVerified?: boolean;
 }
 
 export interface UpdateUserDto {
@@ -762,6 +761,32 @@ export async function updateCurrentUser(payload: UpdateUserDto): Promise<User> {
 }
 
 // Change password interface (moved to below)
+
+// ------ ADDRESS ------
+export async function getProvinces(): Promise<Province[]> {
+  return request<Province[]>("/address/provinces", {
+    method: "GET",
+  });
+}
+
+export async function getDistricts(provinceId: number): Promise<District[]> {
+  return request<District[]>(`/address/districts?provinceId=${provinceId}`, {
+    method: "GET",
+  });
+}
+
+export async function getWards(districtId: number): Promise<Ward[]> {
+  return request<Ward[]>(`/address/wards?districtId=${districtId}`, {
+    method: "GET",
+  });
+}
+
+export async function updateShippingAddressDetail(payload: UpdateShippingAddressDetailDto): Promise<User> {
+  return request<User>("/users/update-shipping-address", {
+    method: "PUT",
+    json: payload,
+  });
+}
 
 // ------ ADDRESS ------
 export async function getProvinces(): Promise<Province[]> {
@@ -1694,356 +1719,6 @@ export async function uploadDocument(file: File): Promise<UploadDocumentResponse
   }
 
   return response.json();
-}
-
-// ------ CHANGE PASSWORD (Auth) ------
-export interface ChangePasswordDto {
-  currentPassword: string;
-  newPassword: string;
-  confirmNewPassword: string;
-}
-
-export async function changePassword(payload: ChangePasswordDto): Promise<{ message: string }> {
-  return request<{ message: string }>("/auth/change-password", {
-    method: "PUT",
-    json: {
-      currentPassword: payload.currentPassword,
-      newPassword: payload.newPassword,
-      confirmNewPassword: payload.confirmNewPassword,
-    },
-  });
-}
-
-// ------ CREATE ENTERPRISE ADMIN (SystemAdmin) ------
-export interface CreateEnterpriseAdminDto {
-  name: string;
-  email: string;
-  password: string;
-  enterpriseId: number;
-}
-
-export async function createEnterpriseAdmin(payload: CreateEnterpriseAdminDto): Promise<User> {
-  return request<User>("/users/enterprise-admin", {
-    method: "POST",
-    json: payload,
-  });
-}
-
-// ------ GPS ADDRESS LOOKUP ------
-export interface GpsAddressLookupDto {
-  addressLine: string;
-  ward: string;
-  district: string;
-  province: string;
-  country: string;
-  latitude: number;
-  longitude: number;
-}
-
-export async function getAddressFromGps(lat: number, lng: number): Promise<GpsAddressLookupDto> {
-  return request<GpsAddressLookupDto>(`/shippingaddress/from-gps?lat=${lat}&lng=${lng}`, {
-    method: "GET",
-  });
-}
-
-// ------ TRANSACTIONS ------
-export interface Transaction {
-  id: number;
-  orderId?: number;
-  userId?: number;
-  amount: number;
-  type: string;
-  status: string;
-  createdAt?: string;
-  updatedAt?: string;
-}
-
-export async function getTransactions(): Promise<Transaction[]> {
-  return request<Transaction[]>("/transactions", {
-    method: "GET",
-  });
-}
-
-export async function getTransaction(id: number): Promise<Transaction> {
-  return request<Transaction>(`/transactions/${id}`, {
-    method: "GET",
-  });
-}
-
-export async function createTransaction(payload: Omit<Transaction, "id" | "createdAt" | "updatedAt">): Promise<Transaction> {
-  return request<Transaction>("/transactions", {
-    method: "POST",
-    json: payload,
-  });
-}
-
-// ------ LOCATIONS (SystemAdmin) ------
-export interface Location {
-  id: number;
-  name: string;
-  address: string;
-  latitude: number;
-  longitude: number;
-}
-
-export interface CreateLocationDto {
-  name: string;
-  address: string;
-  latitude: number;
-  longitude: number;
-}
-
-export async function getLocations(): Promise<Location[]> {
-  return request<Location[]>("/locations", {
-    method: "GET",
-  });
-}
-
-export async function getLocation(id: number): Promise<Location> {
-  return request<Location>(`/locations/${id}`, {
-    method: "GET",
-  });
-}
-
-export async function createLocation(payload: CreateLocationDto): Promise<Location> {
-  return request<Location>("/locations", {
-    method: "POST",
-    json: payload,
-  });
-}
-
-export async function updateLocation(id: number, payload: CreateLocationDto): Promise<void> {
-  return request<void>(`/locations/${id}`, {
-    method: "PUT",
-    json: payload,
-  });
-}
-
-export async function deleteLocation(id: number): Promise<void> {
-  return request<void>(`/locations/${id}`, {
-    method: "DELETE",
-  });
-}
-
-// ------ PRODUCERS (SystemAdmin) ------
-export interface Producer {
-  id: number;
-  name: string;
-  address: string;
-}
-
-export interface CreateProducerDto {
-  name: string;
-  address: string;
-}
-
-export async function getProducers(): Promise<Producer[]> {
-  return request<Producer[]>("/producers", {
-    method: "GET",
-  });
-}
-
-export async function getProducer(id: number): Promise<Producer> {
-  return request<Producer>(`/producers/${id}`, {
-    method: "GET",
-  });
-}
-
-export async function createProducer(payload: CreateProducerDto): Promise<Producer> {
-  return request<Producer>("/producers", {
-    method: "POST",
-    json: payload,
-  });
-}
-
-export async function updateProducer(id: number, payload: CreateProducerDto): Promise<void> {
-  return request<void>(`/producers/${id}`, {
-    method: "PUT",
-    json: payload,
-  });
-}
-
-export async function deleteProducer(id: number): Promise<void> {
-  return request<void>(`/producers/${id}`, {
-    method: "DELETE",
-  });
-}
-
-// ------ PRODUCT IMAGES (EnterpriseAdmin) ------
-export interface ProductImage {
-  id: number;
-  url: string;
-  fileName: string;
-  isApproved: boolean;
-  createdAt: string;
-}
-
-export async function getProductImages(productId: number): Promise<ProductImage[]> {
-  return request<ProductImage[]>(`/productimages/products/${productId}/images`, {
-    method: "GET",
-  });
-}
-
-export async function uploadProductImage(productId: number, file: File): Promise<{ success: boolean; message: string; imageId: number; imageUrl: string; fileName: string; isApproved: boolean }> {
-  const formData = new FormData();
-  formData.append("file", file);
-
-  const token = getAuthToken();
-  const headers: HeadersInit = {};
-  if (token) {
-    headers["Authorization"] = `Bearer ${token}`;
-  }
-
-  const url = `${API_BASE_URL}/productimages/products/${productId}/images`;
-  const response = await fetch(url, {
-    method: "POST",
-    headers,
-    body: formData,
-    credentials: "omit",
-  });
-
-  if (!response.ok) {
-    const errorText = await response.text();
-    throw new Error(`Upload product image failed: ${response.status} ${errorText}`);
-  }
-
-  return response.json();
-}
-
-export async function deleteProductImage(productId: number, imageId: number): Promise<{ success: boolean; message: string }> {
-  return request<{ success: boolean; message: string }>(`/productimages/products/${productId}/images/${imageId}`, {
-    method: "DELETE",
-  });
-}
-
-// ------ ADMIN IMAGES (SystemAdmin) ------
-export interface AdminImage {
-  id: number;
-  url: string;
-  fileName: string;
-  contentType: string;
-  fileSize: number;
-  imageType: string;
-  userId?: number;
-  productId?: number;
-  enterpriseId?: number;
-  productName?: string;
-  enterpriseName?: string;
-  uploadedByUserId?: number;
-  uploadedByRole?: string;
-  uploadedByName?: string;
-  isActive: boolean;
-  isApproved: boolean;
-  createdAt: string;
-  updatedAt?: string;
-  deletedAt?: string;
-}
-
-export interface AdminImagesResponse {
-  total: number;
-  page: number;
-  pageSize: number;
-  totalPages: number;
-  images: AdminImage[];
-}
-
-export async function getAdminImages(params?: {
-  imageType?: string;
-  isApproved?: boolean;
-  isActive?: boolean;
-  page?: number;
-  pageSize?: number;
-}): Promise<AdminImagesResponse> {
-  const searchParams = new URLSearchParams();
-  if (params?.imageType) searchParams.append("imageType", params.imageType);
-  if (params?.isApproved !== undefined) searchParams.append("isApproved", String(params.isApproved));
-  if (params?.isActive !== undefined) searchParams.append("isActive", String(params.isActive));
-  if (params?.page) searchParams.append("page", String(params.page));
-  if (params?.pageSize) searchParams.append("pageSize", String(params.pageSize));
-
-  const query = searchParams.toString();
-  return request<AdminImagesResponse>(`/admin/images${query ? "?" + query : ""}`, {
-    method: "GET",
-  });
-}
-
-export async function getAdminImage(imageId: number): Promise<AdminImage> {
-  return request<AdminImage>(`/admin/images/${imageId}`, {
-    method: "GET",
-  });
-}
-
-export async function approveAdminImage(imageId: number): Promise<{ success: boolean; message: string }> {
-  return request<{ success: boolean; message: string }>(`/admin/images/${imageId}/approve`, {
-    method: "PUT",
-  });
-}
-
-export async function rejectAdminImage(imageId: number): Promise<{ success: boolean; message: string }> {
-  return request<{ success: boolean; message: string }>(`/admin/images/${imageId}/reject`, {
-    method: "PUT",
-  });
-}
-
-export async function deleteAdminImage(imageId: number): Promise<{ success: boolean; message: string }> {
-  return request<{ success: boolean; message: string }>(`/admin/images/${imageId}`, {
-    method: "DELETE",
-  });
-}
-
-export interface AdminImageStats {
-  totalImages: number;
-  activeImages: number;
-  approvedImages: number;
-  pendingImages: number;
-  byType: Array<{
-    imageType: string;
-    count: number;
-    activeCount: number;
-    approvedCount: number;
-  }>;
-}
-
-export async function getAdminImageStats(): Promise<AdminImageStats> {
-  return request<AdminImageStats>("/admin/images/stats", {
-    method: "GET",
-  });
-}
-
-// ------ MAP FILTER (Enhanced) ------
-// Note: getMapFilterOptions is already defined above (line 1166), so we don't duplicate it here
-
-export async function filterMapEnterprises(params: MapSearchParams): Promise<{ data: EnterpriseMapDto[]; total: number; page: number; pageSize: number }> {
-  const searchParams = new URLSearchParams();
-  if (params.keyword) searchParams.append("keyword", params.keyword);
-  if (params.district) searchParams.append("district", params.district);
-  if (params.province) searchParams.append("province", params.province);
-  if (params.businessField) searchParams.append("businessField", params.businessField);
-  if (params.ocopRating) searchParams.append("ocopRating", String(params.ocopRating));
-  if (params.minLat) searchParams.append("minLatitude", String(params.minLat));
-  if (params.maxLat) searchParams.append("maxLatitude", String(params.maxLat));
-  if (params.minLon) searchParams.append("minLongitude", String(params.minLon));
-  if (params.maxLon) searchParams.append("maxLongitude", String(params.maxLon));
-  if (params.latitude) searchParams.append("userLatitude", String(params.latitude));
-  if (params.longitude) searchParams.append("userLongitude", String(params.longitude));
-  if (params.radiusKm) searchParams.append("maxDistance", String(params.radiusKm));
-  if (params.sortBy) searchParams.append("sortBy", params.sortBy);
-  if (params.page) searchParams.append("page", String(params.page));
-  if (params.pageSize) searchParams.append("pageSize", String(params.pageSize));
-
-  return request<{ data: EnterpriseMapDto[]; total: number; page: number; pageSize: number }>(`/map/filter?${searchParams.toString()}`, {
-    method: "GET",
-  });
-}
-
-// ------ SHIPPING ADDRESSES (Enhanced with GPS) ------
-export interface ShippingAddressWithGps extends ShippingAddress {
-  latitude?: number;
-  longitude?: number;
-}
-
-export async function getAddressFromGpsForShipping(lat: number, lng: number): Promise<GpsAddressLookupDto> {
-  return getAddressFromGps(lat, lng);
 }
 
 function extractUserIdFromToken(): number | null {

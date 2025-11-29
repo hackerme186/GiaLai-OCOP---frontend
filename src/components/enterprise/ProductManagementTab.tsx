@@ -4,7 +4,6 @@ import { useEffect, useState } from "react"
 import Image from "next/image"
 import { getProducts, getCategories, createProduct, updateProduct, deleteProduct, type Product, type Category, type User } from "@/lib/api"
 import ImageUploader from "@/components/upload/ImageUploader"
-import ProductImagesManager from "./ProductImagesManager"
 
 interface ProductManagementTabProps {
   user: User | null

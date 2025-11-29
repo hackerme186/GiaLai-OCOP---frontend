@@ -1,7 +1,7 @@
 "use client"
 
-import { useState, useEffect } from "react"
-import { CreateEnterpriseApplicationDto, getCategories, type Category } from "@/lib/api"
+import { useState } from "react"
+import { CreateEnterpriseApplicationDto } from "@/lib/api"
 import ImageUploader from "@/components/upload/ImageUploader"
 
 interface OCOPFormProps {
@@ -98,14 +98,6 @@ export default function OCOPForm({ onSubmit }: OCOPFormProps) {
         nextErrors.email = "Email không đúng định dạng (ví dụ: example@company.com)"
       }
     }
-
-    // Required fields for backend validation
-    if (!businessField.trim()) nextErrors.businessField = "Ngành nghề kinh doanh là bắt buộc"
-    if (!representativeName.trim()) nextErrors.representativeName = "Tên người đại diện là bắt buộc"
-    if (!representativeIdNumber.trim()) nextErrors.representativeIdNumber = "Số CCCD/CMND của người đại diện là bắt buộc"
-    if (!province.trim()) nextErrors.province = "Tỉnh/Thành phố là bắt buộc"
-    if (!district.trim()) nextErrors.district = "Quận/Huyện là bắt buộc"
-    if (!businessLicenseNumber.trim()) nextErrors.businessLicenseNumber = "Số giấy phép kinh doanh là bắt buộc"
 
     setErrors(nextErrors)
     return Object.keys(nextErrors).length === 0
@@ -263,9 +255,8 @@ export default function OCOPForm({ onSubmit }: OCOPFormProps) {
                 <input type="text" value={taxCode} onChange={e => setTaxCode(e.target.value)} className="w-full rounded-lg border border-gray-300 px-3 py-2 bg-white text-gray-900 placeholder:text-gray-500 focus:border-indigo-500 focus:outline-none focus:ring-indigo-500" placeholder="Nhập mã số thuế" />
               </div>
               <div>
-                <label className="block text-sm font-medium text-gray-900 mb-2">Số giấy phép kinh doanh *</label>
-                <input type="text" required value={businessLicenseNumber} onChange={e => setBusinessLicenseNumber(e.target.value)} className="w-full rounded-lg border border-gray-300 px-3 py-2 bg-white text-gray-900 placeholder:text-gray-500 focus:border-indigo-500 focus:outline-none focus:ring-indigo-500" placeholder="Nhập số giấy phép kinh doanh" />
-                {errors.businessLicenseNumber && <p className="text-sm text-red-600 mt-1">{errors.businessLicenseNumber}</p>}
+                <label className="block text-sm font-medium text-gray-900 mb-2">Số giấy phép kinh doanh</label>
+                <input type="text" value={businessLicenseNumber} onChange={e => setBusinessLicenseNumber(e.target.value)} className="w-full rounded-lg border border-gray-300 px-3 py-2 bg-white text-gray-900 placeholder:text-gray-500 focus:border-indigo-500 focus:outline-none focus:ring-indigo-500" placeholder="Nhập số giấy phép kinh doanh" />
               </div>
               <div>
                 <label className="block text-sm font-medium text-gray-900 mb-2">Ngày cấp giấy phép</label>
@@ -277,14 +268,12 @@ export default function OCOPForm({ onSubmit }: OCOPFormProps) {
               </div>
               {/* địa chỉ */}
               <div>
-                <label className="block text-sm font-medium text-gray-900 mb-2">Tỉnh/Thành phố *</label>
-                <input type="text" required value={province} onChange={e => setProvince(e.target.value)} className="w-full rounded-lg border border-gray-300 px-3 py-2 bg-white text-gray-900 placeholder:text-gray-500 focus:border-indigo-500 focus:outline-none focus:ring-indigo-500" placeholder="Nhập tỉnh/thành phố" />
-                {errors.province && <p className="text-sm text-red-600 mt-1">{errors.province}</p>}
+                <label className="block text-sm font-medium text-gray-900 mb-2">Tỉnh/Thành phố</label>
+                <input type="text" value={province} onChange={e => setProvince(e.target.value)} className="w-full rounded-lg border border-gray-300 px-3 py-2 bg-white text-gray-900 placeholder:text-gray-500 focus:border-indigo-500 focus:outline-none focus:ring-indigo-500" placeholder="Nhập tỉnh/thành phố" />
               </div>
               <div>
-                <label className="block text-sm font-medium text-gray-900 mb-2">Quận/Huyện *</label>
-                <input type="text" required value={district} onChange={e => setDistrict(e.target.value)} className="w-full rounded-lg border border-gray-300 px-3 py-2 bg-white text-gray-900 placeholder:text-gray-500 focus:border-indigo-500 focus:outline-none focus:ring-indigo-500" placeholder="Nhập quận/huyện" />
-                {errors.district && <p className="text-sm text-red-600 mt-1">{errors.district}</p>}
+                <label className="block text-sm font-medium text-gray-900 mb-2">Quận/Huyện</label>
+                <input type="text" value={district} onChange={e => setDistrict(e.target.value)} className="w-full rounded-lg border border-gray-300 px-3 py-2 bg-white text-gray-900 placeholder:text-gray-500 focus:border-indigo-500 focus:outline-none focus:ring-indigo-500" placeholder="Nhập quận/huyện" />
               </div>
               <div>
                 <label className="block text-sm font-medium text-gray-900 mb-2">Phường/Xã</label>
@@ -338,26 +327,23 @@ export default function OCOPForm({ onSubmit }: OCOPFormProps) {
                 <input type="number" value={numberOfEmployees} onChange={e => setNumberOfEmployees(e.target.value)} className="w-full rounded-lg border border-gray-300 px-3 py-2 bg-white text-gray-900 placeholder:text-gray-500 focus:border-indigo-500 focus:outline-none focus:ring-indigo-500" placeholder="Nhập số lao động" />
               </div>
               <div>
-                <label className="block text-sm font-medium text-gray-900 mb-2">Lĩnh vực kinh doanh *</label>
-                <input type="text" required value={businessField} onChange={e => setBusinessField(e.target.value)} className="w-full rounded-lg border border-gray-300 px-3 py-2 bg-white text-gray-900 placeholder:text-gray-500 focus:border-indigo-500 focus:outline-none focus:ring-indigo-500" placeholder="Nhập lĩnh vực kinh doanh" />
-                {errors.businessField && <p className="text-sm text-red-600 mt-1">{errors.businessField}</p>}
+                <label className="block text-sm font-medium text-gray-900 mb-2">Lĩnh vực kinh doanh</label>
+                <input type="text" value={businessField} onChange={e => setBusinessField(e.target.value)} className="w-full rounded-lg border border-gray-300 px-3 py-2 bg-white text-gray-900 placeholder:text-gray-500 focus:border-indigo-500 focus:outline-none focus:ring-indigo-500" placeholder="Nhập lĩnh vực kinh doanh" />
               </div>
             </div>
             <h4 className="text-lg font-medium text-gray-900 mt-6">2. Thông tin đại diện pháp luật</h4>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
               <div>
-                <label className="block text-sm font-medium text-gray-900 mb-2">Họ tên đại diện *</label>
-                <input type="text" required value={representativeName} onChange={e => setRepresentativeName(e.target.value)} className="w-full rounded-lg border border-gray-300 px-3 py-2 bg-white text-gray-900 placeholder:text-gray-500 focus:border-indigo-500 focus:outline-none focus:ring-indigo-500" placeholder="Nhập họ tên đại diện" />
-                {errors.representativeName && <p className="text-sm text-red-600 mt-1">{errors.representativeName}</p>}
+                <label className="block text-sm font-medium text-gray-900 mb-2">Họ tên đại diện</label>
+                <input type="text" value={representativeName} onChange={e => setRepresentativeName(e.target.value)} className="w-full rounded-lg border border-gray-300 px-3 py-2 bg-white text-gray-900 placeholder:text-gray-500 focus:border-indigo-500 focus:outline-none focus:ring-indigo-500" placeholder="Nhập họ tên đại diện" />
               </div>
               <div>
                 <label className="block text-sm font-medium text-gray-900 mb-2">Chức vụ đại diện</label>
                 <input type="text" value={representativePosition} onChange={e => setRepresentativePosition(e.target.value)} className="w-full rounded-lg border border-gray-300 px-3 py-2 bg-white text-gray-900 placeholder:text-gray-500 focus:border-indigo-500 focus:outline-none focus:ring-indigo-500" placeholder="Nhập chức vụ đại diện" />
               </div>
               <div>
-                <label className="block text-sm font-medium text-gray-900 mb-2">CMND/CCCD *</label>
-                <input type="text" required value={representativeIdNumber} onChange={e => setRepresentativeIdNumber(e.target.value)} className="w-full rounded-lg border border-gray-300 px-3 py-2 bg-white text-gray-900 placeholder:text-gray-500 focus:border-indigo-500 focus:outline-none focus:ring-indigo-500" placeholder="Nhập CMND/CCCD" />
-                {errors.representativeIdNumber && <p className="text-sm text-red-600 mt-1">{errors.representativeIdNumber}</p>}
+                <label className="block text-sm font-medium text-gray-900 mb-2">CMND/CCCD</label>
+                <input type="text" value={representativeIdNumber} onChange={e => setRepresentativeIdNumber(e.target.value)} className="w-full rounded-lg border border-gray-300 px-3 py-2 bg-white text-gray-900 placeholder:text-gray-500 focus:border-indigo-500 focus:outline-none focus:ring-indigo-500" placeholder="Nhập CMND/CCCD" />
               </div>
               <div>
                 <label className="block text-sm font-medium text-gray-900 mb-2">Ngày cấp</label>
@@ -380,46 +366,16 @@ export default function OCOPForm({ onSubmit }: OCOPFormProps) {
             <h3 className="text-xl font-semibold text-gray-900 mb-6">3. Thông tin sản phẩm</h3>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
               <div>
-                <label className="block text-sm font-medium text-gray-900 mb-2">Tên sản phẩm OCOP *</label>
-                <input type="text" required value={productName} onChange={e => setProductName(e.target.value)} className="w-full rounded-lg border border-gray-300 px-3 py-2 bg-white text-gray-900 placeholder:text-gray-500 focus:border-indigo-500 focus:outline-none focus:ring-indigo-500" placeholder="Nhập tên sản phẩm" />
-                {errors.productName && <p className="text-sm text-red-600 mt-1">{errors.productName}</p>}
+                <label className="block text-sm font-medium text-gray-900 mb-2">Tên sản phẩm</label>
+                <input type="text" value={productName} onChange={e => setProductName(e.target.value)} className="w-full rounded-lg border border-gray-300 px-3 py-2 bg-white text-gray-900 placeholder:text-gray-500 focus:border-indigo-500 focus:outline-none focus:ring-indigo-500" placeholder="Nhập tên sản phẩm" />
               </div>
               <div>
-                <label className="block text-sm font-medium text-gray-900 mb-2">Nhóm sản phẩm *</label>
-                {loadingCategories ? (
-                  <div className="w-full rounded-lg border border-gray-300 px-3 py-2 bg-gray-50 text-gray-500">
-                    Đang tải danh mục...
-                  </div>
-                ) : categories.length > 0 ? (
-                  <select
-                    required
-                    value={productCategory}
-                    onChange={e => setProductCategory(e.target.value)}
-                    className="w-full rounded-lg border border-gray-300 px-3 py-2 bg-white text-gray-900 focus:border-indigo-500 focus:outline-none focus:ring-indigo-500"
-                  >
-                    <option value="">Chọn nhóm sản phẩm</option>
-                    {categories.map((category) => (
-                      <option key={category.id} value={category.name}>
-                        {category.name}
-                      </option>
-                    ))}
-                  </select>
-                ) : (
-                  <input
-                    type="text"
-                    required
-                    value={productCategory}
-                    onChange={e => setProductCategory(e.target.value)}
-                    className="w-full rounded-lg border border-gray-300 px-3 py-2 bg-white text-gray-900 placeholder:text-gray-500 focus:border-indigo-500 focus:outline-none focus:ring-indigo-500"
-                    placeholder="Nhập nhóm sản phẩm"
-                  />
-                )}
-                {errors.productCategory && <p className="text-sm text-red-600 mt-1">{errors.productCategory}</p>}
+                <label className="block text-sm font-medium text-gray-900 mb-2">Danh mục sản phẩm</label>
+                <input type="text" value={productCategory} onChange={e => setProductCategory(e.target.value)} className="w-full rounded-lg border border-gray-300 px-3 py-2 bg-white text-gray-900 placeholder:text-gray-500 focus:border-indigo-500 focus:outline-none focus:ring-indigo-500" placeholder="Nhập danh mục sản phẩm" />
               </div>
               <div className="md:col-span-2">
-                <label className="block text-sm font-medium text-gray-900 mb-2">Mô tả sản phẩm *</label>
-                <textarea rows={3} required value={productDescription} onChange={e => setProductDescription(e.target.value)} className="w-full rounded-lg border border-gray-300 px-3 py-2 bg-white text-gray-900 placeholder:text-gray-500 focus:border-indigo-500 focus:outline-none focus:ring-indigo-500" placeholder="Mô tả sản phẩm" />
-                {errors.productDescription && <p className="text-sm text-red-600 mt-1">{errors.productDescription}</p>}
+                <label className="block text-sm font-medium text-gray-900 mb-2">Mô tả sản phẩm</label>
+                <textarea rows={3} value={productDescription} onChange={e => setProductDescription(e.target.value)} className="w-full rounded-lg border border-gray-300 px-3 py-2 bg-white text-gray-900 placeholder:text-gray-500 focus:border-indigo-500 focus:outline-none focus:ring-indigo-500" placeholder="Mô tả sản phẩm" />
               </div>
               <div>
                 <label className="block text-sm font-medium text-gray-900 mb-2">Xuất xứ sản phẩm</label>

@@ -98,14 +98,13 @@ export function checkUploadPermission(folder: UploadFolder): { allowed: boolean;
         return { allowed: true }
     }
 
-    // Customer: được upload vào Users (avatar) và Enterprises (cho đăng ký OCOP)
+    // Customer: chỉ được upload vào Users (avatar)
     if (normalizedRole === 'customer' || normalizedRole === 'user') {
         const isUsersFolder = normalizedFolder.includes('users')
-        const isEnterprisesFolder = normalizedFolder.includes('enterprises')
-        if (!isUsersFolder && !isEnterprisesFolder) {
+        if (!isUsersFolder) {
             return {
                 allowed: false,
-                error: "Bạn chỉ có quyền upload ảnh đại diện (avatar) và ảnh doanh nghiệp (khi đăng ký OCOP). Vui lòng liên hệ quản trị viên để được cấp quyền cao hơn."
+                error: "Bạn chỉ có quyền upload ảnh đại diện (avatar). Vui lòng liên hệ quản trị viên để được cấp quyền cao hơn."
             }
         }
         return { allowed: true }
@@ -189,11 +188,6 @@ export async function uploadImage(
                 throw new Error("Phiên đăng nhập đã hết hạn. Vui lòng đăng nhập lại.")
             }
 
-            // Handle 403 Forbidden
-            if (response.status === 403) {
-                throw new Error("Bạn không có quyền upload ảnh vào folder này. Vui lòng liên hệ quản trị viên.")
-            }
-
             // Try to get error message from response
             let errorMessage = `Upload thất bại (${response.status})`
             try {
@@ -201,59 +195,13 @@ export async function uploadImage(
                 if (errorText) {
                     try {
                         const errorJson = JSON.parse(errorText)
-                        // Try multiple possible error message fields
-                        const possibleMessages = [
-                            errorJson.message,
-                            errorJson.error,
-                            errorJson.title,
-                            errorJson.detail,
-                            errorJson.errors
-                        ]
-                        
-                        for (const msg of possibleMessages) {
-                            if (msg) {
-                                if (typeof msg === 'string') {
-                                    errorMessage = msg
-                                    break
-                                } else if (Array.isArray(msg) && msg.length > 0) {
-                                    errorMessage = msg[0]
-                                    break
-                                } else if (typeof msg === 'object') {
-                                    // If errors is an object with field names, extract first error
-                                    const firstError = Object.values(msg)[0]
-                                    if (Array.isArray(firstError) && firstError.length > 0) {
-                                        errorMessage = firstError[0]
-                                        break
-                                    }
-                                }
-                            }
-                        }
-                        
-                        // If still generic, try to make it more user-friendly
-                        if (errorMessage.includes("An error occurred while processing your request") || 
-                            errorMessage.includes("error occurred")) {
-                            errorMessage = "Đã xảy ra lỗi khi upload ảnh. Vui lòng kiểm tra:\n" +
-                                "- Kích thước file không quá 10MB\n" +
-                                "- Định dạng file là JPG, PNG, GIF hoặc WEBP\n" +
-                                "- Kết nối mạng ổn định\n" +
-                                "Nếu vẫn gặp lỗi, vui lòng thử lại sau."
-                        }
+                        errorMessage = errorJson.message || errorJson.error || errorMessage
                     } catch {
-                        // If JSON parsing fails, use raw text
-                        if (errorText && errorText.trim()) {
-                            errorMessage = errorText.trim()
-                        }
+                        errorMessage = errorText || errorMessage
                     }
                 }
             } catch {
-                // Ignore parsing errors, use default message
-            }
-
-            // Add status code context for debugging
-            if (response.status >= 500) {
-                errorMessage = `Lỗi server (${response.status}): ${errorMessage}\n\nVui lòng thử lại sau hoặc liên hệ quản trị viên nếu lỗi vẫn tiếp tục.`
-            } else if (response.status === 400) {
-                errorMessage = `Dữ liệu không hợp lệ (${response.status}): ${errorMessage}\n\nVui lòng kiểm tra lại file ảnh và thử lại.`
+                // Ignore parsing errors
             }
 
             throw new Error(errorMessage)
@@ -341,11 +289,6 @@ export async function uploadImages(
                 throw new Error("Phiên đăng nhập đã hết hạn. Vui lòng đăng nhập lại.")
             }
 
-            // Handle 403 Forbidden
-            if (response.status === 403) {
-                throw new Error("Bạn không có quyền upload ảnh vào folder này. Vui lòng liên hệ quản trị viên.")
-            }
-
             // Try to get error message from response
             let errorMessage = `Upload thất bại (${response.status})`
             try {
@@ -353,59 +296,13 @@ export async function uploadImages(
                 if (errorText) {
                     try {
                         const errorJson = JSON.parse(errorText)
-                        // Try multiple possible error message fields
-                        const possibleMessages = [
-                            errorJson.message,
-                            errorJson.error,
-                            errorJson.title,
-                            errorJson.detail,
-                            errorJson.errors
-                        ]
-                        
-                        for (const msg of possibleMessages) {
-                            if (msg) {
-                                if (typeof msg === 'string') {
-                                    errorMessage = msg
-                                    break
-                                } else if (Array.isArray(msg) && msg.length > 0) {
-                                    errorMessage = msg[0]
-                                    break
-                                } else if (typeof msg === 'object') {
-                                    // If errors is an object with field names, extract first error
-                                    const firstError = Object.values(msg)[0]
-                                    if (Array.isArray(firstError) && firstError.length > 0) {
-                                        errorMessage = firstError[0]
-                                        break
-                                    }
-                                }
-                            }
-                        }
-                        
-                        // If still generic, try to make it more user-friendly
-                        if (errorMessage.includes("An error occurred while processing your request") || 
-                            errorMessage.includes("error occurred")) {
-                            errorMessage = "Đã xảy ra lỗi khi upload ảnh. Vui lòng kiểm tra:\n" +
-                                "- Kích thước file không quá 10MB\n" +
-                                "- Định dạng file là JPG, PNG, GIF hoặc WEBP\n" +
-                                "- Kết nối mạng ổn định\n" +
-                                "Nếu vẫn gặp lỗi, vui lòng thử lại sau."
-                        }
+                        errorMessage = errorJson.message || errorJson.error || errorMessage
                     } catch {
-                        // If JSON parsing fails, use raw text
-                        if (errorText && errorText.trim()) {
-                            errorMessage = errorText.trim()
-                        }
+                        errorMessage = errorText || errorMessage
                     }
                 }
             } catch {
-                // Ignore parsing errors, use default message
-            }
-
-            // Add status code context for debugging
-            if (response.status >= 500) {
-                errorMessage = `Lỗi server (${response.status}): ${errorMessage}\n\nVui lòng thử lại sau hoặc liên hệ quản trị viên nếu lỗi vẫn tiếp tục.`
-            } else if (response.status === 400) {
-                errorMessage = `Dữ liệu không hợp lệ (${response.status}): ${errorMessage}\n\nVui lòng kiểm tra lại file ảnh và thử lại.`
+                // Ignore parsing errors
             }
 
             throw new Error(errorMessage)

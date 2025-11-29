@@ -94,14 +94,6 @@ export default function ImageUploader({
     const files = event.target.files
     if (!files || files.length === 0) return
 
-    // Save file info for error logging
-    const fileInfo = {
-      count: files.length,
-      firstFileName: files[0]?.name || "unknown",
-      firstFileSize: files[0]?.size || 0,
-      firstFileType: files[0]?.type || "unknown"
-    }
-
     // Check permission before proceeding
     const permission = checkUploadPermission(folder || "GiaLaiOCOP/Images")
     if (!permission.allowed) {
@@ -141,50 +133,7 @@ export default function ImageUploader({
         setPreview(imageUrl)
       }
     } catch (err) {
-      let errorMessage = "Upload thất bại"
-      
-      // Extract error message safely
-      if (err instanceof Error) {
-        errorMessage = err.message || "Upload thất bại"
-      } else if (typeof err === 'string') {
-        errorMessage = err
-      } else if (err && typeof err === 'object' && 'message' in err) {
-        errorMessage = String(err.message) || "Upload thất bại"
-      }
-      
-      // Log detailed error for debugging (only in development)
-      if (process.env.NODE_ENV === 'development' && typeof console !== 'undefined') {
-        try {
-          console.group("[Upload Error]")
-          console.log("Message:", errorMessage)
-          console.log("Type:", err?.constructor?.name || typeof err)
-          console.log("Folder:", folder || "GiaLaiOCOP/Images")
-          console.log("File count:", multiple ? fileInfo.count : 1)
-          console.log("File name:", fileInfo.firstFileName)
-          console.log("File size:", fileInfo.firstFileSize, "bytes")
-          console.log("File type:", fileInfo.firstFileType)
-          
-          // Log error message and stack separately if available
-          if (err instanceof Error) {
-            console.log("Error.message:", err.message)
-            if (err.stack) {
-              console.log("Error.stack:", err.stack)
-            }
-          } else if (err && typeof err === 'object') {
-            try {
-              console.log("Error string:", String(err))
-            } catch {
-              console.log("Unable to stringify error")
-            }
-          } else {
-            console.log("Error value:", err)
-          }
-          console.groupEnd()
-        } catch (logErr) {
-          // Silently fail if logging causes issues
-        }
-      }
-      
+      const errorMessage = err instanceof Error ? err.message : "Upload thất bại"
       setError(errorMessage)
       // Clear preview on error
       setPreview(null)
@@ -327,18 +276,7 @@ export default function ImageUploader({
         {/* Error Message */}
         {error && (
           <div className="rounded-lg border border-red-200 bg-red-50 px-4 py-3">
-            <div className="flex items-start gap-2">
-              <svg className="w-5 h-5 text-red-600 mt-0.5 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-              </svg>
-              <div className="flex-1">
-                {error.split('\n').map((line, index) => (
-                  <p key={index} className={`text-sm font-medium text-red-700 ${index > 0 ? 'mt-1' : ''}`}>
-                    {line}
-                  </p>
-                ))}
-              </div>
-            </div>
+            <p className="text-sm font-medium text-red-700">{error}</p>
           </div>
         )}
 
