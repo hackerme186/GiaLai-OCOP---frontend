@@ -1703,8 +1703,8 @@ export interface ChangePasswordDto {
   confirmNewPassword: string;
 }
 
-export async function changePassword(payload: ChangePasswordDto): Promise<{ message: string }> {
-  return request<{ message: string }>("/auth/change-password", {
+export async function changePassword(payload: ChangePasswordDto): Promise<AuthResponse> {
+  return request<AuthResponse>("/auth/change-password", {
     method: "PUT",
     json: {
       currentPassword: payload.currentPassword,
