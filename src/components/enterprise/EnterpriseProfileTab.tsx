@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react"
 import Image from "next/image"
-import { getEnterprise, updateEnterprise, type Enterprise, type User } from "@/lib/api"
+import { getMyEnterprise, updateMyEnterprise, uploadImage, uploadDocument, type Enterprise, type User } from "@/lib/api"
 
 interface EnterpriseProfileTabProps {
   user: User | null
@@ -48,7 +48,7 @@ export default function EnterpriseProfileTab({ user }: EnterpriseProfileTabProps
     try {
       setLoading(true)
       setError(null)
-      const data = await getEnterprise(user.enterpriseId)
+      const data = await getMyEnterprise()
       setEnterprise(data)
       
       // Populate form
@@ -152,27 +152,46 @@ export default function EnterpriseProfileTab({ user }: EnterpriseProfileTabProps
       setSaving(true)
       setError(null)
       
-      // Convert files to base64 if needed
+      // Upload logo if changed
       let logoUrl = enterprise?.imageUrl || ""
       if (logoFile) {
-        const base64Logo = await new Promise<string>((resolve, reject) => {
-          const reader = new FileReader()
-          reader.onloadend = () => resolve(reader.result as string)
-          reader.onerror = reject
-          reader.readAsDataURL(logoFile)
-        })
-        logoUrl = base64Logo
+        const uploadResult = await uploadImage(logoFile, "enterprises")
+        logoUrl = uploadResult.imageUrl
       }
       
-      const payload: Partial<Enterprise> = {
-        ...formData,
+      // Upload documents if any
+      const uploadedDocuments: string[] = []
+      for (const docFile of documentFiles) {
+        try {
+          const uploadResult = await uploadDocument(docFile)
+          uploadedDocuments.push(uploadResult.documentUrl)
+        } catch (err) {
+          console.error("Failed to upload document:", err)
+        }
+      }
+      
+      // Update enterprise
+      await updateMyEnterprise({
+        name: formData.name,
+        description: formData.description,
+        address: formData.address,
+        ward: formData.ward,
+        district: formData.district,
+        province: formData.province,
+        phoneNumber: formData.phoneNumber,
+        emailContact: formData.emailContact,
+        website: formData.website,
+        businessField: formData.businessField,
         imageUrl: logoUrl,
-      }
+      })
       
-      await updateEnterprise(user.enterpriseId, payload)
       setSuccess("Đã cập nhật thông tin doanh nghiệp thành công!")
       setTimeout(() => setSuccess(null), 3000)
       await loadEnterprise()
+      
+      // Clear file states
+      setLogoFile(null)
+      setDocumentFiles([])
     } catch (err) {
       console.error("Failed to update enterprise:", err)
       setError(err instanceof Error ? err.message : "Không thể cập nhật thông tin")
@@ -233,6 +252,46 @@ export default function EnterpriseProfileTab({ user }: EnterpriseProfileTabProps
         <h2 className="text-2xl font-bold text-gray-900 mb-2">Hồ sơ doanh nghiệp</h2>
         <p className="text-sm text-gray-500">Quản lý thông tin và tài liệu của doanh nghiệp</p>
       </div>
+
+      {/* Approval Status */}
+      {enterprise && (
+        <div className="bg-white rounded-xl shadow-lg p-6">
+          <h3 className="text-lg font-semibold text-gray-900 mb-4">Trạng thái phê duyệt</h3>
+          <div className="flex flex-col gap-4">
+            <div className="flex items-center gap-4">
+              {(() => {
+                const status = enterprise.approvalStatus || "Pending"
+                switch (status.toLowerCase()) {
+                  case "approved":
+                    return (
+                      <span className="px-4 py-2 bg-green-100 text-green-800 rounded-lg font-semibold">
+                        Đã duyệt
+                      </span>
+                    )
+                  case "rejected":
+                    return (
+                      <span className="px-4 py-2 bg-red-100 text-red-800 rounded-lg font-semibold">
+                        Đã từ chối
+                      </span>
+                    )
+                  default:
+                    return (
+                      <span className="px-4 py-2 bg-yellow-100 text-yellow-800 rounded-lg font-semibold">
+                        Chờ duyệt
+                      </span>
+                    )
+                }
+              })()}
+            </div>
+            {enterprise.rejectionReason && (
+              <div className="bg-red-50 border border-red-200 rounded-lg p-4">
+                <p className="text-sm font-semibold text-red-900 mb-1">Lý do từ chối:</p>
+                <p className="text-sm text-red-700">{enterprise.rejectionReason}</p>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
 
       {/* Info Note */}
       <div className="bg-blue-50 border-2 border-blue-200 rounded-xl p-6">

@@ -3,7 +3,7 @@
 import { useEffect, useMemo, useState } from "react"
 import Link from "next/link"
 import { getUserProfile, isLoggedIn } from "@/lib/auth"
-import { getCurrentUser, getEnterprise, updateCurrentUser, changePassword, type Enterprise, type User, type UpdateUserDto } from "@/lib/api"
+import { getCurrentUser, getEnterprise, updateCurrentUser, changePassword, verifyEmail, resendVerificationOtp, type Enterprise, type User, type UpdateUserDto } from "@/lib/api"
 import Header from "@/components/layout/Header"
 import { useRouter } from "next/navigation"
 import { getCurrentAddress } from "@/lib/geolocation"
@@ -16,6 +16,9 @@ import {
   syncMainAddressFromBackend,
   type SavedShippingAddress
 } from "@/lib/shipping-addresses"
+import NewAddressForm, { type AddressFormData } from "@/components/address/NewAddressForm"
+import ImageUploader from "@/components/upload/ImageUploader"
+import Image from "next/image"
 
 type NotificationItem = {
   id: number
@@ -46,6 +49,7 @@ export default function AccountPage() {
   const [savingProfile, setSavingProfile] = useState(false)
   const [savedAddresses, setSavedAddresses] = useState<SavedShippingAddress[]>([])
   const [isAddingNewAddress, setIsAddingNewAddress] = useState(false)
+  const [showNewAddressForm, setShowNewAddressForm] = useState(false)
   const [newAddressLabel, setNewAddressLabel] = useState("")
   const [editingAddressId, setEditingAddressId] = useState<string | null>(null)
   const [newAddressValue, setNewAddressValue] = useState("")
@@ -63,6 +67,13 @@ export default function AccountPage() {
   const [confirmPassword, setConfirmPassword] = useState("")
   const [changingPassword, setChangingPassword] = useState(false)
   const [showPassword, setShowPassword] = useState({ current: false, new: false, confirm: false })
+
+  // Verify email states
+  const [otpCode, setOtpCode] = useState("")
+  const [verifyingEmail, setVerifyingEmail] = useState(false)
+  const [sendingOtp, setSendingOtp] = useState(false)
+  const [otpSent, setOtpSent] = useState(false)
+  const [otpCountdown, setOtpCountdown] = useState(0)
 
   // Notifications states
   const [notifications, setNotifications] = useState<NotificationItem[]>([])
@@ -534,6 +545,30 @@ export default function AccountPage() {
     setTimeout(() => setSuccess(null), 3000)
   }
 
+  const handleNewAddressFormSubmit = async (data: AddressFormData) => {
+    // Form đã tự gọi API updateShippingAddressDetail trong handleSubmit
+    // Chỉ cần reload user data và đóng form
+    try {
+      const updatedUser = await getCurrentUser()
+      setUser(updatedUser)
+      setShippingAddress(updatedUser.shippingAddress || "")
+
+      // Đồng bộ địa chỉ mới vào danh sách địa chỉ đã lưu
+      if (updatedUser.shippingAddress) {
+        syncMainAddressFromBackend(updatedUser.shippingAddress)
+        setSavedAddresses(getSavedShippingAddresses())
+      }
+
+      setShowNewAddressForm(false)
+      setSuccess("Đã cập nhật địa chỉ giao hàng thành công!")
+      setTimeout(() => setSuccess(null), 3000)
+    } catch (err) {
+      // Error đã được xử lý trong form, nhưng vẫn cần đóng form
+      setShowNewAddressForm(false)
+      console.error("Error reloading user data:", err)
+    }
+  }
+
   const handleDeleteAddress = (id: string) => {
     if (confirm("Bạn có chắc muốn xóa địa chỉ này?")) {
       deleteShippingAddress(id)
@@ -644,7 +679,7 @@ export default function AccountPage() {
       await changePassword({
         currentPassword: currentPassword.trim(),
         newPassword: newPassword.trim(),
-        confirmPassword: confirmPassword.trim(),
+        confirmNewPassword: confirmPassword.trim(),
       })
 
       setCurrentPassword("")
@@ -679,6 +714,83 @@ export default function AccountPage() {
     setNewPassword("")
     setConfirmPassword("")
     setShowPassword({ current: false, new: false, confirm: false })
+  }
+
+  // Verify Email handlers
+  const handleSendVerificationOtp = async () => {
+    if (!email) {
+      setError("Email không hợp lệ")
+      return
+    }
+
+    setSendingOtp(true)
+    setError(null)
+    setSuccess(null)
+
+    try {
+      await resendVerificationOtp({ email })
+      setOtpSent(true)
+      setOtpCountdown(60)
+      setSuccess("Mã OTP đã được gửi đến email của bạn. Vui lòng kiểm tra hộp thư.")
+      setTimeout(() => setSuccess(null), 5000)
+
+      // Countdown timer
+      const interval = setInterval(() => {
+        setOtpCountdown((prev) => {
+          if (prev <= 1) {
+            clearInterval(interval)
+            return 0
+          }
+          return prev - 1
+        })
+      }, 1000)
+    } catch (err) {
+      const errorMessage = err instanceof Error ? err.message : "Không thể gửi mã OTP"
+      setError(errorMessage)
+    } finally {
+      setSendingOtp(false)
+    }
+  }
+
+  const handleVerifyEmail = async () => {
+    if (!email) {
+      setError("Email không hợp lệ")
+      return
+    }
+
+    if (otpCode.length !== 6) {
+      setError("Mã OTP phải có 6 chữ số")
+      return
+    }
+
+    setVerifyingEmail(true)
+    setError(null)
+    setSuccess(null)
+
+    try {
+      const result = await verifyEmail({ email, otpCode, purpose: "Register" })
+      if (result.isEmailVerified) {
+        setSuccess("Xác thực email thành công!")
+        setTimeout(() => setSuccess(null), 3000)
+        
+        // Reload user data
+        const updatedUser = await getCurrentUser()
+        setUser(updatedUser)
+        
+        // Reset form
+        setOtpSent(false)
+        setOtpCode("")
+        setOtpCountdown(0)
+        
+        // Switch back to profile
+        setTimeout(() => setActiveMenu("profile"), 2000)
+      }
+    } catch (err) {
+      const errorMessage = err instanceof Error ? err.message : "Mã OTP không hợp lệ hoặc đã hết hạn"
+      setError(errorMessage)
+    } finally {
+      setVerifyingEmail(false)
+    }
   }
 
   const handleMarkNotificationAsRead = (id: number) => {
@@ -763,8 +875,27 @@ export default function AccountPage() {
             {/* User Profile Summary */}
             <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-4 mb-4">
               <div className="flex flex-col items-center text-center">
-                <div className="w-20 h-20 rounded-full bg-gradient-to-br from-orange-400 to-orange-500 flex items-center justify-center text-white text-2xl font-bold mb-3">
-                  {user?.name?.charAt(0)?.toUpperCase() || "U"}
+                <div className="w-20 h-20 rounded-full bg-gradient-to-br from-orange-400 to-orange-500 flex items-center justify-center text-white text-2xl font-bold mb-3 overflow-hidden relative border-2 border-white shadow-md">
+                  {(avatarPreview || user?.avatarUrl) ? (
+                    <Image
+                      src={avatarPreview || user?.avatarUrl || ""}
+                      alt={user?.name || "Avatar"}
+                      fill
+                      className="object-cover"
+                      unoptimized={
+                        (() => {
+                          const avatarUrl = avatarPreview || user?.avatarUrl || ""
+                          return (
+                            avatarUrl.includes("gialai-ocop-be.onrender.com") ||
+                            avatarUrl.includes("res.cloudinary.com") ||
+                            avatarUrl.startsWith("blob:")
+                          )
+                        })()
+                      }
+                    />
+                  ) : (
+                    <span>{user?.name?.charAt(0)?.toUpperCase() || "U"}</span>
+                  )}
                 </div>
                 <div className="font-medium text-gray-900 mb-1">{user?.name || "Người dùng"}</div>
                 <Link
@@ -880,6 +1011,25 @@ export default function AccountPage() {
                         <span className="w-1.5 h-1.5 rounded-full bg-current ml-2"></span>
                         Đổi Mật Khẩu
                       </Link>
+                      {!user?.isEmailVerified && (
+                        <Link
+                          href="/account/verify-email"
+                          onClick={(e) => {
+                            e.preventDefault()
+                            setActiveMenu("verify-email")
+                          }}
+                          className={`flex items-center gap-3 px-4 py-2.5 text-sm transition-colors ${activeMenu === "verify-email"
+                            ? "text-orange-500 bg-orange-50 border-l-2 border-orange-500"
+                            : "text-gray-600 hover:bg-gray-100"
+                            }`}
+                        >
+                          <span className="w-1.5 h-1.5 rounded-full bg-current ml-2"></span>
+                          Xác thực Email
+                          <span className="ml-auto px-2 py-0.5 text-xs rounded-full bg-yellow-100 text-yellow-700 font-semibold">
+                            Mới
+                          </span>
+                        </Link>
+                      )}
                     </div>
                   )}
                 </div>
@@ -976,8 +1126,23 @@ export default function AccountPage() {
 
                       {/* Email */}
                       <div>
-                        <label className="block text-sm font-medium text-gray-700 mb-2">
+                        <label className="block text-sm font-medium text-gray-700 mb-2 flex items-center gap-2">
                           Email
+                          {user?.isEmailVerified ? (
+                            <span className="inline-flex items-center gap-1 text-xs font-semibold px-2 py-0.5 rounded-full bg-green-100 text-green-700">
+                              <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                              </svg>
+                              Đã xác thực
+                            </span>
+                          ) : (
+                            <span className="inline-flex items-center gap-1 text-xs font-semibold px-2 py-0.5 rounded-full bg-yellow-100 text-yellow-700">
+                              <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+                              </svg>
+                              Chưa xác thực
+                            </span>
+                          )}
                         </label>
                         <div className="flex items-center gap-2">
                           <input
@@ -986,10 +1151,20 @@ export default function AccountPage() {
                             disabled
                             className="flex-1 px-4 py-2.5 border border-gray-300 rounded-md bg-gray-50 text-gray-600 cursor-not-allowed"
                           />
-                          <button className="text-sm text-orange-500 hover:text-orange-600 font-medium px-3 py-2.5">
-                            Thay Đổi
-                          </button>
+                          {!user?.isEmailVerified && (
+                            <button
+                              onClick={() => setActiveMenu("verify-email")}
+                              className="text-sm text-orange-500 hover:text-orange-600 font-medium px-3 py-2.5"
+                            >
+                              Xác thực Email
+                            </button>
+                          )}
                         </div>
+                        {!user?.isEmailVerified && (
+                          <p className="mt-1.5 text-xs text-yellow-600">
+                            Email chưa được xác thực. Vui lòng xác thực để bảo mật tài khoản.
+                          </p>
+                        )}
                       </div>
 
                       {/* Số điện thoại */}
@@ -1149,7 +1324,8 @@ export default function AccountPage() {
                     {/* Right Column - Profile Picture Upload */}
                     <div className="w-80 flex-shrink-0">
                       <div className="flex flex-col items-center">
-                        <div className="w-40 h-40 rounded-full bg-gradient-to-br from-orange-400 to-orange-500 flex items-center justify-center text-white text-5xl font-bold mb-4 overflow-hidden relative">
+                        {/* Avatar Preview */}
+                        <div className="w-40 h-40 rounded-full bg-gradient-to-br from-orange-400 to-orange-500 flex items-center justify-center text-white text-5xl font-bold mb-4 overflow-hidden relative border-4 border-white shadow-lg">
                           {avatarPreview ? (
                             <img
                               src={avatarPreview}
@@ -1160,79 +1336,62 @@ export default function AccountPage() {
                             user?.name?.charAt(0)?.toUpperCase() || "U"
                           )}
                         </div>
-                        <input
-                          type="file"
-                          id="avatar-upload"
-                          accept="image/*"
-                          className="hidden"
-                          onChange={(e) => {
-                            const file = e.target.files?.[0]
-                            if (!file) return
 
-                            // Validate file type - chấp nhận tất cả định dạng ảnh
-                            if (!file.type.match(/^image\//)) {
-                              setError("Vui lòng chọn file ảnh")
-                              return
-                            }
+                        {/* Image Uploader */}
+                        <ImageUploader
+                          folder="GiaLaiOCOP/Users"
+                          currentImageUrl={avatarPreview || user?.avatarUrl || undefined}
+                          onUploaded={async (imageUrl) => {
+                            setAvatarPreview(imageUrl)
+                            setAvatarFile(null) // No need to store file anymore
+                            setError(null)
 
-                            // Validate file size (5 MB - tăng lên để cho phép ảnh chất lượng cao hơn)
-                            const maxSize = 5 * 1024 * 1024 // 5 MB
-                            if (file.size > maxSize) {
-                              setError(`Dụng lượng file không được vượt quá ${(maxSize / (1024 * 1024)).toFixed(0)} MB`)
-                              return
-                            }
+                            // Auto-save avatar URL to user profile
+                            try {
+                              setUploadingAvatar(true)
+                              const updatedUser = await updateCurrentUser({
+                                name: user?.name || "",
+                                avatarUrl: imageUrl,
+                              })
+                              setUser(updatedUser)
 
-                            // Create preview
-                            const reader = new FileReader()
-                            reader.onloadend = () => {
-                              const base64Image = reader.result as string
-                              setAvatarPreview(base64Image)
-                              setAvatarFile(file)
-                              setError(null)
-                              setSuccess("Đã chọn ảnh thành công! Nhấn 'Lưu' để cập nhật.")
-                              setTimeout(() => setSuccess(null), 3000)
+                              // Update avatar preview
+                              setAvatarPreview(updatedUser.avatarUrl || imageUrl)
 
-                              // Tự động lưu vào localStorage
-                              if (user?.id && typeof window !== "undefined") {
-                                localStorage.setItem(`user_avatar_${user.id}`, base64Image)
-                              }
-                            }
-                            reader.onerror = () => {
-                              setError("Không thể đọc file ảnh. Vui lòng thử lại.")
-                            }
-                            reader.readAsDataURL(file)
-                          }}
-                        />
-                        <label
-                          htmlFor="avatar-upload"
-                          className="px-6 py-2.5 bg-white border-2 border-orange-500 text-orange-500 font-medium rounded-md hover:bg-orange-50 transition-colors mb-3 cursor-pointer"
-                        >
-                          {uploadingAvatar ? "Đang tải..." : "Chọn Ảnh"}
-                        </label>
-                        {avatarFile && (
-                          <button
-                            onClick={() => {
-                              setAvatarPreview(null)
-                              setAvatarFile(null)
-                              const fileInput = document.getElementById("avatar-upload") as HTMLInputElement
-                              if (fileInput) fileInput.value = ""
-
-                              // Xóa avatar khỏi localStorage
+                              // Remove old localStorage avatar if exists
                               if (user?.id && typeof window !== "undefined") {
                                 localStorage.removeItem(`user_avatar_${user.id}`)
                               }
 
-                              setSuccess("Đã hủy chọn ảnh")
-                              setTimeout(() => setSuccess(null), 2000)
-                            }}
-                            className="px-4 py-1.5 text-xs bg-gray-100 border border-gray-300 text-gray-700 font-medium rounded-md hover:bg-gray-200 transition-colors mb-2"
-                          >
-                            Hủy chọn
-                          </button>
-                        )}
-                        <div className="text-xs text-gray-500 text-center space-y-1">
-                          <p>Dụng lượng file tối đa 5 MB</p>
-                          <p>Chấp nhận tất cả định dạng ảnh</p>
+                              setSuccess("Đã upload và lưu avatar thành công!")
+                              setTimeout(() => setSuccess(null), 3000)
+                            } catch (err) {
+                              // Avatar was uploaded but failed to save to profile
+                              // Keep the preview so user can retry saving
+                              const errorMessage = err instanceof Error ? err.message : "Không thể lưu avatar"
+                              setError(`Avatar đã được upload nhưng không thể lưu vào hồ sơ: ${errorMessage}`)
+                              // Still keep preview so user can save manually
+                            } finally {
+                              setUploadingAvatar(false)
+                            }
+                          }}
+                          onRemove={() => {
+                            setAvatarPreview(null)
+                            setAvatarFile(null)
+                            // Clear localStorage
+                            if (user?.id && typeof window !== "undefined") {
+                              localStorage.removeItem(`user_avatar_${user.id}`)
+                            }
+                          }}
+                          showRemoveButton={!!avatarPreview}
+                          placeholder="Chọn ảnh đại diện"
+                          maxPreviewSize={160}
+                          disabled={uploadingAvatar}
+                        />
+
+                        <div className="text-xs text-gray-500 text-center mt-2 space-y-1">
+                          <p>Ảnh sẽ tự động upload và lưu</p>
+                          <p>Kích thước tối đa: 10MB</p>
                         </div>
                       </div>
                     </div>
@@ -1326,22 +1485,58 @@ export default function AccountPage() {
                         <h3 className="text-lg font-semibold text-gray-900">Danh sách địa chỉ đã lưu</h3>
                         <p className="text-sm text-gray-500">Thêm tối đa các địa chỉ thường dùng để chuyển đổi nhanh khi đặt hàng.</p>
                       </div>
-                      <button
-                        onClick={() => {
-                          setIsAddingNewAddress((prev) => !prev)
-                          setNewAddressLabel("")
-                          setNewAddressValue("")
-                        }}
-                        className="inline-flex items-center gap-2 px-4 py-2 rounded-lg border border-orange-200 text-orange-600 font-medium hover:bg-orange-50 transition-colors"
-                      >
-                        <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
-                        </svg>
-                        {isAddingNewAddress ? "Đóng form" : "Thêm địa chỉ mới"}
-                      </button>
+                      <div className="flex gap-2">
+                        <button
+                          onClick={() => {
+                            setShowNewAddressForm(true)
+                            setIsAddingNewAddress(false)
+                            setError(null) // Clear error khi mở form
+                          }}
+                          className="inline-flex items-center gap-2 px-4 py-2 rounded-lg border border-orange-200 text-orange-600 font-medium hover:bg-orange-50 transition-colors"
+                        >
+                          <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
+                          </svg>
+                          Thêm địa chỉ mới (Form đầy đủ)
+                        </button>
+                        <button
+                          onClick={() => {
+                            setIsAddingNewAddress((prev) => !prev)
+                            setShowNewAddressForm(false)
+                            setNewAddressLabel("")
+                            setNewAddressValue("")
+                          }}
+                          className="inline-flex items-center gap-2 px-4 py-2 rounded-lg border border-gray-300 text-gray-700 font-medium hover:bg-gray-50 transition-colors"
+                        >
+                          <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
+                          </svg>
+                          {isAddingNewAddress ? "Đóng form" : "Thêm nhanh"}
+                        </button>
+                      </div>
                     </div>
 
-                    {isAddingNewAddress && (
+                    {showNewAddressForm && (
+                      <div className="border-t border-gray-200 pt-6">
+                        <NewAddressForm
+                          onBack={() => {
+                            setShowNewAddressForm(false)
+                            setError(null)
+                          }}
+                          onSubmit={handleNewAddressFormSubmit}
+                          initialData={{
+                            fullName: user?.name || "",
+                            phoneNumber: user?.phoneNumber || "",
+                            provinceId: user?.provinceId || 0,
+                            districtId: user?.districtId || 0,
+                            wardId: user?.wardId || 0,
+                            specificAddress: user?.addressDetail || "",
+                          }}
+                        />
+                      </div>
+                    )}
+
+                    {isAddingNewAddress && !showNewAddressForm && (
                       <div className="rounded-xl border border-gray-200 p-4 bg-gray-50 space-y-3">
                         <div className="grid gap-3 md:grid-cols-2">
                           <div className="space-y-1">

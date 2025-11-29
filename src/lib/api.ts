@@ -37,17 +37,17 @@ async function request<TResponse>(
   let response: Response;
   try {
     response = await fetch(url, {
-    method: options.method || "GET",
-    headers,
-    body: options.json !== undefined ? JSON.stringify(options.json) : options.body,
-    // credentials: "include", // REMOVED: Causes CORS error with wildcard Access-Control-Allow-Origin
-    credentials: "omit", // Don't send cookies - fixes CORS with wildcard origin
-    cache: "no-store",
-  });
+      method: options.method || "GET",
+      headers,
+      body: options.json !== undefined ? JSON.stringify(options.json) : options.body,
+      // credentials: "include", // REMOVED: Causes CORS error with wildcard Access-Control-Allow-Origin
+      credentials: "omit", // Don't send cookies - fixes CORS with wildcard origin
+      cache: "no-store",
+    });
   } catch (fetchError) {
     // Network error - backend không available
     const errorMsg = fetchError instanceof Error ? fetchError.message : 'Network error';
-    
+
     // Only log error if not in silent mode and cooldown has passed
     const now = Date.now();
     if (!options.silent && (now - lastErrorLogTime) > ERROR_LOG_COOLDOWN) {
@@ -56,7 +56,7 @@ async function request<TResponse>(
       console.info('💡 Đợi 30-60 giây để backend khởi động, hoặc chạy local backend với: dotnet run');
       lastErrorLogTime = now;
     }
-    
+
     throw new Error(`Backend API không khả dụng. Vui lòng khởi động backend server. (${errorMsg})`);
   }
 
@@ -78,7 +78,7 @@ async function request<TResponse>(
     if (!bodyMessage && !isJson && typeof data === 'string') {
       bodyMessage = data as string;
     }
-    
+
     // Handle 401 Unauthorized with a clear error message
     if (response.status === 401) {
       // Clear invalid token
@@ -95,7 +95,7 @@ async function request<TResponse>(
       (authError as any).isAuthError = true;
       throw authError;
     }
-    
+
     const message = `${response.status} ${response.statusText} ${bodyMessage ? "- " + bodyMessage : ""}`.trim();
     throw new Error(message);
   }
@@ -144,6 +144,11 @@ export interface User {
   gender?: string;
   dateOfBirth?: string;
   avatarUrl?: string;
+  provinceId?: number;
+  districtId?: number;
+  wardId?: number;
+  addressDetail?: string;
+  isEmailVerified?: boolean;
 }
 
 export interface UpdateUserDto {
@@ -153,6 +158,34 @@ export interface UpdateUserDto {
   gender?: string;
   dateOfBirth?: string;
   avatarUrl?: string;
+}
+
+// Address
+export interface Province {
+  id: number;
+  name: string;
+  code: string;
+}
+
+export interface District {
+  id: number;
+  name: string;
+  code: string;
+  provinceId: number;
+}
+
+export interface Ward {
+  id: number;
+  name: string;
+  code: string;
+  districtId: number;
+}
+
+export interface UpdateShippingAddressDetailDto {
+  provinceId: number;
+  districtId: number;
+  wardId: number;
+  addressDetail: string;
 }
 
 // Category
@@ -224,6 +257,8 @@ export interface Enterprise {
   businessField: string;
   imageUrl?: string;
   averageRating?: number;
+  approvalStatus?: string; // "Pending" | "Approved" | "Rejected"
+  rejectionReason?: string;
 }
 
 // Enterprise Application (OCOP Registration)
@@ -326,10 +361,12 @@ export interface Order {
   orderItems?: OrderItem[];
   payments?: Payment[];
   enterpriseApprovalStatus?: string;
+  shipperId?: number;
 }
 
 export interface CreateOrderDto {
-  shippingAddress: string;
+  shippingAddress?: string; // String address (backward compatibility)
+  shippingAddressId?: number; // ID from ShippingAddresses table (preferred)
   items: Array<{
     productId: number;
     quantity: number;
@@ -368,6 +405,77 @@ export interface CreatePaymentDto {
 
 export interface UpdatePaymentStatusDto {
   status: "Paid" | "Cancelled";
+}
+
+// Shipper
+export interface Shipper {
+  id: number;
+  name: string;
+  email: string;
+  phoneNumber?: string;
+}
+
+// Inventory History
+export interface InventoryHistory {
+  id: number;
+  productId: number;
+  productName: string;
+  enterpriseId: number;
+  enterpriseName: string;
+  type: "import" | "export" | "adjustment";
+  quantity: number;
+  previousQuantity: number;
+  newQuantity: number;
+  reason?: string;
+  createdAt: string;
+  createdByUserId?: number;
+  createdByName?: string;
+}
+
+export interface AdjustInventoryDto {
+  productId: number;
+  type: "import" | "export" | "adjustment";
+  quantity: number;
+  reason?: string;
+  lowStockThreshold?: number;
+}
+
+// Notification
+export interface Notification {
+  id: number;
+  type: string;
+  title: string;
+  message: string;
+  read: boolean;
+  createdAt: string;
+  link?: string;
+  enterpriseId?: number;
+  userId?: number;
+  productId?: number;
+  orderId?: number;
+  productName?: string;
+  orderCode?: string;
+}
+
+// Enterprise Settings
+export interface ShippingMethod {
+  id: string;
+  name: string;
+  enabled: boolean;
+  fee: number;
+  description?: string;
+}
+
+export interface EnterpriseSettings {
+  enterpriseId: number;
+  shippingMethods: ShippingMethod[];
+  contactEmail: string;
+  contactPhone: string;
+  contactAddress: string;
+  businessHours: string;
+  returnPolicy?: string;
+  shippingPolicy?: string;
+  updatedAt?: string;
 }
 
 // Map
@@ -474,6 +582,76 @@ export async function login(payload: LoginPayload): Promise<AuthResponse> {
   });
 }
 
+// OTP Login
+export interface SendOtpDto {
+  email: string;
+  purpose?: "Login" | "Register";
+}
+
+export interface VerifyOtpDto {
+  email: string;
+  otpCode: string;
+  purpose?: "Login" | "Register";
+}
+
+export interface LoginWithOtpDto {
+  email: string;
+  otpCode: string;
+}
+
+export interface RegisterWithOtpDto {
+  name: string;
+  email: string;
+  password: string;
+  otpCode: string;
+}
+
+export interface ResendVerificationOtpDto {
+  email: string;
+}
+
+export async function sendOtp(payload: SendOtpDto): Promise<{ message: string; otpCode?: string }> {
+  return request<{ message: string; otpCode?: string }>("/auth/send-otp", {
+    method: "POST",
+    json: payload,
+  });
+}
+
+export async function verifyOtp(payload: VerifyOtpDto): Promise<{ message: string; verified: boolean }> {
+  return request<{ message: string; verified: boolean }>("/auth/verify-otp", {
+    method: "POST",
+    json: payload,
+  });
+}
+
+export async function loginWithOtp(payload: LoginWithOtpDto): Promise<AuthResponse> {
+  return request<AuthResponse>("/auth/login-with-otp", {
+    method: "POST",
+    json: payload,
+  });
+}
+
+export async function registerWithOtp(payload: RegisterWithOtpDto): Promise<AuthResponse> {
+  return request<AuthResponse>("/auth/register-with-otp", {
+    method: "POST",
+    json: payload,
+  });
+}
+
+export async function resendVerificationOtp(payload: ResendVerificationOtpDto): Promise<{ message: string; otpCode?: string }> {
+  return request<{ message: string; otpCode?: string }>("/auth/resend-verification-otp", {
+    method: "POST",
+    json: payload,
+  });
+}
+
+export async function verifyEmail(payload: VerifyOtpDto): Promise<{ message: string; isEmailVerified: boolean }> {
+  return request<{ message: string; isEmailVerified: boolean }>("/auth/verify-email", {
+    method: "POST",
+    json: payload,
+  });
+}
+
 // ------ USERS ------
 export async function getCurrentUser(): Promise<User> {
   try {
@@ -502,27 +680,34 @@ export async function getUser(id: number): Promise<User> {
   });
 }
 
+export async function updateUser(id: number, payload: UpdateUserDto): Promise<User> {
+  return request<User>(`/users/${id}`, {
+    method: "PUT",
+    json: payload,
+  });
+}
+
 export async function updateCurrentUser(payload: UpdateUserDto): Promise<User> {
   // Log để debug
   if (typeof window !== "undefined") {
     console.log("📤 [API] updateCurrentUser - Request payload:", JSON.stringify(payload, null, 2));
   }
-  
+
   const result = await request<User>("/users/me", {
     method: "PUT",
     json: payload,
   });
-  
+
   // Log response để debug
   if (typeof window !== "undefined") {
     console.log("📥 [API] updateCurrentUser - Response:", JSON.stringify(result, null, 2));
-    
+
     // Kiểm tra dữ liệu có được cập nhật không
     const fieldsNotInResponse: string[] = [];
     const fieldsNotUpdated: string[] = [];
-    
+
     if (payload.name && result.name !== payload.name) fieldsNotUpdated.push("name");
-    
+
     if (payload.phoneNumber) {
       if (!result.phoneNumber) {
         fieldsNotInResponse.push("phoneNumber");
@@ -530,7 +715,7 @@ export async function updateCurrentUser(payload: UpdateUserDto): Promise<User> {
         fieldsNotUpdated.push("phoneNumber");
       }
     }
-    
+
     if (payload.gender) {
       if (!result.gender) {
         fieldsNotInResponse.push("gender");
@@ -538,7 +723,7 @@ export async function updateCurrentUser(payload: UpdateUserDto): Promise<User> {
         fieldsNotUpdated.push("gender");
       }
     }
-    
+
     if (payload.dateOfBirth) {
       if (!result.dateOfBirth) {
         fieldsNotInResponse.push("dateOfBirth");
@@ -550,7 +735,7 @@ export async function updateCurrentUser(payload: UpdateUserDto): Promise<User> {
         }
       }
     }
-    
+
     if (payload.shippingAddress && result.shippingAddress !== payload.shippingAddress) {
       if (!result.shippingAddress) {
         fieldsNotInResponse.push("shippingAddress");
@@ -558,7 +743,7 @@ export async function updateCurrentUser(payload: UpdateUserDto): Promise<User> {
         fieldsNotUpdated.push("shippingAddress");
       }
     }
-    
+
     if (fieldsNotInResponse.length > 0) {
       console.warn(
         "⚠️ [API] updateCurrentUser - Backend KHÔNG TRẢ VỀ các trường sau trong response:",
@@ -567,40 +752,41 @@ export async function updateCurrentUser(payload: UpdateUserDto): Promise<User> {
         "\n→ Hãy kiểm tra backend: UserDto có include các trường này không?"
       );
     }
-    
+
     if (fieldsNotUpdated.length > 0) {
       console.warn("⚠️ [API] updateCurrentUser - Các trường sau không khớp với payload:", fieldsNotUpdated);
     }
   }
-  
+
   return result;
 }
 
-// Change password
-export interface ChangePasswordDto {
-  currentPassword: string;
-  newPassword: string;
-  confirmPassword: string;
+// Change password interface (moved to below)
+
+// ------ ADDRESS ------
+export async function getProvinces(): Promise<Province[]> {
+  return request<Province[]>("/address/provinces", {
+    method: "GET",
+  });
 }
 
-export async function changePassword(payload: ChangePasswordDto): Promise<{ message: string }> {
-  // Thử endpoint change-password, nếu không có thì có thể backend chưa hỗ trợ
-  // Hoặc có thể cần dùng endpoint khác như /users/me/password
-  try {
-    return await request<{ message: string }>("/auth/change-password", {
-      method: "POST",
-      json: {
-        currentPassword: payload.currentPassword,
-        newPassword: payload.newPassword,
-      },
-    });
-  } catch (error) {
-    // Nếu endpoint không tồn tại, thử endpoint khác hoặc throw error rõ ràng
-    if (error instanceof Error && error.message.includes("404")) {
-      throw new Error("Backend chưa hỗ trợ đổi mật khẩu. Endpoint /auth/change-password không tồn tại. Vui lòng liên hệ quản trị viên.");
-    }
-    throw error;
-  }
+export async function getDistricts(provinceId: number): Promise<District[]> {
+  return request<District[]>(`/address/districts?provinceId=${provinceId}`, {
+    method: "GET",
+  });
+}
+
+export async function getWards(districtId: number): Promise<Ward[]> {
+  return request<Ward[]>(`/address/wards?districtId=${districtId}`, {
+    method: "GET",
+  });
+}
+
+export async function updateShippingAddressDetail(payload: UpdateShippingAddressDetailDto): Promise<User> {
+  return request<User>("/users/update-shipping-address", {
+    method: "PUT",
+    json: payload,
+  });
 }
 
 // ------ CATEGORIES ------
@@ -652,7 +838,7 @@ export async function getProducts(params?: {
   if (params?.pageSize) searchParams.append('pageSize', String(params.pageSize));
   if (params?.status) searchParams.append('status', params.status);
   if (params?.categoryId) searchParams.append('categoryId', String(params.categoryId));
-  
+
   // Support both 'search' and 'q' parameters (BE may use either)
   // If both are provided, prefer 'q', otherwise use whichever is provided
   const searchTerm = params?.q || params?.search;
@@ -667,30 +853,30 @@ export async function getProducts(params?: {
     }
   }
   if (params?.enterpriseId) searchParams.append('enterpriseId', String(params.enterpriseId));
-  
+
   const query = searchParams.toString();
   const url = `/products${query ? '?' + query : ''}`;
-  
+
   // Debug: Log the API call
   if (params?.search || params?.q) {
-    console.log('🔍 API Call:', { 
-      fullUrl: `${API_BASE_URL}${url}`, 
+    console.log('🔍 API Call:', {
+      fullUrl: `${API_BASE_URL}${url}`,
       searchTerm: params?.search || params?.q,
       params: { q: params?.q, search: params?.search }
     });
   }
-  
+
   const response = await request<Product[] | { products?: Product[]; items?: Product[]; data?: Product[] }>(url, {
     method: "GET",
   });
-  
+
   // Debug: Log the response
   if (params?.search || params?.q) {
-    const resultCount = Array.isArray(response) ? response.length : 
-      (response && typeof response === 'object' ? 
+    const resultCount = Array.isArray(response) ? response.length :
+      (response && typeof response === 'object' ?
         ((response as any).products?.length || (response as any).items?.length || (response as any).data?.length || 0) : 0);
-    console.log('✅ API Response:', { 
-      searchTerm: params?.search || params?.q, 
+    console.log('✅ API Response:', {
+      searchTerm: params?.search || params?.q,
       count: resultCount,
       responseType: Array.isArray(response) ? 'array' : typeof response,
       responseKeys: response && typeof response === 'object' ? Object.keys(response) : []
@@ -701,7 +887,7 @@ export async function getProducts(params?: {
   if (Array.isArray(response)) {
     return response;
   }
-  
+
   if (response && typeof response === 'object') {
     const obj = response as any;
     if (Array.isArray(obj.products)) {
@@ -714,7 +900,7 @@ export async function getProducts(params?: {
       return obj.data;
     }
   }
-  
+
   // Fallback: return empty array if response format is unexpected
   console.warn('⚠️ Unexpected products response format:', response);
   return [];
@@ -738,6 +924,16 @@ export async function updateProduct(id: number, payload: Partial<CreateProductDt
   return request<Product>(`/products/${id}`, {
     method: "PUT",
     json: payload,
+  });
+}
+
+/// <summary>
+/// SystemAdmin: Cập nhật chỉ ảnh sản phẩm
+/// </summary>
+export async function updateProductImage(id: number, imageUrl: string): Promise<void> {
+  return request<void>(`/products/${id}/image`, {
+    method: "PUT",
+    json: { imageUrl },
   });
 }
 
@@ -771,7 +967,7 @@ export async function getEnterpriseApplications(params?: {
   if (params?.status) searchParams.append('status', params.status);
   if (params?.page) searchParams.append('page', String(params.page));
   if (params?.pageSize) searchParams.append('pageSize', String(params.pageSize));
-  
+
   const query = searchParams.toString();
   return request<EnterpriseApplication[]>(`/enterpriseapplications${query ? '?' + query : ''}`, {
     method: "GET",
@@ -800,19 +996,19 @@ export async function getEnterprises(params?: {
   province?: string;
   businessField?: string;
 }): Promise<Enterprise[]> {
-    const searchParams = new URLSearchParams();
-    if (params?.page) searchParams.append('page', String(params.page));
+  const searchParams = new URLSearchParams();
+  if (params?.page) searchParams.append('page', String(params.page));
   if (params?.pageSize) searchParams.append('pageSize', String(params.pageSize));
-    if (params?.search) searchParams.append('search', params.search);
-    if (params?.district) searchParams.append('district', params.district);
-    if (params?.province) searchParams.append('province', params.province);
+  if (params?.search) searchParams.append('search', params.search);
+  if (params?.district) searchParams.append('district', params.district);
+  if (params?.province) searchParams.append('province', params.province);
   if (params?.businessField) searchParams.append('businessField', params.businessField);
-  
+
   const query = searchParams.toString();
   return request<Enterprise[]>(`/enterprises${query ? '?' + query : ''}`, {
     method: "GET",
   });
-        }
+}
 
 export async function getEnterprise(id: number): Promise<Enterprise> {
   return request<Enterprise>(`/enterprises/${id}`, {
@@ -843,7 +1039,7 @@ export async function getOrders(params?: {
   if (params?.status) searchParams.append('status', params.status);
   if (params?.page) searchParams.append('page', String(params.page));
   if (params?.pageSize) searchParams.append('pageSize', String(params.pageSize));
-  
+
   const query = searchParams.toString();
   return request<Order[]>(`/orders${query ? '?' + query : ''}`, {
     method: "GET",
@@ -858,15 +1054,22 @@ export async function getOrder(id: number): Promise<Order> {
 
 export async function createOrder(payload: CreateOrderDto): Promise<Order> {
   return request<Order>("/orders", {
-        method: "POST",
-        json: payload,
-      });
+    method: "POST",
+    json: payload,
+  });
 }
 
 export async function updateOrderStatus(id: number, payload: UpdateOrderStatusDto): Promise<Order> {
   return request<Order>(`/orders/${id}/status`, {
     method: "PUT",
     json: payload,
+  });
+}
+
+export async function updateOrderShippingAddress(id: number, shippingAddress: string): Promise<void> {
+  return request<void>(`/orders/${id}/shipping-address`, {
+    method: "PUT",
+    json: { shippingAddress },
   });
 }
 
@@ -921,7 +1124,7 @@ export async function searchMap(params: MapSearchParams): Promise<EnterpriseMapD
   if (params.sortBy) searchParams.append('sortBy', params.sortBy);
   if (params.page) searchParams.append('page', String(params.page));
   if (params.pageSize) searchParams.append('pageSize', String(params.pageSize));
-  
+
   return request<EnterpriseMapDto[]>(`/map/search?${searchParams.toString()}`, {
     method: "GET",
   });
@@ -939,7 +1142,7 @@ export async function getMapBoundingBox(params: {
     minLon: String(params.minLon),
     maxLon: String(params.maxLon),
   });
-  
+
   return request<EnterpriseMapDto[]>(`/map/bounding-box?${searchParams.toString()}`, {
     method: "GET",
   });
@@ -955,11 +1158,11 @@ export async function getMapNearby(params: {
     longitude: String(params.longitude),
     radiusKm: String(params.radiusKm),
   });
-  
+
   return request<EnterpriseMapDto[]>(`/map/nearby?${searchParams.toString()}`, {
     method: "GET",
   });
-    }
+}
 
 export async function getMapFilterOptions(): Promise<FilterOptions> {
   return request<FilterOptions>("/map/filter-options", {
@@ -980,7 +1183,7 @@ export async function getMapEnterpriseProducts(id: number, params?: {
   const searchParams = new URLSearchParams();
   if (params?.page) searchParams.append('page', String(params.page));
   if (params?.pageSize) searchParams.append('pageSize', String(params.pageSize));
-  
+
   const query = searchParams.toString();
   return request<Product[]>(`/map/enterprises/${id}/products${query ? '?' + query : ''}`, {
     method: "GET",
@@ -997,17 +1200,17 @@ export async function getEnterpriseProducts(enterpriseId: number, params?: {
   if (params?.page) searchParams.append('page', String(params.page));
   if (params?.pageSize) searchParams.append('pageSize', String(params.pageSize));
   if (params?.status) searchParams.append('status', params.status);
-  
+
   const query = searchParams.toString();
-  
+
   // Try multiple endpoints in order until one works
   const endpoints = [
     `/enterprises/${enterpriseId}/products${query ? '?' + query : ''}`,
     `/products${query ? '?' + query : ''}?enterpriseId=${enterpriseId}`,
   ];
-  
+
   let lastError: Error | null = null;
-  
+
   for (const endpoint of endpoints) {
     try {
       console.log(`🔍 Trying endpoint: ${API_BASE_URL}${endpoint}`);
@@ -1022,10 +1225,10 @@ export async function getEnterpriseProducts(enterpriseId: number, params?: {
       // Continue to next endpoint
     }
   }
-  
+
   // All endpoints failed
   const errorMsg = lastError?.message || "Unknown error";
-  
+
   if (errorMsg.includes("403")) {
     throw new Error(
       "403 FORBIDDEN - Backend chưa cấu hình đúng cho EnterpriseAdmin.\n" +
@@ -1036,7 +1239,7 @@ export async function getEnterpriseProducts(enterpriseId: number, params?: {
       "Xem chi tiết: TROUBLESHOOTING_403.md"
     );
   }
-  
+
   throw lastError || new Error("Failed to load products");
 }
 
@@ -1057,6 +1260,790 @@ export async function getReportRevenueByMonth(): Promise<RevenueByMonth[]> {
   return request<RevenueByMonth[]>("/reports/revenue-by-month", {
     method: "GET",
   });
+}
+
+// ------ SHIPPERS (EnterpriseAdmin/SystemAdmin) ------
+export async function getShippers(): Promise<Shipper[]> {
+  return request<Shipper[]>("/shippers", {
+    method: "GET",
+  });
+}
+
+export async function getShipperOrders(): Promise<Order[]> {
+  return request<Order[]>("/shippers/orders", {
+    method: "GET",
+  });
+}
+
+export async function assignOrderToShipper(orderId: number, shipperId: number): Promise<{ message: string }> {
+  return request<{ message: string }>(`/shippers/orders/${orderId}/assign`, {
+    method: "POST",
+    json: { shipperId },
+  });
+}
+
+export async function shipOrder(orderId: number): Promise<{ message: string }> {
+  return request<{ message: string }>(`/shippers/orders/${orderId}/ship`, {
+    method: "POST",
+  });
+}
+
+export async function deliverOrder(orderId: number, notes?: string): Promise<{ message: string }> {
+  return request<{ message: string }>(`/shippers/orders/${orderId}/deliver`, {
+    method: "POST",
+    json: notes ? { notes } : undefined,
+  });
+}
+
+// ------ INVENTORY (EnterpriseAdmin) ------
+export interface InventoryHistoryResponse {
+  items: InventoryHistory[];
+  page: number;
+  pageSize: number;
+  totalItems: number;
+  totalPages: number;
+}
+
+export async function getInventoryHistory(params?: {
+  productId?: number;
+  page?: number;
+  pageSize?: number;
+}): Promise<InventoryHistoryResponse> {
+  const searchParams = new URLSearchParams();
+  if (params?.productId) searchParams.append("productId", String(params.productId));
+  if (params?.page) searchParams.append("page", String(params.page));
+  if (params?.pageSize) searchParams.append("pageSize", String(params.pageSize));
+
+  const query = searchParams.toString();
+  try {
+    return request<InventoryHistoryResponse>(`/inventory/history${query ? "?" + query : ""}`, {
+      method: "GET",
+    });
+  } catch (error) {
+    // Fallback to empty array if 404
+    if (error instanceof Error && error.message.includes("404")) {
+      console.warn("Inventory history endpoint not found, returning empty array");
+      return {
+        items: [],
+        page: 1,
+        pageSize: 50,
+        totalItems: 0,
+        totalPages: 0,
+      };
+    }
+    throw error;
+  }
+}
+
+export async function adjustInventory(payload: AdjustInventoryDto): Promise<InventoryHistory> {
+  return request<InventoryHistory>("/inventory/adjust", {
+    method: "POST",
+    json: payload,
+  });
+}
+
+// ------ NOTIFICATIONS (EnterpriseAdmin) ------
+export async function getNotifications(params?: {
+  unreadOnly?: boolean;
+  type?: string;
+}): Promise<Notification[]> {
+  const searchParams = new URLSearchParams();
+  if (params?.unreadOnly) searchParams.append("unreadOnly", "true");
+  if (params?.type) searchParams.append("type", params.type);
+
+  const query = searchParams.toString();
+  try {
+    return request<Notification[]>(`/notifications${query ? "?" + query : ""}`, {
+      method: "GET",
+    });
+  } catch (error) {
+    // Fallback to empty array if 404
+    if (error instanceof Error && error.message.includes("404")) {
+      console.warn("Notifications endpoint not found, returning empty array");
+      return [];
+    }
+    throw error;
+  }
+}
+
+export async function markNotificationAsRead(id: number): Promise<void> {
+  return request<void>(`/notifications/${id}/read`, {
+    method: "PUT",
+  });
+}
+
+export async function markAllNotificationsAsRead(): Promise<void> {
+  return request<void>("/notifications/read-all", {
+    method: "PUT",
+  });
+}
+
+export async function deleteNotification(id: number): Promise<void> {
+  return request<void>(`/notifications/${id}`, {
+    method: "DELETE",
+  });
+}
+
+// ------ ENTERPRISE SETTINGS (EnterpriseAdmin) ------
+export async function getEnterpriseSettings(): Promise<EnterpriseSettings> {
+  return request<EnterpriseSettings>("/enterprises/me/settings", {
+    method: "GET",
+  });
+}
+
+export async function updateEnterpriseSettings(payload: EnterpriseSettings): Promise<EnterpriseSettings> {
+  return request<EnterpriseSettings>("/enterprises/me/settings", {
+    method: "PUT",
+    json: payload,
+  });
+}
+
+// ------ ENTERPRISE PROFILE (EnterpriseAdmin) ------
+export async function getMyEnterprise(): Promise<Enterprise> {
+  return request<Enterprise>("/enterprises/me", {
+    method: "GET",
+  });
+}
+
+export interface UpdateMyEnterpriseDto {
+  name?: string;
+  description?: string;
+  address?: string;
+  ward?: string;
+  district?: string;
+  province?: string;
+  latitude?: number;
+  longitude?: number;
+  phoneNumber?: string;
+  emailContact?: string;
+  website?: string;
+  businessField?: string;
+  imageUrl?: string;
+}
+
+export async function updateMyEnterprise(payload: UpdateMyEnterpriseDto): Promise<void> {
+  return request<void>("/enterprises/me", {
+    method: "PUT",
+    json: payload,
+  });
+}
+
+// ------ FILE UPLOAD ------
+export interface UploadImageResponse {
+  success: boolean;
+  message?: string;
+  imageUrl: string;
+  publicId?: string;
+  width?: number;
+  height?: number;
+  format?: string;
+}
+
+export async function uploadImage(file: File, folder?: string): Promise<UploadImageResponse> {
+  const formData = new FormData();
+  formData.append("file", file);
+  if (folder) {
+    formData.append("folder", folder);
+  }
+
+  const token = getAuthToken();
+  const headers: HeadersInit = {};
+  if (token) {
+    headers["Authorization"] = `Bearer ${token}`;
+  }
+
+  const url = `${API_BASE_URL}/fileupload/image${folder ? `?folder=${encodeURIComponent(folder)}` : ""}`;
+  const response = await fetch(url, {
+    method: "POST",
+    headers,
+    body: formData,
+    credentials: "omit",
+  });
+
+  if (!response.ok) {
+    const errorText = await response.text();
+    throw new Error(`Upload failed: ${response.status} ${errorText}`);
+  }
+
+  return response.json();
+}
+
+export interface UploadDocumentResponse {
+  success: boolean;
+  message?: string;
+  documentUrl: string;
+  fileName: string;
+}
+
+// ------ REVIEWS ------
+export interface Review {
+  id: number;
+  userId: number;
+  productId: number;
+  rating: number; // 1-5
+  comment?: string;
+  createdAt?: string;
+  updatedAt?: string;
+  user?: User;
+  product?: Product;
+}
+
+export async function getReviews(): Promise<Review[]> {
+  return request<Review[]>("/reviews", {
+    method: "GET",
+  });
+}
+
+export async function getReview(id: number): Promise<Review> {
+  return request<Review>(`/reviews/${id}`, {
+    method: "GET",
+  });
+}
+
+export async function createReview(payload: Omit<Review, "id" | "createdAt" | "updatedAt" | "user" | "product">): Promise<Review> {
+  return request<Review>("/reviews", {
+    method: "POST",
+    json: payload,
+  });
+}
+
+export async function updateReview(id: number, payload: Partial<Omit<Review, "id" | "userId" | "productId" | "createdAt" | "updatedAt" | "user" | "product">>): Promise<Review> {
+  return request<Review>(`/reviews/${id}`, {
+    method: "PUT",
+    json: payload,
+  });
+}
+
+export async function deleteReview(id: number): Promise<void> {
+  return request<void>(`/reviews/${id}`, {
+    method: "DELETE",
+  });
+}
+
+// ------ SHIPPING ADDRESSES ------
+export interface ShippingAddress {
+  id: number;
+  userId: number;
+  fullName: string;
+  phoneNumber: string;
+  addressLine: string;
+  ward: string;
+  district: string;
+  province: string;
+  label?: string;
+  isDefault: boolean;
+  createdAt?: string;
+  updatedAt?: string;
+}
+
+export interface CreateShippingAddressDto {
+  fullName: string;
+  phoneNumber: string;
+  addressLine: string;
+  ward: string;
+  district: string;
+  province: string;
+  label?: string;
+  isDefault?: boolean;
+}
+
+export interface UpdateShippingAddressDto {
+  fullName: string;
+  phoneNumber: string;
+  addressLine: string;
+  ward: string;
+  district: string;
+  province: string;
+  label?: string;
+  isDefault?: boolean;
+}
+
+export async function getShippingAddresses(): Promise<ShippingAddress[]> {
+  return request<ShippingAddress[]>("/shipping-addresses", {
+    method: "GET",
+  });
+}
+
+export async function getShippingAddress(id: number): Promise<ShippingAddress> {
+  return request<ShippingAddress>(`/shipping-addresses/${id}`, {
+    method: "GET",
+  });
+}
+
+export async function createShippingAddress(payload: CreateShippingAddressDto): Promise<ShippingAddress> {
+  return request<ShippingAddress>("/shipping-addresses", {
+    method: "POST",
+    json: payload,
+  });
+}
+
+export async function updateShippingAddress(id: number, payload: UpdateShippingAddressDto): Promise<ShippingAddress> {
+  return request<ShippingAddress>(`/shipping-addresses/${id}`, {
+    method: "PUT",
+    json: payload,
+  });
+}
+
+export async function setDefaultShippingAddress(id: number): Promise<ShippingAddress> {
+  return request<ShippingAddress>(`/shipping-addresses/${id}/set-default`, {
+    method: "PATCH",
+  });
+}
+
+export async function deleteShippingAddress(id: number): Promise<void> {
+  return request<void>(`/shipping-addresses/${id}`, {
+    method: "DELETE",
+  });
+}
+
+// ------ PROFILE AVATAR ------
+export interface AvatarResponse {
+  success: boolean;
+  message: string;
+  imageId?: number;
+  imageUrl?: string;
+  fileName?: string;
+  createdAt?: string;
+}
+
+export async function uploadAvatar(file: File): Promise<AvatarResponse> {
+  const formData = new FormData();
+  formData.append("file", file);
+
+  const token = getAuthToken();
+  const headers: HeadersInit = {};
+  if (token) {
+    headers["Authorization"] = `Bearer ${token}`;
+  }
+
+  const url = `${API_BASE_URL}/profile/avatar`;
+  const response = await fetch(url, {
+    method: "POST",
+    headers,
+    body: formData,
+    credentials: "omit",
+  });
+
+  if (!response.ok) {
+    const errorText = await response.text();
+    throw new Error(`Upload avatar failed: ${response.status} ${errorText}`);
+  }
+
+  return response.json();
+}
+
+export async function updateAvatar(file: File): Promise<AvatarResponse> {
+  const formData = new FormData();
+  formData.append("file", file);
+
+  const token = getAuthToken();
+  const headers: HeadersInit = {};
+  if (token) {
+    headers["Authorization"] = `Bearer ${token}`;
+  }
+
+  const url = `${API_BASE_URL}/profile/avatar`;
+  const response = await fetch(url, {
+    method: "PUT",
+    headers,
+    body: formData,
+    credentials: "omit",
+  });
+
+  if (!response.ok) {
+    const errorText = await response.text();
+    throw new Error(`Update avatar failed: ${response.status} ${errorText}`);
+  }
+
+  return response.json();
+}
+
+export async function deleteAvatar(): Promise<{ success: boolean; message: string }> {
+  return request<{ success: boolean; message: string }>("/profile/avatar", {
+    method: "DELETE",
+  });
+}
+
+export async function getAvatar(): Promise<AvatarResponse> {
+  return request<AvatarResponse>("/profile/avatar", {
+    method: "GET",
+  });
+}
+
+export async function uploadDocument(file: File): Promise<UploadDocumentResponse> {
+  const formData = new FormData();
+  formData.append("file", file);
+
+  const token = getAuthToken();
+  const headers: HeadersInit = {};
+  if (token) {
+    headers["Authorization"] = `Bearer ${token}`;
+  }
+
+  const url = `${API_BASE_URL}/fileupload/document`;
+  const response = await fetch(url, {
+    method: "POST",
+    headers,
+    body: formData,
+    credentials: "omit",
+  });
+
+  if (!response.ok) {
+    const errorText = await response.text();
+    throw new Error(`Upload failed: ${response.status} ${errorText}`);
+  }
+
+  return response.json();
+}
+
+// ------ CHANGE PASSWORD (Auth) ------
+export interface ChangePasswordDto {
+  currentPassword: string;
+  newPassword: string;
+  confirmNewPassword: string;
+}
+
+export async function changePassword(payload: ChangePasswordDto): Promise<{ message: string }> {
+  return request<{ message: string }>("/auth/change-password", {
+    method: "PUT",
+    json: {
+      currentPassword: payload.currentPassword,
+      newPassword: payload.newPassword,
+      confirmNewPassword: payload.confirmNewPassword,
+    },
+  });
+}
+
+// ------ CREATE ENTERPRISE ADMIN (SystemAdmin) ------
+export interface CreateEnterpriseAdminDto {
+  name: string;
+  email: string;
+  password: string;
+  enterpriseId: number;
+}
+
+export async function createEnterpriseAdmin(payload: CreateEnterpriseAdminDto): Promise<User> {
+  return request<User>("/users/enterprise-admin", {
+    method: "POST",
+    json: payload,
+  });
+}
+
+// ------ GPS ADDRESS LOOKUP ------
+export interface GpsAddressLookupDto {
+  addressLine: string;
+  ward: string;
+  district: string;
+  province: string;
+  country: string;
+  latitude: number;
+  longitude: number;
+}
+
+export async function getAddressFromGps(lat: number, lng: number): Promise<GpsAddressLookupDto> {
+  return request<GpsAddressLookupDto>(`/shippingaddress/from-gps?lat=${lat}&lng=${lng}`, {
+    method: "GET",
+  });
+}
+
+// ------ TRANSACTIONS ------
+export interface Transaction {
+  id: number;
+  orderId?: number;
+  userId?: number;
+  amount: number;
+  type: string;
+  status: string;
+  createdAt?: string;
+  updatedAt?: string;
+}
+
+export async function getTransactions(): Promise<Transaction[]> {
+  return request<Transaction[]>("/transactions", {
+    method: "GET",
+  });
+}
+
+export async function getTransaction(id: number): Promise<Transaction> {
+  return request<Transaction>(`/transactions/${id}`, {
+    method: "GET",
+  });
+}
+
+export async function createTransaction(payload: Omit<Transaction, "id" | "createdAt" | "updatedAt">): Promise<Transaction> {
+  return request<Transaction>("/transactions", {
+    method: "POST",
+    json: payload,
+  });
+}
+
+// ------ LOCATIONS (SystemAdmin) ------
+export interface Location {
+  id: number;
+  name: string;
+  address: string;
+  latitude: number;
+  longitude: number;
+}
+
+export interface CreateLocationDto {
+  name: string;
+  address: string;
+  latitude: number;
+  longitude: number;
+}
+
+export async function getLocations(): Promise<Location[]> {
+  return request<Location[]>("/locations", {
+    method: "GET",
+  });
+}
+
+export async function getLocation(id: number): Promise<Location> {
+  return request<Location>(`/locations/${id}`, {
+    method: "GET",
+  });
+}
+
+export async function createLocation(payload: CreateLocationDto): Promise<Location> {
+  return request<Location>("/locations", {
+    method: "POST",
+    json: payload,
+  });
+}
+
+export async function updateLocation(id: number, payload: CreateLocationDto): Promise<void> {
+  return request<void>(`/locations/${id}`, {
+    method: "PUT",
+    json: payload,
+  });
+}
+
+export async function deleteLocation(id: number): Promise<void> {
+  return request<void>(`/locations/${id}`, {
+    method: "DELETE",
+  });
+}
+
+// ------ PRODUCERS (SystemAdmin) ------
+export interface Producer {
+  id: number;
+  name: string;
+  address: string;
+}
+
+export interface CreateProducerDto {
+  name: string;
+  address: string;
+}
+
+export async function getProducers(): Promise<Producer[]> {
+  return request<Producer[]>("/producers", {
+    method: "GET",
+  });
+}
+
+export async function getProducer(id: number): Promise<Producer> {
+  return request<Producer>(`/producers/${id}`, {
+    method: "GET",
+  });
+}
+
+export async function createProducer(payload: CreateProducerDto): Promise<Producer> {
+  return request<Producer>("/producers", {
+    method: "POST",
+    json: payload,
+  });
+}
+
+export async function updateProducer(id: number, payload: CreateProducerDto): Promise<void> {
+  return request<void>(`/producers/${id}`, {
+    method: "PUT",
+    json: payload,
+  });
+}
+
+export async function deleteProducer(id: number): Promise<void> {
+  return request<void>(`/producers/${id}`, {
+    method: "DELETE",
+  });
+}
+
+// ------ PRODUCT IMAGES (EnterpriseAdmin) ------
+export interface ProductImage {
+  id: number;
+  url: string;
+  fileName: string;
+  isApproved: boolean;
+  createdAt: string;
+}
+
+export async function getProductImages(productId: number): Promise<ProductImage[]> {
+  return request<ProductImage[]>(`/productimages/products/${productId}/images`, {
+    method: "GET",
+  });
+}
+
+export async function uploadProductImage(productId: number, file: File): Promise<{ success: boolean; message: string; imageId: number; imageUrl: string; fileName: string; isApproved: boolean }> {
+  const formData = new FormData();
+  formData.append("file", file);
+
+  const token = getAuthToken();
+  const headers: HeadersInit = {};
+  if (token) {
+    headers["Authorization"] = `Bearer ${token}`;
+  }
+
+  const url = `${API_BASE_URL}/productimages/products/${productId}/images`;
+  const response = await fetch(url, {
+    method: "POST",
+    headers,
+    body: formData,
+    credentials: "omit",
+  });
+
+  if (!response.ok) {
+    const errorText = await response.text();
+    throw new Error(`Upload product image failed: ${response.status} ${errorText}`);
+  }
+
+  return response.json();
+}
+
+export async function deleteProductImage(productId: number, imageId: number): Promise<{ success: boolean; message: string }> {
+  return request<{ success: boolean; message: string }>(`/productimages/products/${productId}/images/${imageId}`, {
+    method: "DELETE",
+  });
+}
+
+// ------ ADMIN IMAGES (SystemAdmin) ------
+export interface AdminImage {
+  id: number;
+  url: string;
+  fileName: string;
+  contentType: string;
+  fileSize: number;
+  imageType: string;
+  userId?: number;
+  productId?: number;
+  enterpriseId?: number;
+  productName?: string;
+  enterpriseName?: string;
+  uploadedByUserId?: number;
+  uploadedByRole?: string;
+  uploadedByName?: string;
+  isActive: boolean;
+  isApproved: boolean;
+  createdAt: string;
+  updatedAt?: string;
+  deletedAt?: string;
+}
+
+export interface AdminImagesResponse {
+  total: number;
+  page: number;
+  pageSize: number;
+  totalPages: number;
+  images: AdminImage[];
+}
+
+export async function getAdminImages(params?: {
+  imageType?: string;
+  isApproved?: boolean;
+  isActive?: boolean;
+  page?: number;
+  pageSize?: number;
+}): Promise<AdminImagesResponse> {
+  const searchParams = new URLSearchParams();
+  if (params?.imageType) searchParams.append("imageType", params.imageType);
+  if (params?.isApproved !== undefined) searchParams.append("isApproved", String(params.isApproved));
+  if (params?.isActive !== undefined) searchParams.append("isActive", String(params.isActive));
+  if (params?.page) searchParams.append("page", String(params.page));
+  if (params?.pageSize) searchParams.append("pageSize", String(params.pageSize));
+
+  const query = searchParams.toString();
+  return request<AdminImagesResponse>(`/admin/images${query ? "?" + query : ""}`, {
+    method: "GET",
+  });
+}
+
+export async function getAdminImage(imageId: number): Promise<AdminImage> {
+  return request<AdminImage>(`/admin/images/${imageId}`, {
+    method: "GET",
+  });
+}
+
+export async function approveAdminImage(imageId: number): Promise<{ success: boolean; message: string }> {
+  return request<{ success: boolean; message: string }>(`/admin/images/${imageId}/approve`, {
+    method: "PUT",
+  });
+}
+
+export async function rejectAdminImage(imageId: number): Promise<{ success: boolean; message: string }> {
+  return request<{ success: boolean; message: string }>(`/admin/images/${imageId}/reject`, {
+    method: "PUT",
+  });
+}
+
+export async function deleteAdminImage(imageId: number): Promise<{ success: boolean; message: string }> {
+  return request<{ success: boolean; message: string }>(`/admin/images/${imageId}`, {
+    method: "DELETE",
+  });
+}
+
+export interface AdminImageStats {
+  totalImages: number;
+  activeImages: number;
+  approvedImages: number;
+  pendingImages: number;
+  byType: Array<{
+    imageType: string;
+    count: number;
+    activeCount: number;
+    approvedCount: number;
+  }>;
+}
+
+export async function getAdminImageStats(): Promise<AdminImageStats> {
+  return request<AdminImageStats>("/admin/images/stats", {
+    method: "GET",
+  });
+}
+
+// ------ MAP FILTER (Enhanced) ------
+// Note: getMapFilterOptions is already defined above (line 1166), so we don't duplicate it here
+
+export async function filterMapEnterprises(params: MapSearchParams): Promise<{ data: EnterpriseMapDto[]; total: number; page: number; pageSize: number }> {
+  const searchParams = new URLSearchParams();
+  if (params.keyword) searchParams.append("keyword", params.keyword);
+  if (params.district) searchParams.append("district", params.district);
+  if (params.province) searchParams.append("province", params.province);
+  if (params.businessField) searchParams.append("businessField", params.businessField);
+  if (params.ocopRating) searchParams.append("ocopRating", String(params.ocopRating));
+  if (params.minLat) searchParams.append("minLatitude", String(params.minLat));
+  if (params.maxLat) searchParams.append("maxLatitude", String(params.maxLat));
+  if (params.minLon) searchParams.append("minLongitude", String(params.minLon));
+  if (params.maxLon) searchParams.append("maxLongitude", String(params.maxLon));
+  if (params.latitude) searchParams.append("userLatitude", String(params.latitude));
+  if (params.longitude) searchParams.append("userLongitude", String(params.longitude));
+  if (params.radiusKm) searchParams.append("maxDistance", String(params.radiusKm));
+  if (params.sortBy) searchParams.append("sortBy", params.sortBy);
+  if (params.page) searchParams.append("page", String(params.page));
+  if (params.pageSize) searchParams.append("pageSize", String(params.pageSize));
+
+  return request<{ data: EnterpriseMapDto[]; total: number; page: number; pageSize: number }>(`/map/filter?${searchParams.toString()}`, {
+    method: "GET",
+  });
+}
+
+// ------ SHIPPING ADDRESSES (Enhanced with GPS) ------
+export interface ShippingAddressWithGps extends ShippingAddress {
+  latitude?: number;
+  longitude?: number;
+}
+
+export async function getAddressFromGpsForShipping(lat: number, lng: number): Promise<GpsAddressLookupDto> {
+  return getAddressFromGps(lat, lng);
 }
 
 function extractUserIdFromToken(): number | null {

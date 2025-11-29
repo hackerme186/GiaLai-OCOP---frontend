@@ -7,9 +7,14 @@ import { getCurrentUser } from "@/lib/api"
 import { getAuthToken, getRoleFromToken } from "@/lib/auth"
 import AdminHeader, { type TabType } from "@/components/admin/AdminHeader"
 import EnterpriseApprovalTab from "@/components/admin/EnterpriseApprovalTab"
+import EnterpriseManagementTab from "@/components/admin/EnterpriseManagementTab"
 import OcopApprovalTab from "@/components/admin/OcopApprovalTab"
 import CategoryManagementTab from "@/components/admin/CategoryManagementTab"
 import ProvinceReportTab from "@/components/admin/ProvinceReportTab"
+import ImageManagementTab from "@/components/admin/ImageManagementTab"
+import LocationsTab from "@/components/admin/LocationsTab"
+import ProducersTab from "@/components/admin/ProducersTab"
+import TransactionsTab from "@/components/admin/TransactionsTab"
 
 export default function AdminPage() {
   const router = useRouter()
@@ -91,14 +96,29 @@ export default function AdminPage() {
             {activeTab === 'enterprise-approval' && (
               <EnterpriseApprovalTab />
             )}
+            {activeTab === 'enterprise-management' && (
+              <EnterpriseManagementTab />
+            )}
             {activeTab === 'ocop-approval' && (
               <OcopApprovalTab />
             )}
             {activeTab === 'categories' && (
               <CategoryManagementTab />
             )}
+            {activeTab === 'images' && (
+              <ImageManagementTab />
+            )}
             {activeTab === 'reports' && (
               <ProvinceReportTab />
+            )}
+            {activeTab === 'locations' && (
+              <LocationsTab />
+            )}
+            {activeTab === 'producers' && (
+              <ProducersTab />
+            )}
+            {activeTab === 'transactions' && (
+              <TransactionsTab />
             )}
           </div>
         </div>

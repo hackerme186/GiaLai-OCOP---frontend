@@ -9,6 +9,7 @@ import { Product, getProduct } from "@/lib/api"
 import { useCart } from "@/lib/cart-context"
 import { useToast } from "@/components/Toast"
 import Navbar from "@/components/layout/Navbar"
+import ProductReviews from "@/components/ProductReviews"
 
 export default function ProductDetailPage() {
   const params = useParams()
@@ -426,6 +427,11 @@ export default function ProductDetailPage() {
               </div>
             </div>
           </div>
+        </div>
+
+        {/* Product Reviews Section */}
+        <div className="mt-12">
+          <ProductReviews productId={product.id} />
         </div>
       </div>
       <ToastContainer />

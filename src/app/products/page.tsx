@@ -5,7 +5,7 @@ import { useQuery } from "@tanstack/react-query"
 import { useSearchParams, useRouter } from "next/navigation"
 import Image from "next/image"
 import Link from "next/link"
-import { getProducts, Product } from "@/lib/api"
+import { getProducts, getCategories, Product, Category } from "@/lib/api"
 import Header from "@/components/layout/Header"
 import Footer from "@/components/layout/Footer"
 
@@ -104,6 +104,24 @@ function ProductsContent() {
       })
     : approvedProducts;
 
+  // Fetch categories from API (only active categories added by admin)
+  const { data: categoriesData = [] } = useQuery({
+    queryKey: ["categories", "active"],
+    queryFn: async () => {
+      // Chỉ lấy danh mục đã được admin system kích hoạt
+      const allCategories = await getCategories(true) // isActive = true
+      return allCategories.filter((cat: Category) => cat.isActive === true)
+    },
+    staleTime: 5 * 60 * 1000, // 5 minutes
+    refetchOnWindowFocus: false,
+  })
+
+  // Build categories list: "Tất cả" + categories from API
+  const categories = [
+    "Tất cả",
+    ...categoriesData.map((cat: Category) => cat.name)
+  ]
+
   // Filter by category
   const products =
     selectedCategory && selectedCategory !== "Tất cả"
@@ -111,15 +129,6 @@ function ProductsContent() {
           p.categoryName?.toLowerCase().includes(selectedCategory.toLowerCase())
         )
       : searchFiltered
-
-  const categories = [
-    "Tất cả",
-    "Nông sản",
-    "Thủ công mỹ nghệ", 
-    "Thực phẩm",
-    "Dược liệu",
-    "Khác"
-  ]
 
   // Loading state
   if (isLoading) {

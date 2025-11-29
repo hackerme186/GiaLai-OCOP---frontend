@@ -1,19 +1,12 @@
 "use client"
 
 import { useEffect, useState } from "react"
-import { getEnterprise, updateEnterprise, type Enterprise, type User } from "@/lib/api"
+import { getMyEnterprise, updateMyEnterprise, getEnterpriseSettings, updateEnterpriseSettings, type Enterprise, type User, type EnterpriseSettings, type ShippingMethod } from "@/lib/api"
 
 interface SettingsTabProps {
   user: User | null
 }
 
-interface ShippingMethod {
-  id: string
-  name: string
-  enabled: boolean
-  fee: number
-  description: string
-}
 
 export default function SettingsTab({ user }: SettingsTabProps) {
   const [enterprise, setEnterprise] = useState<Enterprise | null>(null)
@@ -39,28 +32,43 @@ export default function SettingsTab({ user }: SettingsTabProps) {
 
   useEffect(() => {
     if (user?.enterpriseId) {
-      loadEnterprise()
+      loadSettings()
     }
   }, [user?.enterpriseId])
 
-  const loadEnterprise = async () => {
+  const loadSettings = async () => {
     if (!user?.enterpriseId) return
     
     try {
       setLoading(true)
-      const data = await getEnterprise(user.enterpriseId)
-      setEnterprise(data)
       
-      setSettings({
-        contactEmail: data.emailContact || "",
-        contactPhone: data.phoneNumber || "",
-        contactAddress: data.address || "",
-        businessHours: "08:00 - 17:00",
-        returnPolicy: "",
-        shippingPolicy: "",
-      })
+      // Try to load settings from API
+      try {
+        const settingsData = await getEnterpriseSettings()
+        setShippingMethods(settingsData.shippingMethods || [])
+        setSettings({
+          contactEmail: settingsData.contactEmail || "",
+          contactPhone: settingsData.contactPhone || "",
+          contactAddress: settingsData.contactAddress || "",
+          businessHours: settingsData.businessHours || "08:00 - 17:00",
+          returnPolicy: settingsData.returnPolicy || "",
+          shippingPolicy: settingsData.shippingPolicy || "",
+        })
+      } catch (settingsError) {
+        // Fallback to enterprise data
+        const enterpriseData = await getMyEnterprise()
+        setEnterprise(enterpriseData)
+        setSettings({
+          contactEmail: enterpriseData.emailContact || "",
+          contactPhone: enterpriseData.phoneNumber || "",
+          contactAddress: enterpriseData.address || "",
+          businessHours: "08:00 - 17:00",
+          returnPolicy: "",
+          shippingPolicy: "",
+        })
+      }
     } catch (err) {
-      console.error("Failed to load enterprise:", err)
+      console.error("Failed to load settings:", err)
       setError("Không thể tải thông tin cài đặt")
     } finally {
       setLoading(false)
@@ -74,22 +82,24 @@ export default function SettingsTab({ user }: SettingsTabProps) {
       setSaving(true)
       setError(null)
       
-      await updateEnterprise(user.enterpriseId, {
+      // Update enterprise basic info
+      await updateMyEnterprise({
         emailContact: settings.contactEmail,
         phoneNumber: settings.contactPhone,
         address: settings.contactAddress,
       })
       
-      // TODO: Save shipping methods and other settings to backend
-      // For now, save to localStorage
-      if (typeof window !== "undefined") {
-        localStorage.setItem(`enterprise_settings_${user.enterpriseId}`, JSON.stringify({
-          shippingMethods,
-          businessHours: settings.businessHours,
-          returnPolicy: settings.returnPolicy,
-          shippingPolicy: settings.shippingPolicy,
-        }))
-      }
+      // Update enterprise settings
+      await updateEnterpriseSettings({
+        enterpriseId: user.enterpriseId,
+        shippingMethods: shippingMethods,
+        contactEmail: settings.contactEmail,
+        contactPhone: settings.contactPhone,
+        contactAddress: settings.contactAddress,
+        businessHours: settings.businessHours,
+        returnPolicy: settings.returnPolicy,
+        shippingPolicy: settings.shippingPolicy,
+      })
       
       setSuccess("Đã lưu cài đặt thành công!")
       setTimeout(() => setSuccess(null), 3000)
