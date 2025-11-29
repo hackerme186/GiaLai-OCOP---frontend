@@ -650,56 +650,123 @@ export default function AccountPage() {
   }
 
   const handleChangePassword = async () => {
+    // Reset errors
+    setError(null)
+    setSuccess(null)
+
+    // Validation - khớp với BE
     if (!currentPassword.trim()) {
-      setError("Vui lòng nhập mật khẩu hiện tại")
+      setError("Mật khẩu hiện tại là bắt buộc.")
       return
     }
+
     if (!newPassword.trim()) {
-      setError("Vui lòng nhập mật khẩu mới")
+      setError("Mật khẩu mới là bắt buộc.")
       return
     }
-    if (newPassword.length < 6) {
-      setError("Mật khẩu mới phải có ít nhất 6 ký tự")
+
+    // Kiểm tra độ dài: 6-100 ký tự (khớp với BE)
+    if (newPassword.length < 6 || newPassword.length > 100) {
+      setError("Mật khẩu mới phải có từ 6 đến 100 ký tự.")
       return
     }
+
+    // Kiểm tra regex: phải có chữ hoa, chữ thường và số (khớp với BE)
+    const passwordRegex = /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d).*$/
+    if (!passwordRegex.test(newPassword)) {
+      setError("Mật khẩu mới phải chứa ít nhất một chữ hoa, một chữ thường và một số.")
+      return
+    }
+
+    // Kiểm tra xác nhận mật khẩu
+    if (!confirmPassword.trim()) {
+      setError("Vui lòng xác nhận mật khẩu mới.")
+      return
+    }
+
     if (newPassword !== confirmPassword) {
-      setError("Mật khẩu xác nhận không khớp")
+      setError("Mật khẩu xác nhận không khớp với mật khẩu mới.")
       return
     }
+
+    // Kiểm tra mật khẩu mới phải khác mật khẩu hiện tại (BE sẽ kiểm tra lại, nhưng validate sớm ở FE)
     if (currentPassword === newPassword) {
-      setError("Mật khẩu mới phải khác mật khẩu hiện tại")
+      setError("Mật khẩu mới phải khác mật khẩu hiện tại.")
       return
     }
 
     setChangingPassword(true)
-    setError(null)
-    setSuccess(null)
 
     try {
-      await changePassword({
+      const response = await changePassword({
         currentPassword: currentPassword.trim(),
         newPassword: newPassword.trim(),
         confirmNewPassword: confirmPassword.trim(),
       })
 
+      // Lưu token mới từ response (BE trả về AuthResponse với Token mới)
+      const newToken = response.Token || response.token
+      if (newToken) {
+        const { setAuthToken } = await import("@/lib/auth")
+        setAuthToken(newToken)
+      }
+
+      // Reset form
       setCurrentPassword("")
       setNewPassword("")
       setConfirmPassword("")
-      setSuccess("Đã đổi mật khẩu thành công!")
-      setTimeout(() => setSuccess(null), 3000)
+      setShowPassword({ current: false, new: false, confirm: false })
+
+      // Hiển thị thông báo thành công
+      const successMessage = response.Message || response.message || "Đổi mật khẩu thành công. Vui lòng lưu token mới để tiếp tục sử dụng."
+      setSuccess(successMessage)
+      setTimeout(() => setSuccess(null), 5000)
     } catch (err) {
-      let errorMessage = "Không thể đổi mật khẩu"
+      let errorMessage = "Đã xảy ra lỗi khi đổi mật khẩu. Vui lòng thử lại sau."
 
       if (err instanceof Error) {
-        errorMessage = err.message
+        const errMsg = err.message
 
-        // Hiển thị thông báo rõ ràng hơn nếu endpoint không tồn tại
-        if (errorMessage.includes("404") || errorMessage.includes("Not Found")) {
+        // Parse error message từ BE
+        // BE trả về: "Mật khẩu hiện tại không đúng" (BadRequest)
+        if (errMsg.includes("Mật khẩu hiện tại không đúng") || errMsg.includes("401") || errMsg.includes("Unauthorized")) {
+          errorMessage = "Mật khẩu hiện tại không đúng"
+        }
+        // BE trả về: "Mật khẩu xác nhận không khớp với mật khẩu mới" (BadRequest)
+        else if (errMsg.includes("Mật khẩu xác nhận không khớp") || errMsg.includes("không khớp")) {
+          errorMessage = "Mật khẩu xác nhận không khớp với mật khẩu mới"
+        }
+        // BE trả về: "Mật khẩu mới phải có từ 6 đến 100 ký tự" (BadRequest)
+        else if (errMsg.includes("6 đến 100 ký tự") || errMsg.includes("6-100")) {
+          errorMessage = "Mật khẩu mới phải có từ 6 đến 100 ký tự"
+        }
+        // BE trả về: "Mật khẩu mới phải chứa ít nhất một chữ hoa, một chữ thường và một số" (BadRequest)
+        else if (errMsg.includes("chữ hoa") || errMsg.includes("chữ thường") || errMsg.includes("số")) {
+          errorMessage = "Mật khẩu mới phải chứa ít nhất một chữ hoa, một chữ thường và một số"
+        }
+        // BE trả về: "Mật khẩu mới phải khác mật khẩu hiện tại" (BadRequest)
+        else if (errMsg.includes("Mật khẩu mới phải khác mật khẩu hiện tại")) {
+          errorMessage = "Mật khẩu mới phải khác mật khẩu hiện tại"
+        }
+        // BE trả về: "Không tìm thấy thông tin người dùng. Vui lòng đăng nhập lại." (Unauthorized)
+        else if (errMsg.includes("Không tìm thấy thông tin người dùng") || errMsg.includes("đăng nhập lại")) {
+          errorMessage = "Không tìm thấy thông tin người dùng. Vui lòng đăng nhập lại."
+          // Redirect to login after 1.5s
+          setTimeout(() => {
+            router.push("/login?redirect=/account")
+          }, 1500)
+        }
+        // 404 - endpoint không tồn tại
+        else if (errMsg.includes("404") || errMsg.includes("Not Found")) {
           errorMessage = "Backend chưa hỗ trợ đổi mật khẩu. Endpoint /auth/change-password không tồn tại. Vui lòng liên hệ quản trị viên để được hỗ trợ."
-        } else if (errorMessage.includes("401") || errorMessage.includes("Unauthorized")) {
-          errorMessage = "Mật khẩu hiện tại không đúng. Vui lòng kiểm tra lại."
-        } else if (errorMessage.includes("403") || errorMessage.includes("Forbidden")) {
+        }
+        // 403 - Forbidden
+        else if (errMsg.includes("403") || errMsg.includes("Forbidden")) {
           errorMessage = "Bạn không có quyền thực hiện thao tác này. Vui lòng đăng nhập lại."
+        }
+        // Nếu error message từ BE có format rõ ràng, dùng luôn
+        else if (errMsg && !errMsg.includes("400") && !errMsg.includes("500")) {
+          errorMessage = errMsg
         }
       }
 
@@ -1727,7 +1794,7 @@ export default function AccountPage() {
                           value={newPassword}
                           onChange={(e) => setNewPassword(e.target.value)}
                           className="w-full rounded-lg border border-gray-300 px-4 py-2.5 pr-12 focus:ring-2 focus:ring-orange-400 focus:border-orange-400"
-                          placeholder="Tối thiểu 6 ký tự"
+                          placeholder="6-100 ký tự, có chữ hoa, chữ thường và số"
                         />
                         <button
                           type="button"
@@ -1761,11 +1828,13 @@ export default function AccountPage() {
                   </div>
 
                   <div className="rounded-lg bg-gray-50 border border-gray-200 px-4 py-3 text-sm text-gray-600">
-                    <p className="font-semibold text-gray-800 mb-1">Gợi ý:</p>
+                    <p className="font-semibold text-gray-800 mb-1">Yêu cầu mật khẩu mới:</p>
                     <ul className="list-disc list-inside space-y-1">
-                      <li>Sử dụng cả chữ hoa, chữ thường, số và ký tự đặc biệt.</li>
-                      <li>Tránh dùng mật khẩu giống với các tài khoản khác.</li>
-                      <li>Không chia sẻ mật khẩu cho bất kỳ ai.</li>
+                      <li>Độ dài từ 6 đến 100 ký tự</li>
+                      <li>Phải chứa ít nhất một chữ hoa (A-Z)</li>
+                      <li>Phải chứa ít nhất một chữ thường (a-z)</li>
+                      <li>Phải chứa ít nhất một số (0-9)</li>
+                      <li>Mật khẩu mới phải khác mật khẩu hiện tại</li>
                     </ul>
                   </div>
 
