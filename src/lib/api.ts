@@ -760,31 +760,32 @@ export async function updateCurrentUser(payload: UpdateUserDto): Promise<User> {
   return result;
 }
 
-// Change password
-export interface ChangePasswordDto {
-  currentPassword: string;
-  newPassword: string;
-  confirmPassword: string;
+// Change password interface (moved to below)
+
+// ------ ADDRESS ------
+export async function getProvinces(): Promise<Province[]> {
+  return request<Province[]>("/address/provinces", {
+    method: "GET",
+  });
 }
 
-export async function changePassword(payload: ChangePasswordDto): Promise<{ message: string }> {
-  // Thử endpoint change-password, nếu không có thì có thể backend chưa hỗ trợ
-  // Hoặc có thể cần dùng endpoint khác như /users/me/password
-  try {
-    return await request<{ message: string }>("/auth/change-password", {
-      method: "POST",
-      json: {
-        currentPassword: payload.currentPassword,
-        newPassword: payload.newPassword,
-      },
-    });
-  } catch (error) {
-    // Nếu endpoint không tồn tại, thử endpoint khác hoặc throw error rõ ràng
-    if (error instanceof Error && error.message.includes("404")) {
-      throw new Error("Backend chưa hỗ trợ đổi mật khẩu. Endpoint /auth/change-password không tồn tại. Vui lòng liên hệ quản trị viên.");
-    }
-    throw error;
-  }
+export async function getDistricts(provinceId: number): Promise<District[]> {
+  return request<District[]>(`/address/districts?provinceId=${provinceId}`, {
+    method: "GET",
+  });
+}
+
+export async function getWards(districtId: number): Promise<Ward[]> {
+  return request<Ward[]>(`/address/wards?districtId=${districtId}`, {
+    method: "GET",
+  });
+}
+
+export async function updateShippingAddressDetail(payload: UpdateShippingAddressDetailDto): Promise<User> {
+  return request<User>("/users/update-shipping-address", {
+    method: "PUT",
+    json: payload,
+  });
 }
 
 // ------ ADDRESS ------

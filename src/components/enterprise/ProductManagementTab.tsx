@@ -18,6 +18,8 @@ export default function ProductManagementTab({ user }: ProductManagementTabProps
   const [editingProduct, setEditingProduct] = useState<Product | null>(null)
   const [error, setError] = useState<string | null>(null)
   const [success, setSuccess] = useState<string | null>(null)
+  const [showImagesManager, setShowImagesManager] = useState(false)
+  const [selectedProductForImages, setSelectedProductForImages] = useState<Product | null>(null)
 
   // Form state
   const [formData, setFormData] = useState({
@@ -465,6 +467,18 @@ export default function ProductManagementTab({ user }: ProductManagementTabProps
                     Sửa
                   </button>
                   <button
+                    onClick={() => {
+                      setSelectedProductForImages(product)
+                      setShowImagesManager(true)
+                    }}
+                    className="px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition-colors text-sm font-medium flex items-center justify-center"
+                    title="Quản lý ảnh"
+                  >
+                    <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                    </svg>
+                  </button>
+                  <button
                     onClick={() => handleDelete(product.id)}
                     className="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors text-sm font-medium flex items-center justify-center"
                   >
@@ -757,6 +771,18 @@ export default function ProductManagementTab({ user }: ProductManagementTabProps
             </form>
           </div>
         </div>
+      )}
+
+      {/* Product Images Manager Modal */}
+      {showImagesManager && selectedProductForImages && (
+        <ProductImagesManager
+          productId={selectedProductForImages.id}
+          productName={selectedProductForImages.name}
+          onClose={() => {
+            setShowImagesManager(false)
+            setSelectedProductForImages(null)
+          }}
+        />
       )}
     </div>
   )

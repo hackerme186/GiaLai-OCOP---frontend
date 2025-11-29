@@ -22,6 +22,7 @@ export default function EnterpriseApprovalTab() {
   })
   const [rejectReason, setRejectReason] = useState<Record<number, string>>({})
   const [showRejectModal, setShowRejectModal] = useState<number | null>(null)
+  const [viewingApplication, setViewingApplication] = useState<EnterpriseApplication | null>(null)
   const [error, setError] = useState<string | null>(null)
 
   useEffect(() => {
@@ -323,6 +324,265 @@ export default function EnterpriseApprovalTab() {
           </div>
         )}
       </div>
+
+      {/* View Details Modal */}
+      {viewingApplication && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4 overflow-y-auto">
+          <div className="bg-white rounded-lg shadow-xl max-w-4xl w-full max-h-[90vh] overflow-y-auto">
+            <div className="sticky top-0 bg-white border-b border-gray-200 px-6 py-4 flex items-center justify-between">
+              <h3 className="text-xl font-semibold text-gray-900">Chi tiết đơn đăng ký</h3>
+              <button
+                onClick={() => setViewingApplication(null)}
+                className="text-gray-400 hover:text-gray-600 transition-colors"
+              >
+                <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                </svg>
+              </button>
+            </div>
+            
+            <div className="p-6 space-y-6">
+              {/* Status Badge */}
+              <div className="flex items-center justify-between">
+                <div>
+                  <span className={`px-3 py-1 rounded-full text-sm font-medium ${
+                    (viewingApplication.status || "").toLowerCase() === "pending"
+                      ? "bg-yellow-100 text-yellow-800"
+                      : (viewingApplication.status || "").toLowerCase() === "approved"
+                        ? "bg-green-100 text-green-800"
+                        : "bg-red-100 text-red-800"
+                  }`}>
+                    {viewingApplication.status || "Pending"}
+                  </span>
+                </div>
+                <div className="text-sm text-gray-500">
+                  Ngày tạo: {viewingApplication.createdAt ? new Date(viewingApplication.createdAt).toLocaleDateString("vi-VN") : "-"}
+                </div>
+              </div>
+
+              {/* Enterprise Information */}
+              <div className="border border-gray-200 rounded-lg p-4">
+                <h4 className="text-lg font-semibold text-gray-900 mb-4 pb-2 border-b border-gray-200">
+                  1. Thông tin doanh nghiệp
+                </h4>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div>
+                    <label className="text-sm font-medium text-gray-500">Tên doanh nghiệp</label>
+                    <p className="text-gray-900 mt-1">{viewingApplication.enterpriseName || "-"}</p>
+                  </div>
+                  <div>
+                    <label className="text-sm font-medium text-gray-500">Loại hình doanh nghiệp</label>
+                    <p className="text-gray-900 mt-1">{viewingApplication.businessType || "-"}</p>
+                  </div>
+                  <div>
+                    <label className="text-sm font-medium text-gray-500">Mã số thuế</label>
+                    <p className="text-gray-900 mt-1">{viewingApplication.taxCode || "-"}</p>
+                  </div>
+                  <div>
+                    <label className="text-sm font-medium text-gray-500">Số giấy phép kinh doanh</label>
+                    <p className="text-gray-900 mt-1">{viewingApplication.businessLicenseNumber || "-"}</p>
+                  </div>
+                  {viewingApplication.licenseIssuedDate && (
+                    <div>
+                      <label className="text-sm font-medium text-gray-500">Ngày cấp giấy phép</label>
+                      <p className="text-gray-900 mt-1">{new Date(viewingApplication.licenseIssuedDate).toLocaleDateString("vi-VN")}</p>
+                    </div>
+                  )}
+                  {viewingApplication.licenseIssuedBy && (
+                    <div>
+                      <label className="text-sm font-medium text-gray-500">Nơi cấp giấy phép</label>
+                      <p className="text-gray-900 mt-1">{viewingApplication.licenseIssuedBy}</p>
+                    </div>
+                  )}
+                  <div className="md:col-span-2">
+                    <label className="text-sm font-medium text-gray-500">Địa chỉ</label>
+                    <p className="text-gray-900 mt-1">
+                      {[
+                        viewingApplication.address,
+                        viewingApplication.ward,
+                        viewingApplication.district,
+                        viewingApplication.province
+                      ].filter(Boolean).join(", ") || "-"}
+                    </p>
+                  </div>
+                  <div>
+                    <label className="text-sm font-medium text-gray-500">Số điện thoại</label>
+                    <p className="text-gray-900 mt-1">{viewingApplication.phoneNumber || "-"}</p>
+                  </div>
+                  <div>
+                    <label className="text-sm font-medium text-gray-500">Email liên hệ</label>
+                    <p className="text-gray-900 mt-1">{viewingApplication.emailContact || "-"}</p>
+                  </div>
+                  {viewingApplication.website && (
+                    <div>
+                      <label className="text-sm font-medium text-gray-500">Website</label>
+                      <p className="text-gray-900 mt-1">{viewingApplication.website}</p>
+                    </div>
+                  )}
+                  <div>
+                    <label className="text-sm font-medium text-gray-500">Lĩnh vực kinh doanh</label>
+                    <p className="text-gray-900 mt-1">{viewingApplication.businessField || "-"}</p>
+                  </div>
+                  {viewingApplication.productionLocation && (
+                    <div>
+                      <label className="text-sm font-medium text-gray-500">Địa điểm sản xuất</label>
+                      <p className="text-gray-900 mt-1">{viewingApplication.productionLocation}</p>
+                    </div>
+                  )}
+                  {viewingApplication.numberOfEmployees && (
+                    <div>
+                      <label className="text-sm font-medium text-gray-500">Số lao động</label>
+                      <p className="text-gray-900 mt-1">{viewingApplication.numberOfEmployees}</p>
+                    </div>
+                  )}
+                  {viewingApplication.productionScale && (
+                    <div>
+                      <label className="text-sm font-medium text-gray-500">Quy mô sản xuất</label>
+                      <p className="text-gray-900 mt-1">{viewingApplication.productionScale}</p>
+                    </div>
+                  )}
+                </div>
+              </div>
+
+              {/* Legal Representative Information */}
+              <div className="border border-gray-200 rounded-lg p-4">
+                <h4 className="text-lg font-semibold text-gray-900 mb-4 pb-2 border-b border-gray-200">
+                  2. Thông tin đại diện pháp luật
+                </h4>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div>
+                    <label className="text-sm font-medium text-gray-500">Họ tên đại diện</label>
+                    <p className="text-gray-900 mt-1">{viewingApplication.representativeName || "-"}</p>
+                  </div>
+                  {viewingApplication.representativePosition && (
+                    <div>
+                      <label className="text-sm font-medium text-gray-500">Chức vụ đại diện</label>
+                      <p className="text-gray-900 mt-1">{viewingApplication.representativePosition}</p>
+                    </div>
+                  )}
+                  <div>
+                    <label className="text-sm font-medium text-gray-500">CMND/CCCD</label>
+                    <p className="text-gray-900 mt-1">{viewingApplication.representativeIdNumber || "-"}</p>
+                  </div>
+                  {viewingApplication.representativeIdIssuedDate && (
+                    <div>
+                      <label className="text-sm font-medium text-gray-500">Ngày cấp</label>
+                      <p className="text-gray-900 mt-1">{new Date(viewingApplication.representativeIdIssuedDate).toLocaleDateString("vi-VN")}</p>
+                    </div>
+                  )}
+                  {viewingApplication.representativeIdIssuedBy && (
+                    <div>
+                      <label className="text-sm font-medium text-gray-500">Nơi cấp</label>
+                      <p className="text-gray-900 mt-1">{viewingApplication.representativeIdIssuedBy}</p>
+                    </div>
+                  )}
+                </div>
+              </div>
+
+              {/* Product Information */}
+              <div className="border border-gray-200 rounded-lg p-4">
+                <h4 className="text-lg font-semibold text-gray-900 mb-4 pb-2 border-b border-gray-200">
+                  3. Thông tin sản phẩm
+                </h4>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div>
+                    <label className="text-sm font-medium text-gray-500">Tên sản phẩm OCOP</label>
+                    <p className="text-gray-900 mt-1">{viewingApplication.productName || "-"}</p>
+                  </div>
+                  <div>
+                    <label className="text-sm font-medium text-gray-500">Nhóm sản phẩm</label>
+                    <p className="text-gray-900 mt-1">{viewingApplication.productCategory || "-"}</p>
+                  </div>
+                  <div className="md:col-span-2">
+                    <label className="text-sm font-medium text-gray-500">Mô tả sản phẩm</label>
+                    <p className="text-gray-900 mt-1 whitespace-pre-wrap">{viewingApplication.productDescription || "-"}</p>
+                  </div>
+                  {viewingApplication.productOrigin && (
+                    <div>
+                      <label className="text-sm font-medium text-gray-500">Xuất xứ sản phẩm</label>
+                      <p className="text-gray-900 mt-1">{viewingApplication.productOrigin}</p>
+                    </div>
+                  )}
+                  {viewingApplication.productCertifications && (
+                    <div>
+                      <label className="text-sm font-medium text-gray-500">Chứng nhận sản phẩm</label>
+                      <p className="text-gray-900 mt-1">{viewingApplication.productCertifications}</p>
+                    </div>
+                  )}
+                  {viewingApplication.productImages && (
+                    <div className="md:col-span-2">
+                      <label className="text-sm font-medium text-gray-500">Hình ảnh sản phẩm</label>
+                      <div className="grid grid-cols-3 gap-2 mt-2">
+                        {viewingApplication.productImages.split(',').filter(Boolean).map((url, idx) => (
+                          <img
+                            key={idx}
+                            src={url.trim()}
+                            alt={`Product ${idx + 1}`}
+                            className="w-full h-32 object-cover rounded border border-gray-200"
+                            onError={(e) => {
+                              (e.target as HTMLImageElement).style.display = 'none'
+                            }}
+                          />
+                        ))}
+                      </div>
+                    </div>
+                  )}
+                </div>
+              </div>
+
+              {/* Additional Notes */}
+              {viewingApplication.additionalNotes && (
+                <div className="border border-gray-200 rounded-lg p-4">
+                  <h4 className="text-lg font-semibold text-gray-900 mb-4 pb-2 border-b border-gray-200">
+                    Ghi chú bổ sung
+                  </h4>
+                  <p className="text-gray-900 whitespace-pre-wrap">{viewingApplication.additionalNotes}</p>
+                </div>
+              )}
+
+              {/* Admin Comment (if rejected) */}
+              {viewingApplication.adminComment && (
+                <div className="border border-red-200 rounded-lg p-4 bg-red-50">
+                  <h4 className="text-lg font-semibold text-red-900 mb-2">Lý do từ chối</h4>
+                  <p className="text-red-800 whitespace-pre-wrap">{viewingApplication.adminComment}</p>
+                </div>
+              )}
+
+              {/* Action Buttons */}
+              <div className="flex justify-end gap-3 pt-4 border-t border-gray-200">
+                <button
+                  onClick={() => setViewingApplication(null)}
+                  className="px-5 py-2.5 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300 transition-colors font-medium"
+                >
+                  Đóng
+                </button>
+                {(viewingApplication.status || "").toLowerCase() === "pending" && (
+                  <>
+                    <button
+                      onClick={() => {
+                        setViewingApplication(null)
+                        handleApprove(viewingApplication.id)
+                      }}
+                      className="px-5 py-2.5 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors font-medium"
+                    >
+                      Duyệt
+                    </button>
+                    <button
+                      onClick={() => {
+                        setViewingApplication(null)
+                        setShowRejectModal(viewingApplication.id)
+                      }}
+                      className="px-5 py-2.5 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors font-medium"
+                    >
+                      Từ chối
+                    </button>
+                  </>
+                )}
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Reject Modal */}
       {showRejectModal && (

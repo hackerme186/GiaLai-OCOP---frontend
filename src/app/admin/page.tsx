@@ -108,6 +108,15 @@ export default function AdminPage() {
             {activeTab === 'reports' && (
               <ProvinceReportTab />
             )}
+            {activeTab === 'locations' && (
+              <LocationsTab />
+            )}
+            {activeTab === 'producers' && (
+              <ProducersTab />
+            )}
+            {activeTab === 'transactions' && (
+              <TransactionsTab />
+            )}
           </div>
         </div>
       </main>

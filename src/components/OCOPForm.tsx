@@ -43,12 +43,43 @@ export default function OCOPForm({ onSubmit }: OCOPFormProps) {
   const [attachedDocuments, setAttachedDocuments] = useState<File[]>([])
   const [additionalNotes, setAdditionalNotes] = useState("")
   const [errors, setErrors] = useState<Record<string, string>>({})
+  
+  // Categories state
+  const [categories, setCategories] = useState<Category[]>([])
+  const [loadingCategories, setLoadingCategories] = useState(false)
 
   // Product fields for Step 2
   const [productName, setProductName] = useState("");
   const [productDescription, setProductDescription] = useState("");
   const [productImageUrls, setProductImageUrls] = useState<string[]>([]);
   const [attachedDocs, setAttachedDocs] = useState<File[]>([]);
+
+  // Load categories on component mount
+  useEffect(() => {
+    loadCategories()
+  }, [])
+
+  const loadCategories = async () => {
+    try {
+      setLoadingCategories(true)
+      // Only load active categories
+      const categoriesData = await getCategories(true)
+      // Filter to ensure only active categories
+      const activeCategories = categoriesData.filter(cat => cat.isActive !== false)
+      setCategories(activeCategories)
+    } catch (err) {
+      // If 403 Forbidden (Customer may not have access), silently fail and use text input
+      if (err instanceof Error && (err.message.includes("403") || err.message.includes("Forbidden"))) {
+        console.warn("Customer không có quyền truy cập categories API. Sử dụng input text.")
+      } else {
+        console.error("Failed to load categories:", err)
+      }
+      // If error, set empty array - user can still type manually if needed
+      setCategories([])
+    } finally {
+      setLoadingCategories(false)
+    }
+  }
 
   const validateStep1 = () => {
     const nextErrors: Record<string, string> = {}
@@ -73,9 +104,14 @@ export default function OCOPForm({ onSubmit }: OCOPFormProps) {
   }
 
   const validateStep2 = () => {
-    // Step 2 fields (productName, productDescription, etc.) are all optional
-    // No validation needed - user can proceed to step 3
-    return true
+    const nextErrors: Record<string, string> = {}
+    // Required fields for backend validation
+    if (!productName.trim()) nextErrors.productName = "Tên sản phẩm OCOP là bắt buộc"
+    if (!productCategory.trim()) nextErrors.productCategory = "Nhóm sản phẩm là bắt buộc"
+    if (!productDescription.trim()) nextErrors.productDescription = "Mô tả sản phẩm là bắt buộc"
+
+    setErrors(nextErrors)
+    return Object.keys(nextErrors).length === 0
   }
 
   const handleSubmit = (e: React.FormEvent) => {
@@ -109,6 +145,24 @@ export default function OCOPForm({ onSubmit }: OCOPFormProps) {
       } catch {
         return undefined
       }
+    }
+
+    // --- FINAL VALIDATION BEFORE SUBMIT ---
+    const finalErrors: Record<string, string> = {}
+    if (!businessField.trim()) finalErrors.businessField = "Ngành nghề kinh doanh là bắt buộc"
+    if (!productName.trim()) finalErrors.productName = "Tên sản phẩm OCOP là bắt buộc"
+    if (!productCategory.trim()) finalErrors.productCategory = "Nhóm sản phẩm là bắt buộc"
+    if (!productDescription.trim()) finalErrors.productDescription = "Mô tả sản phẩm là bắt buộc"
+    if (!representativeName.trim()) finalErrors.representativeName = "Tên người đại diện là bắt buộc"
+    if (!representativeIdNumber.trim()) finalErrors.representativeIdNumber = "Số CCCD/CMND của người đại diện là bắt buộc"
+    if (!province.trim()) finalErrors.province = "Tỉnh/Thành phố là bắt buộc"
+    if (!district.trim()) finalErrors.district = "Quận/Huyện là bắt buộc"
+    if (!businessLicenseNumber.trim()) finalErrors.businessLicenseNumber = "Số giấy phép kinh doanh là bắt buộc"
+
+    if (Object.keys(finalErrors).length > 0) {
+      setErrors(finalErrors)
+      alert("Vui lòng điền đầy đủ các trường bắt buộc trước khi gửi đăng ký.")
+      return
     }
 
     // --- SUBMIT: ĐƯA ĐẦY ĐỦ DỮ LIỆU VÀO PAYLOAD ---

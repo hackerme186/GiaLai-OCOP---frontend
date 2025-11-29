@@ -48,6 +48,9 @@ export default function AdminHeader({ activeTab, onTabChange }: AdminHeaderProps
     { id: 'categories', label: 'Quản lý danh mục', icon: '📁' },
     { id: 'images', label: 'Quản lý ảnh', icon: '🖼️' },
     { id: 'reports', label: 'Báo cáo toàn tỉnh', icon: '📉' },
+    { id: 'locations', label: 'Quản lý địa điểm', icon: '📍' },
+    { id: 'producers', label: 'Quản lý nhà sản xuất', icon: '🏭' },
+    { id: 'transactions', label: 'Giao dịch', icon: '💳' },
   ]
 
   const roleNormalized = (userRole || "").toLowerCase()

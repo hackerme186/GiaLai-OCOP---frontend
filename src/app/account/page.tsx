@@ -3,7 +3,7 @@
 import { useEffect, useMemo, useState } from "react"
 import Link from "next/link"
 import { getUserProfile, isLoggedIn } from "@/lib/auth"
-import { getCurrentUser, getEnterprise, updateCurrentUser, changePassword, type Enterprise, type User, type UpdateUserDto } from "@/lib/api"
+import { getCurrentUser, getEnterprise, updateCurrentUser, changePassword, verifyEmail, resendVerificationOtp, type Enterprise, type User, type UpdateUserDto } from "@/lib/api"
 import Header from "@/components/layout/Header"
 import { useRouter } from "next/navigation"
 import { getCurrentAddress } from "@/lib/geolocation"
@@ -67,6 +67,13 @@ export default function AccountPage() {
   const [confirmPassword, setConfirmPassword] = useState("")
   const [changingPassword, setChangingPassword] = useState(false)
   const [showPassword, setShowPassword] = useState({ current: false, new: false, confirm: false })
+
+  // Verify email states
+  const [otpCode, setOtpCode] = useState("")
+  const [verifyingEmail, setVerifyingEmail] = useState(false)
+  const [sendingOtp, setSendingOtp] = useState(false)
+  const [otpSent, setOtpSent] = useState(false)
+  const [otpCountdown, setOtpCountdown] = useState(0)
 
   // Notifications states
   const [notifications, setNotifications] = useState<NotificationItem[]>([])
@@ -672,7 +679,7 @@ export default function AccountPage() {
       await changePassword({
         currentPassword: currentPassword.trim(),
         newPassword: newPassword.trim(),
-        confirmPassword: confirmPassword.trim(),
+        confirmNewPassword: confirmPassword.trim(),
       })
 
       setCurrentPassword("")
@@ -707,6 +714,83 @@ export default function AccountPage() {
     setNewPassword("")
     setConfirmPassword("")
     setShowPassword({ current: false, new: false, confirm: false })
+  }
+
+  // Verify Email handlers
+  const handleSendVerificationOtp = async () => {
+    if (!email) {
+      setError("Email không hợp lệ")
+      return
+    }
+
+    setSendingOtp(true)
+    setError(null)
+    setSuccess(null)
+
+    try {
+      await resendVerificationOtp({ email })
+      setOtpSent(true)
+      setOtpCountdown(60)
+      setSuccess("Mã OTP đã được gửi đến email của bạn. Vui lòng kiểm tra hộp thư.")
+      setTimeout(() => setSuccess(null), 5000)
+
+      // Countdown timer
+      const interval = setInterval(() => {
+        setOtpCountdown((prev) => {
+          if (prev <= 1) {
+            clearInterval(interval)
+            return 0
+          }
+          return prev - 1
+        })
+      }, 1000)
+    } catch (err) {
+      const errorMessage = err instanceof Error ? err.message : "Không thể gửi mã OTP"
+      setError(errorMessage)
+    } finally {
+      setSendingOtp(false)
+    }
+  }
+
+  const handleVerifyEmail = async () => {
+    if (!email) {
+      setError("Email không hợp lệ")
+      return
+    }
+
+    if (otpCode.length !== 6) {
+      setError("Mã OTP phải có 6 chữ số")
+      return
+    }
+
+    setVerifyingEmail(true)
+    setError(null)
+    setSuccess(null)
+
+    try {
+      const result = await verifyEmail({ email, otpCode, purpose: "Register" })
+      if (result.isEmailVerified) {
+        setSuccess("Xác thực email thành công!")
+        setTimeout(() => setSuccess(null), 3000)
+        
+        // Reload user data
+        const updatedUser = await getCurrentUser()
+        setUser(updatedUser)
+        
+        // Reset form
+        setOtpSent(false)
+        setOtpCode("")
+        setOtpCountdown(0)
+        
+        // Switch back to profile
+        setTimeout(() => setActiveMenu("profile"), 2000)
+      }
+    } catch (err) {
+      const errorMessage = err instanceof Error ? err.message : "Mã OTP không hợp lệ hoặc đã hết hạn"
+      setError(errorMessage)
+    } finally {
+      setVerifyingEmail(false)
+    }
   }
 
   const handleMarkNotificationAsRead = (id: number) => {
@@ -927,6 +1011,25 @@ export default function AccountPage() {
                         <span className="w-1.5 h-1.5 rounded-full bg-current ml-2"></span>
                         Đổi Mật Khẩu
                       </Link>
+                      {!user?.isEmailVerified && (
+                        <Link
+                          href="/account/verify-email"
+                          onClick={(e) => {
+                            e.preventDefault()
+                            setActiveMenu("verify-email")
+                          }}
+                          className={`flex items-center gap-3 px-4 py-2.5 text-sm transition-colors ${activeMenu === "verify-email"
+                            ? "text-orange-500 bg-orange-50 border-l-2 border-orange-500"
+                            : "text-gray-600 hover:bg-gray-100"
+                            }`}
+                        >
+                          <span className="w-1.5 h-1.5 rounded-full bg-current ml-2"></span>
+                          Xác thực Email
+                          <span className="ml-auto px-2 py-0.5 text-xs rounded-full bg-yellow-100 text-yellow-700 font-semibold">
+                            Mới
+                          </span>
+                        </Link>
+                      )}
                     </div>
                   )}
                 </div>
@@ -1023,8 +1126,23 @@ export default function AccountPage() {
 
                       {/* Email */}
                       <div>
-                        <label className="block text-sm font-medium text-gray-700 mb-2">
+                        <label className="block text-sm font-medium text-gray-700 mb-2 flex items-center gap-2">
                           Email
+                          {user?.isEmailVerified ? (
+                            <span className="inline-flex items-center gap-1 text-xs font-semibold px-2 py-0.5 rounded-full bg-green-100 text-green-700">
+                              <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                              </svg>
+                              Đã xác thực
+                            </span>
+                          ) : (
+                            <span className="inline-flex items-center gap-1 text-xs font-semibold px-2 py-0.5 rounded-full bg-yellow-100 text-yellow-700">
+                              <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+                              </svg>
+                              Chưa xác thực
+                            </span>
+                          )}
                         </label>
                         <div className="flex items-center gap-2">
                           <input
@@ -1033,10 +1151,20 @@ export default function AccountPage() {
                             disabled
                             className="flex-1 px-4 py-2.5 border border-gray-300 rounded-md bg-gray-50 text-gray-600 cursor-not-allowed"
                           />
-                          <button className="text-sm text-orange-500 hover:text-orange-600 font-medium px-3 py-2.5">
-                            Thay Đổi
-                          </button>
+                          {!user?.isEmailVerified && (
+                            <button
+                              onClick={() => setActiveMenu("verify-email")}
+                              className="text-sm text-orange-500 hover:text-orange-600 font-medium px-3 py-2.5"
+                            >
+                              Xác thực Email
+                            </button>
+                          )}
                         </div>
+                        {!user?.isEmailVerified && (
+                          <p className="mt-1.5 text-xs text-yellow-600">
+                            Email chưa được xác thực. Vui lòng xác thực để bảo mật tài khoản.
+                          </p>
+                        )}
                       </div>
 
                       {/* Số điện thoại */}
