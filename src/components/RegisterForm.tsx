@@ -57,32 +57,32 @@ export default function RegisterForm() {
     <form onSubmit={handleSubmit} className="space-y-4">
       {/* Full name */}
       <div>
-        <label className="block text-sm font-medium text-black">Họ và tên</label>
+        <label className="block text-sm font-semibold text-gray-900">Họ và tên</label>
         <input
           required
           value={fullName}
           onChange={(e) => setFullName(e.target.value)}
           placeholder="Nguyen Van A"
-          className="mt-1 w-full rounded-lg border border-gray-300 px-3 py-2 shadow-sm focus:border-indigo-500 focus:outline-none focus:ring-indigo-500 sm:text-sm text-black"
+          className="mt-1 w-full rounded-lg border-2 border-gray-300 bg-white px-3 py-2.5 shadow-sm focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-500 sm:text-sm text-gray-900 placeholder:text-gray-400"
         />
       </div>
 
       {/* Email */}
       <div>
-        <label className="block text-sm font-medium text-black">Email</label>
+        <label className="block text-sm font-semibold text-gray-900">Email</label>
         <input
           required
           type="email"
           value={email}
           onChange={(e) => setEmail(e.target.value)}
           placeholder="abc@example.com"
-          className="mt-1 w-full rounded-lg border border-gray-300 px-3 py-2 shadow-sm focus:border-indigo-500 focus:outline-none focus:ring-indigo-500 sm:text-sm text-black"
+          className="mt-1 w-full rounded-lg border-2 border-gray-300 bg-white px-3 py-2.5 shadow-sm focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-500 sm:text-sm text-gray-900 placeholder:text-gray-400"
         />
       </div>
 
       {/* Password */}
       <div>
-        <label className="block text-sm font-medium text-black">Mật khẩu</label>
+        <label className="block text-sm font-semibold text-gray-900">Mật khẩu</label>
         <div className="relative mt-1">
           <input
             required
@@ -91,20 +91,20 @@ export default function RegisterForm() {
             onChange={(e) => setPassword(e.target.value)}
             placeholder="Tạo mật khẩu mạnh"
             className={cn(
-              "w-full rounded-lg border px-3 py-2 shadow-sm focus:outline-none sm:text-sm text-black",
-              strong ? "border-green-500 focus:ring-green-500" : "border-gray-300 focus:ring-indigo-500"
+              "w-full rounded-lg border-2 px-3 py-2.5 shadow-sm focus:outline-none focus:ring-2 sm:text-sm text-gray-900 placeholder:text-gray-400 bg-white",
+              strong ? "border-green-500 focus:ring-green-500" : "border-gray-300 focus:border-indigo-500 focus:ring-indigo-500"
             )}
           />
-          <span className="pointer-events-none absolute inset-y-0 right-3 flex items-center text-gray-400">
+          <span className="pointer-events-none absolute inset-y-0 right-3 flex items-center text-gray-500">
             ?
           </span>
         </div>
-        <p className="mt-1 text-xs text-gray-500">8+ ký tự, 1 số, 1 ký tự đặc biệt</p>
+        <p className="mt-1 text-xs font-medium text-gray-600">8+ ký tự, 1 số, 1 ký tự đặc biệt</p>
       </div>
 
       {/* Confirm */}
       <div>
-        <label className="block text-sm font-medium text-black">Xác nhận mật khẩu</label>
+        <label className="block text-sm font-semibold text-gray-900">Xác nhận mật khẩu</label>
         <input
           required
           type="password"
@@ -112,22 +112,22 @@ export default function RegisterForm() {
           onChange={(e) => setConfirm(e.target.value)}
           placeholder="Nhập lại mật khẩu"
           className={cn(
-            "mt-1 w-full rounded-lg border px-3 py-2 shadow-sm focus:outline-none sm:text-sm text-black",
-            match && confirm ? "border-green-500 focus:ring-green-500" : "border-gray-300 focus:ring-indigo-500"
+            "mt-1 w-full rounded-lg border-2 px-3 py-2.5 shadow-sm focus:outline-none focus:ring-2 sm:text-sm text-gray-900 placeholder:text-gray-400 bg-white",
+            match && confirm ? "border-green-500 focus:ring-green-500" : "border-gray-300 focus:border-indigo-500 focus:ring-indigo-500"
           )}
         />
       </div>
 
-      {error && <p className="text-sm text-red-600">{error}</p>}
+      {error && <p className="text-sm font-medium text-red-600 bg-red-50 border border-red-200 rounded-lg px-3 py-2">{error}</p>}
 
       <button
         type="submit"
         disabled={!strong || !match || loading}
         className={cn(
-          "w-full rounded-lg px-4 py-2 text-sm font-semibold text-white shadow focus:outline-none focus:ring-2 disabled:opacity-60",
+          "w-full rounded-lg px-4 py-3 text-sm font-semibold text-white shadow-lg focus:outline-none focus:ring-2 transition-all disabled:opacity-60",
           strong && match
-            ? "bg-indigo-600 hover:bg-indigo-500 focus:ring-indigo-500"
-            : "bg-gray-300 cursor-not-allowed"
+            ? "bg-indigo-600 hover:bg-indigo-700 focus:ring-indigo-500 active:bg-indigo-800"
+            : "bg-gray-400 cursor-not-allowed"
         )}
         >
           {loading ? "Đang tạo tài khoản..." : "Create Account"}
