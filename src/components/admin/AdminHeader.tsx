@@ -6,7 +6,7 @@ import { useState, useEffect, useMemo } from "react"
 import { logout } from "@/lib/auth"
 import { getCurrentUser } from "@/lib/api"
 
-export type TabType = 'dashboard' | 'enterprise-approval' | 'enterprise-management' | 'ocop-approval' | 'categories' | 'images' | 'reports' | 'locations' | 'producers' | 'transactions'
+export type TabType = 'dashboard' | 'enterprise-approval' | 'enterprise-management' | 'ocop-approval' | 'categories' | 'images' | 'reports' | 'locations' | 'producers' | 'transactions' | 'user-management'
 
 interface AdminHeaderProps {
   activeTab: TabType
@@ -51,12 +51,13 @@ export default function AdminHeader({ activeTab, onTabChange }: AdminHeaderProps
     { id: 'locations', label: 'Quản lý địa điểm', icon: '📍' },
     { id: 'producers', label: 'Quản lý nhà sản xuất', icon: '🏭' },
     { id: 'transactions', label: 'Giao dịch', icon: '💳' },
+    { id: 'user-management', label: 'Quản lý người dùng', icon: '👥' },
   ]
 
   const roleNormalized = (userRole || "").toLowerCase()
 
   const roleTabMap: Record<string, TabType[]> = {
-    systemadmin: ['dashboard', 'enterprise-approval', 'enterprise-management', 'ocop-approval', 'categories', 'images', 'reports', 'locations', 'producers', 'transactions'],
+    systemadmin: ['dashboard', 'enterprise-approval', 'enterprise-management', 'ocop-approval', 'categories', 'images', 'reports', 'locations', 'producers', 'transactions', 'user-management'],
     enterpriseadmin: ['dashboard', 'ocop-approval'],
     customer: ['dashboard'],
   }

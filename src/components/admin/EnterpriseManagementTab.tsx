@@ -1,7 +1,7 @@
 "use client"
 
 import { useEffect, useState } from "react"
-import { getEnterprises, updateEnterprise, type Enterprise } from "@/lib/api"
+import { getEnterprises, updateEnterprise, deleteEnterprise, type Enterprise } from "@/lib/api"
 
 export default function EnterpriseManagementTab() {
     const [loading, setLoading] = useState(false)
@@ -10,6 +10,8 @@ export default function EnterpriseManagementTab() {
     const [rejectionReason, setRejectionReason] = useState("")
     const [showRejectModal, setShowRejectModal] = useState(false)
     const [showApproveModal, setShowApproveModal] = useState(false)
+    const [showDeleteModal, setShowDeleteModal] = useState(false)
+    const [deletingEnterprise, setDeletingEnterprise] = useState<Enterprise | null>(null)
 
     useEffect(() => {
         loadEnterprises()
@@ -112,6 +114,25 @@ export default function EnterpriseManagementTab() {
         }
     }
 
+    const handleDelete = (enterprise: Enterprise) => {
+        setDeletingEnterprise(enterprise)
+        setShowDeleteModal(true)
+    }
+
+    const handleConfirmDelete = async () => {
+        if (!deletingEnterprise) return
+
+        try {
+            await deleteEnterprise(deletingEnterprise.id)
+            alert("Đã xóa doanh nghiệp thành công!")
+            setShowDeleteModal(false)
+            setDeletingEnterprise(null)
+            await loadEnterprises()
+        } catch (err) {
+            alert("Xóa thất bại: " + (err instanceof Error ? err.message : "Lỗi không xác định"))
+        }
+    }
+
     const getApprovalStatus = (enterprise: Enterprise) => {
         const status = enterprise.approvalStatus || "Pending"
         switch (status.toLowerCase()) {
@@ -204,7 +225,18 @@ export default function EnterpriseManagementTab() {
                                                     </>
                                                 )}
                                                 {!isPending && (
-                                                    <span className="text-gray-400 text-sm font-medium">Đã xử lý</span>
+                                                    <>
+                                                        <button
+                                                            onClick={() => handleDelete(enterprise)}
+                                                            className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-red-500 text-white text-sm font-medium hover:bg-red-600 transition-all duration-200"
+                                                            title="Xóa doanh nghiệp"
+                                                        >
+                                                            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                                                            </svg>
+                                                            Xóa
+                                                        </button>
+                                                    </>
                                                 )}
                                             </div>
                                         </td>
@@ -322,6 +354,59 @@ export default function EnterpriseManagementTab() {
                                 className="flex-1 px-6 py-3 bg-gradient-to-r from-red-600 to-red-700 text-white rounded-lg font-semibold hover:from-red-700 hover:to-red-800 transition-all disabled:bg-gray-300 disabled:cursor-not-allowed"
                             >
                                 Xác nhận từ chối
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
+
+            {/* Delete Modal */}
+            {showDeleteModal && deletingEnterprise && (
+                <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+                    <div className="bg-white rounded-xl shadow-2xl p-6 max-w-md w-full mx-4">
+                        <div className="flex items-center justify-between mb-4">
+                            <h3 className="text-xl font-bold text-red-600">Xóa doanh nghiệp</h3>
+                            <button
+                                onClick={() => {
+                                    setShowDeleteModal(false)
+                                    setDeletingEnterprise(null)
+                                }}
+                                className="text-gray-400 hover:text-gray-600"
+                            >
+                                <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                                </svg>
+                            </button>
+                        </div>
+
+                        <div className="mb-4">
+                            <p className="text-sm text-gray-600 mb-2">Doanh nghiệp:</p>
+                            <p className="font-semibold text-gray-900">{deletingEnterprise.name}</p>
+                        </div>
+
+                        <div className="mb-6 p-4 bg-red-50 border border-red-200 rounded-lg">
+                            <p className="text-sm text-red-800 font-medium mb-2">⚠️ Cảnh báo:</p>
+                            <p className="text-sm text-red-700">
+                                Bạn có chắc chắn muốn xóa doanh nghiệp này không? Hành động này không thể hoàn tác.
+                                Tất cả dữ liệu liên quan (sản phẩm, đơn hàng, v.v.) có thể bị ảnh hưởng.
+                            </p>
+                        </div>
+
+                        <div className="flex gap-3">
+                            <button
+                                onClick={() => {
+                                    setShowDeleteModal(false)
+                                    setDeletingEnterprise(null)
+                                }}
+                                className="flex-1 px-6 py-3 bg-gray-200 text-gray-700 rounded-lg font-semibold hover:bg-gray-300 transition-all"
+                            >
+                                Hủy
+                            </button>
+                            <button
+                                onClick={handleConfirmDelete}
+                                className="flex-1 px-6 py-3 bg-gradient-to-r from-red-600 to-red-700 text-white rounded-lg font-semibold hover:from-red-700 hover:to-red-800 transition-all"
+                            >
+                                Xác nhận xóa
                             </button>
                         </div>
                     </div>
