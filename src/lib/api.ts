@@ -75,6 +75,9 @@ async function request<TResponse>(
 
   if (!response.ok) {
     let bodyMessage = (isJson && data && typeof data === "object" && (data as any).message) || "";
+    let bodyDetails = (isJson && data && typeof data === "object" && (data as any).details) || "";
+    let bodyError = (isJson && data && typeof data === "object" && (data as any).error) || "";
+
     if (!bodyMessage && !isJson && typeof data === 'string') {
       bodyMessage = data as string;
     }
@@ -96,8 +99,25 @@ async function request<TResponse>(
       throw authError;
     }
 
-    const message = `${response.status} ${response.statusText} ${bodyMessage ? "- " + bodyMessage : ""}`.trim();
-    throw new Error(message);
+    // Tạo error message chi tiết
+    let message = `${response.status} ${response.statusText}`;
+    if (bodyMessage) {
+      message += ` - ${bodyMessage}`;
+    }
+    if (bodyError && bodyError !== bodyMessage) {
+      message += ` (${bodyError})`;
+    }
+    if (bodyDetails) {
+      message += `\nChi tiết: ${bodyDetails}`;
+    }
+
+    const error = new Error(message.trim());
+    (error as any).status = response.status;
+    (error as any).response = data; // Lưu toàn bộ response data
+    (error as any).bodyMessage = bodyMessage;
+    (error as any).bodyDetails = bodyDetails;
+    (error as any).bodyError = bodyError;
+    throw error;
   }
 
   return data as TResponse;
@@ -138,6 +158,11 @@ export interface User {
   email: string;
   role: string; // "Customer" | "EnterpriseAdmin" | "SystemAdmin"
   enterpriseId?: number;
+  enterprise?: {
+    id: number;
+    name: string;
+    description?: string;
+  };
   shippingAddress?: string;
   createdAt?: string;
   phoneNumber?: string;
@@ -153,11 +178,20 @@ export interface User {
 
 export interface UpdateUserDto {
   name?: string;
-  shippingAddress?: string;
+  email?: string;
+  role?: string;
+  enterpriseId?: number;
   phoneNumber?: string;
   gender?: string;
   dateOfBirth?: string;
+  shippingAddress?: string;
   avatarUrl?: string;
+  isActive?: boolean;
+  isEmailVerified?: boolean;
+  provinceId?: number;
+  districtId?: number;
+  wardId?: number;
+  addressDetail?: string;
 }
 
 // Address
@@ -684,6 +718,12 @@ export async function updateUser(id: number, payload: UpdateUserDto): Promise<Us
   return request<User>(`/users/${id}`, {
     method: "PUT",
     json: payload,
+  });
+}
+
+export async function deleteUser(id: number): Promise<void> {
+  return request<void>(`/users/${id}`, {
+    method: "DELETE",
   });
 }
 
