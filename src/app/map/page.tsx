@@ -32,28 +32,80 @@ export default function MapPage() {
         setLoading(true)
         setError(null)
         try {
-            const searchParams = {
-                keyword: params?.keyword || undefined,
-                ocopRating: params?.rating,
-                province: params?.province || undefined,
+            // Chỉ gửi params khi có giá trị (không phải empty string)
+            const searchParams: {
+                keyword?: string
+                ocopRating?: number
+                province?: string
+                pageSize: number
+            } = {
                 pageSize: 100,
             }
+            
+            // Chỉ thêm keyword nếu có giá trị và không phải empty string
+            if (params?.keyword && params.keyword.trim() !== "") {
+                searchParams.keyword = params.keyword.trim()
+            }
+            
+            // Chỉ thêm ocopRating nếu có giá trị hợp lệ
+            if (params?.rating !== undefined && params.rating !== null && !isNaN(params.rating)) {
+                searchParams.ocopRating = params.rating
+            }
+            
+            // Chỉ thêm province nếu có giá trị và không phải empty string
+            if (params?.province && params.province.trim() !== "") {
+                searchParams.province = params.province.trim()
+            }
+            
             console.log("[Map Search] Calling searchMap with:", searchParams)
             const data = await searchMap(searchParams)
             const list = Array.isArray(data)
                 ? data
                 : ((data as any)?.items ?? (data as any)?.data ?? [])
             console.log("[Map Search] Results received:", list.length, "enterprises")
-            console.log("[Map Search] Ratings in results:", list.map((e: EnterpriseMapDto) => e.ocopRating))
             
-            // Filter by rating on frontend if backend doesn't filter correctly
+            // Backend đã filter, nhưng để chắc chắn, filter lại trên frontend nếu cần
             let filteredList = list
-            if (params?.rating !== undefined) {
-                filteredList = list.filter((e: EnterpriseMapDto) => e.ocopRating === params.rating)
-                console.log("[Map Search] After filtering by rating", params.rating + ":", filteredList.length, "enterprises")
+            
+            // Double-check: Filter by rating nếu backend không filter đúng
+            if (params?.rating !== undefined && params.rating !== null && !isNaN(params.rating)) {
+                const beforeFilter = filteredList.length
+                filteredList = filteredList.filter((e: EnterpriseMapDto) => e.ocopRating === params.rating)
+                if (filteredList.length !== beforeFilter) {
+                    console.log(`[Map Search] Frontend filtered by rating ${params.rating}: ${beforeFilter} -> ${filteredList.length} enterprises`)
+                }
             }
             
+            // Double-check: Filter by province nếu backend không filter đúng
+            if (params?.province && params.province.trim() !== "") {
+                const beforeFilter = filteredList.length
+                filteredList = filteredList.filter((e: EnterpriseMapDto) => 
+                    e.province?.toLowerCase() === params.province?.toLowerCase().trim()
+                )
+                if (filteredList.length !== beforeFilter) {
+                    console.log(`[Map Search] Frontend filtered by province ${params.province}: ${beforeFilter} -> ${filteredList.length} enterprises`)
+                }
+            }
+            
+            // Double-check: Filter by keyword nếu backend không filter đúng
+            if (params?.keyword && params.keyword.trim() !== "") {
+                const keywordLower = params.keyword.toLowerCase().trim()
+                const beforeFilter = filteredList.length
+                filteredList = filteredList.filter((e: EnterpriseMapDto) => 
+                    e.name?.toLowerCase().includes(keywordLower) ||
+                    e.businessField?.toLowerCase().includes(keywordLower) ||
+                    e.district?.toLowerCase().includes(keywordLower) ||
+                    e.province?.toLowerCase().includes(keywordLower) ||
+                    e.address?.toLowerCase().includes(keywordLower)
+                )
+                if (filteredList.length !== beforeFilter) {
+                    console.log(`[Map Search] Frontend filtered by keyword "${params.keyword}": ${beforeFilter} -> ${filteredList.length} enterprises`)
+                }
+            }
+            
+            console.log(`[Map Search] Final results: ${filteredList.length} enterprises`)
             setEnterprises(filteredList)
+            
             if (filteredList.length > 0) {
                 setSelectedId(filteredList[0].id)
             } else {
@@ -77,9 +129,34 @@ export default function MapPage() {
 
     const handleSearch = (e: React.FormEvent) => {
         e.preventDefault()
-        const rating = selectedRating && selectedRating !== "" ? Number(selectedRating) : undefined
-        console.log("[Map Search] Search params:", { keyword, rating, province: selectedProvince || undefined })
-        loadResults({ keyword, rating, province: selectedProvince || undefined })
+        
+        // Xử lý rating: chỉ convert nếu có giá trị hợp lệ
+        let rating: number | undefined = undefined
+        if (selectedRating && selectedRating !== "" && selectedRating !== "all") {
+            const parsedRating = Number(selectedRating)
+            if (!isNaN(parsedRating) && parsedRating >= 3 && parsedRating <= 5) {
+                rating = parsedRating
+            }
+        }
+        
+        // Xử lý province: chỉ gửi nếu không phải "Tất cả"
+        const province = selectedProvince && selectedProvince !== "" && selectedProvince !== "all" 
+            ? selectedProvince 
+            : undefined
+        
+        // Xử lý keyword: trim và chỉ gửi nếu không empty
+        const searchKeyword = keyword && keyword.trim() !== "" ? keyword.trim() : undefined
+        
+        console.log("[Map Search] Search params:", { keyword: searchKeyword, rating, province })
+        loadResults({ keyword: searchKeyword, rating, province })
+    }
+    
+    const handleReset = () => {
+        setKeyword("")
+        setSelectedRating("")
+        setSelectedProvince("")
+        // Load lại tất cả enterprises
+        loadResults()
     }
 
     const selectedEnterprise = useMemo(
@@ -148,12 +225,23 @@ export default function MapPage() {
                                     </select>
                                 </div>
                             </div>
-                            <button
-                                type="submit"
-                                className="w-full bg-indigo-600 text-white py-2 px-4 rounded-lg font-medium hover:bg-indigo-700 transition"
-                            >
-                                Tìm kiếm
-                            </button>
+                            <div className="flex gap-3">
+                                <button
+                                    type="submit"
+                                    className="flex-1 bg-indigo-600 text-white py-2 px-4 rounded-lg font-medium hover:bg-indigo-700 transition"
+                                >
+                                    Tìm kiếm
+                                </button>
+                                {(keyword || selectedRating || selectedProvince) && (
+                                    <button
+                                        type="button"
+                                        onClick={handleReset}
+                                        className="px-4 py-2 border-2 border-gray-300 text-gray-700 rounded-lg font-medium hover:bg-gray-50 transition"
+                                    >
+                                        Đặt lại
+                                    </button>
+                                )}
+                            </div>
                         </form>
                     </div>
                     <div className="border-t border-gray-200" />

@@ -1,58 +1,136 @@
 "use client"
 import { useState, useEffect } from 'react'
 import Image from 'next/image'
-import { getProducts, Product } from '@/lib/api'
+import dynamic from 'next/dynamic'
+import { getProducts, Product, searchMap, type EnterpriseMapDto } from '@/lib/api'
+
+// Dynamic import để tránh SSR issues với Leaflet
+const Minimap = dynamic(() => import('./Minimap'), {
+  ssr: false,
+  loading: () => (
+    <div className="relative h-[600px] bg-green-50 rounded-lg overflow-hidden flex items-center justify-center border-2 border-gray-200">
+      <div className="text-gray-500">Đang tải bản đồ...</div>
+    </div>
+  ),
+})
+
+const STORAGE_KEY = "ocop_home_content"
+const defaultTitle = 'Sản phẩm OCOP theo vùng miền'
 
 const MapSection = () => {
   const [products, setProducts] = useState<Product[]>([])
+  const [enterprises, setEnterprises] = useState<EnterpriseMapDto[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
+  const [title, setTitle] = useState(defaultTitle)
+  const [description, setDescription] = useState<string | undefined>(undefined)
 
   useEffect(() => {
-    const fetchProducts = async () => {
+    const fetchData = async () => {
       try {
         setLoading(true)
         setError(null)
         
-        // ✅ FIX: Request only Approved products from backend
-        const data = await getProducts({ 
-          pageSize: 100, // Get all products
-          status: "Approved", // ✅ Only get approved products from backend
+        // Fetch products
+        const productData = await getProducts({ 
+          pageSize: 100,
+          status: "Approved",
         })
         
-        // Backend returns array of products
-        const productList = Array.isArray(data) ? data : []
-        
-        // ✅ Double-check: Filter again on client-side as safety measure
-        const approvedProducts = productList.filter((p: Product) => {
-          const isApproved = p.status === "Approved"
-          if (!isApproved) {
-            console.warn(`⚠️ MapSection: Product ${p.id} (${p.name}) has status "${p.status}", not Approved. Filtered out.`)
-          }
-          return isApproved
-        })
-        
-        console.log(`✅ Map section: ${approvedProducts.length} approved products`)
+        const productList = Array.isArray(productData) ? productData : []
+        const approvedProducts = productList.filter((p: Product) => p.status === "Approved")
         
         // Display first 4 approved products
         setProducts(approvedProducts.slice(0, 4))
+        
+        // Fetch enterprises for map (chỉ lấy các doanh nghiệp đã được duyệt)
+        try {
+          let enterpriseData: EnterpriseMapDto[] = []
+          
+          // Thử gọi API với pageSize = 100 (giống như map page sử dụng)
+          try {
+            enterpriseData = await searchMap({
+              pageSize: 100,
+            })
+          } catch (err) {
+            // Nếu lỗi, thử gọi không có tham số
+            console.warn('Failed with pageSize, trying without params:', err)
+            try {
+              enterpriseData = await searchMap({})
+            } catch (err2) {
+              console.error('Failed to fetch enterprises:', err2)
+              enterpriseData = []
+            }
+          }
+          
+          const enterpriseList = Array.isArray(enterpriseData) ? enterpriseData : []
+          
+          // Lọc chỉ lấy các enterprises có tọa độ hợp lệ
+          // Backend thường chỉ trả về các enterprises đã được approved
+          const validEnterprises = enterpriseList.filter(
+            (e) => e.latitude && e.longitude && 
+            e.latitude >= -90 && e.latitude <= 90 && 
+            e.longitude >= -180 && e.longitude <= 180
+          )
+          
+          console.log(`✅ Map section: ${validEnterprises.length} enterprises với tọa độ hợp lệ`)
+          setEnterprises(validEnterprises)
+        } catch (mapErr) {
+          console.warn('Failed to fetch enterprises for map:', mapErr)
+          // Don't set error, just show empty map
+          setEnterprises([])
+        }
+        
         setLoading(false)
       } catch (err) {
-        console.error('❌ Failed to fetch products for map:', err)
-        setError('Không thể tải sản phẩm')
-        setProducts([]) // Don't fallback to mock - show empty
+        console.error('❌ Failed to fetch data:', err)
+        setError('Không thể tải dữ liệu')
+        setProducts([])
+        setEnterprises([])
         setLoading(false)
       }
     }
 
-    fetchProducts()
+    fetchData()
   }, [])
+
+  useEffect(() => {
+    // Load title and description from localStorage
+    const loadContent = () => {
+      try {
+        const stored = localStorage.getItem(STORAGE_KEY)
+        if (stored) {
+          const parsed = JSON.parse(stored) as { mapSectionTitle?: string; mapSectionDescription?: string }
+          if (parsed.mapSectionTitle) setTitle(parsed.mapSectionTitle)
+          if (parsed.mapSectionDescription !== undefined) setDescription(parsed.mapSectionDescription)
+        }
+      } catch (err) {
+        console.error("Failed to load content from storage:", err)
+      }
+    }
+
+    loadContent()
+
+    // Listen for home content updates from admin
+    const handleContentUpdate = (event: CustomEvent) => {
+      if (event.detail) {
+        if (event.detail.mapSectionTitle) setTitle(event.detail.mapSectionTitle)
+        if (event.detail.mapSectionDescription !== undefined) setDescription(event.detail.mapSectionDescription)
+      }
+    }
+
+    window.addEventListener('homeContentUpdated' as any, handleContentUpdate as EventListener)
+    return () => {
+      window.removeEventListener('homeContentUpdated' as any, handleContentUpdate as EventListener)
+    }
+  }, [])
+
   if (loading) {
     return (
       <section className="py-16 bg-white">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <h2 className="text-3xl font-bold text-gray-900 mb-8">
-            Sản phẩm OCOP theo vùng miền
+            {title}
           </h2>
           <div className="flex justify-center items-center h-64">
             <div className="text-gray-500">Đang tải sản phẩm...</div>
@@ -67,7 +145,7 @@ const MapSection = () => {
       <section className="py-16 bg-white">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <h2 className="text-3xl font-bold text-gray-900 mb-8">
-            Sản phẩm OCOP theo vùng miền
+            {title}
           </h2>
           <div className="flex justify-center items-center h-64">
             <div className="text-red-500">Lỗi: {error}</div>
@@ -80,22 +158,17 @@ const MapSection = () => {
   return (
     <section className="py-16 bg-white">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-        <h2 className="text-3xl font-bold text-gray-900 mb-8">
-          Sản phẩm OCOP theo vùng miền
+        <h2 className="text-3xl font-bold text-gray-900 mb-2">
+          {title}
         </h2>
+        {description && (
+          <p className="text-gray-600 mb-8">{description}</p>
+        )}
 
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-12">
-          {/* Map */}
-          <div className="relative h-[600px] bg-green-50 rounded-lg overflow-hidden">
-            <Image
-              src="/vietnam-map.png"
-              alt="Vietnam Map"
-              fill
-              className="object-contain p-8"
-            />
-            {/* Highlight regions */}
-            <div className="absolute top-1/3 right-1/3 w-16 h-16 bg-green-500/20 rounded-full animate-pulse" />
-            <div className="absolute top-1/2 right-1/4 w-16 h-16 bg-green-500/20 rounded-full animate-pulse" />
+          {/* Minimap */}
+          <div className="relative">
+            <Minimap enterprises={enterprises} height="600px" />
           </div>
 
           {/* Product List */}

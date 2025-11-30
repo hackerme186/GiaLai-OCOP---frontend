@@ -7,6 +7,7 @@ import { uploadImage, checkUploadPermission } from "@/lib/upload"
 import { getProducts, getProduct, updateProduct, updateProductImage, Product } from "@/lib/api"
 import { getEnterprises, updateEnterprise, Enterprise } from "@/lib/api"
 import { getUsers, updateUser, User } from "@/lib/api"
+import { isValidImageUrl, getImageUrl, getImageAttributes } from "@/lib/imageUtils"
 
 type ImageFolder = "GiaLaiOCOP/Products" | "GiaLaiOCOP/Enterprises" | "GiaLaiOCOP/Users" | "GiaLaiOCOP/Images"
 
@@ -201,7 +202,38 @@ export default function ImageManagementTab() {
           setPendingImageUrl(null) // Clear pending after save
         }
       } else if (activeFolder === "GiaLaiOCOP/Enterprises" && selectedEnterprise) {
-        await updateEnterprise(selectedEnterprise.id, { imageUrl: pendingImageUrl })
+        // Get full enterprise data first, then update with imageUrl
+        const { getEnterprise } = await import("@/lib/api")
+        const fullEnterprise = await getEnterprise(selectedEnterprise.id)
+        
+        // Chỉ gửi các trường có giá trị hợp lệ (không gửi empty string)
+        const updatePayload: any = {
+          imageUrl: pendingImageUrl,
+        }
+        
+        // Chỉ thêm các trường nếu có giá trị
+        if (fullEnterprise.name) updatePayload.name = fullEnterprise.name
+        if (fullEnterprise.description !== undefined) updatePayload.description = fullEnterprise.description || null
+        if (fullEnterprise.address) updatePayload.address = fullEnterprise.address
+        if (fullEnterprise.ward) updatePayload.ward = fullEnterprise.ward
+        if (fullEnterprise.district) updatePayload.district = fullEnterprise.district
+        if (fullEnterprise.province) updatePayload.province = fullEnterprise.province
+        if (fullEnterprise.latitude !== undefined) updatePayload.latitude = fullEnterprise.latitude
+        if (fullEnterprise.longitude !== undefined) updatePayload.longitude = fullEnterprise.longitude
+        if (fullEnterprise.phoneNumber) updatePayload.phoneNumber = fullEnterprise.phoneNumber
+        // EmailContact: chỉ gửi nếu có giá trị hợp lệ (không phải empty string)
+        if (fullEnterprise.emailContact && fullEnterprise.emailContact.trim() !== '') {
+          updatePayload.emailContact = fullEnterprise.emailContact.trim()
+        } else {
+          updatePayload.emailContact = null
+        }
+        if (fullEnterprise.website) updatePayload.website = fullEnterprise.website
+        if (fullEnterprise.businessField) updatePayload.businessField = fullEnterprise.businessField
+        if (fullEnterprise.ocopRating !== undefined) updatePayload.ocopRating = fullEnterprise.ocopRating
+        if (fullEnterprise.approvalStatus) updatePayload.approvalStatus = fullEnterprise.approvalStatus
+        if (fullEnterprise.rejectionReason !== undefined) updatePayload.rejectionReason = fullEnterprise.rejectionReason || null
+        
+        await updateEnterprise(selectedEnterprise.id, updatePayload)
         setSuccess(`Đã cập nhật logo cho doanh nghiệp "${selectedEnterprise.name}"`)
         await loadItems()
         const updatedEnterprise = enterprises.find((e) => e.id === selectedEnterprise.id)
@@ -210,7 +242,32 @@ export default function ImageManagementTab() {
           setPendingImageUrl(null) // Clear pending after save
         }
       } else if (activeFolder === "GiaLaiOCOP/Users" && selectedUser) {
-        await updateUser(selectedUser.id, { avatarUrl: pendingImageUrl })
+        // Get full user data first, then update with avatarUrl
+        const { getUser } = await import("@/lib/api")
+        const fullUser = await getUser(selectedUser.id)
+        
+        // Chỉ gửi các trường có giá trị hợp lệ
+        const updatePayload: any = {
+          avatarUrl: pendingImageUrl,
+        }
+        
+        // Chỉ thêm các trường nếu có giá trị
+        if (fullUser.name) updatePayload.name = fullUser.name
+        if (fullUser.email) updatePayload.email = fullUser.email
+        if (fullUser.role) updatePayload.role = fullUser.role
+        if (fullUser.enterpriseId !== undefined) updatePayload.enterpriseId = fullUser.enterpriseId
+        if (fullUser.phoneNumber !== undefined) updatePayload.phoneNumber = fullUser.phoneNumber || null
+        if (fullUser.gender !== undefined) updatePayload.gender = fullUser.gender || null
+        if (fullUser.dateOfBirth !== undefined) updatePayload.dateOfBirth = fullUser.dateOfBirth || null
+        if (fullUser.shippingAddress !== undefined) updatePayload.shippingAddress = fullUser.shippingAddress || null
+        if (fullUser.isEmailVerified !== undefined) updatePayload.isEmailVerified = fullUser.isEmailVerified
+        if (fullUser.isActive !== undefined) updatePayload.isActive = fullUser.isActive
+        if (fullUser.provinceId !== undefined) updatePayload.provinceId = fullUser.provinceId
+        if (fullUser.districtId !== undefined) updatePayload.districtId = fullUser.districtId
+        if (fullUser.wardId !== undefined) updatePayload.wardId = fullUser.wardId
+        if (fullUser.addressDetail !== undefined) updatePayload.addressDetail = fullUser.addressDetail || null
+        
+        await updateUser(selectedUser.id, updatePayload)
         setSuccess(`Đã cập nhật avatar cho người dùng "${selectedUser.name || selectedUser.email}"`)
         await loadItems()
         const updatedUser = users.find((u) => u.id === selectedUser.id)
@@ -412,6 +469,7 @@ export default function ImageManagementTab() {
                             alt={product.name}
                             fill
                             className="object-cover"
+                            {...getImageAttributes(product.imageUrl)}
                             unoptimized={product.imageUrl.includes("gialai-ocop-be.onrender.com") || product.imageUrl.includes("res.cloudinary.com")}
                           />
                         </div>
@@ -449,6 +507,7 @@ export default function ImageManagementTab() {
                             alt={enterprise.name}
                             fill
                             className="object-cover"
+                            {...getImageAttributes(enterprise.imageUrl)}
                             unoptimized={enterprise.imageUrl.includes("gialai-ocop-be.onrender.com") || enterprise.imageUrl.includes("res.cloudinary.com")}
                           />
                         </div>
@@ -477,15 +536,28 @@ export default function ImageManagementTab() {
                     }`}
                   >
                     <div className="flex items-start gap-3">
-                      {user.avatarUrl && (
-                        <div className="relative w-16 h-16 rounded-full overflow-hidden flex-shrink-0">
+                      {isValidImageUrl(user.avatarUrl) && (
+                        <div className="relative w-16 h-16 rounded-full overflow-hidden flex-shrink-0 bg-gray-200">
                           <Image
-                            src={user.avatarUrl}
+                            src={getImageUrl(user.avatarUrl)}
                             alt={user.name || user.email}
                             fill
                             className="object-cover"
-                            unoptimized={user.avatarUrl.includes("gialai-ocop-be.onrender.com") || user.avatarUrl.includes("res.cloudinary.com")}
+                            {...getImageAttributes(user.avatarUrl)}
+                            unoptimized={user.avatarUrl?.includes("gialai-ocop-be.onrender.com") || user.avatarUrl?.includes("res.cloudinary.com")}
+                            onError={(e) => {
+                              // Ẩn ảnh nếu lỗi
+                              const target = e.target as HTMLImageElement
+                              target.style.display = 'none'
+                            }}
                           />
+                        </div>
+                      )}
+                      {!isValidImageUrl(user.avatarUrl) && (
+                        <div className="relative w-16 h-16 rounded-full overflow-hidden flex-shrink-0 bg-gray-200 flex items-center justify-center">
+                          <svg className="w-8 h-8 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
+                          </svg>
                         </div>
                       )}
                       <div className="flex-1 min-w-0">
@@ -531,13 +603,24 @@ export default function ImageManagementTab() {
             <ImageUploader
               folder={activeFolder}
               onUploaded={handleSingleUpload}
-              currentImageUrl={pendingImageUrl || (() => {
+              currentImageUrl={(() => {
+                // Ưu tiên pendingImageUrl nếu có
+                if (pendingImageUrl && isValidImageUrl(pendingImageUrl)) {
+                  return pendingImageUrl
+                }
+                // Nếu không có pending, lấy từ item hiện tại
                 const item = getCurrentItem()
                 if (!item) return undefined
-                if (activeFolder === "GiaLaiOCOP/Products") return (item as Product).imageUrl
-                if (activeFolder === "GiaLaiOCOP/Enterprises") return (item as Enterprise).imageUrl
-                if (activeFolder === "GiaLaiOCOP/Users") return (item as User).avatarUrl
-                return undefined
+                let imageUrl: string | undefined
+                if (activeFolder === "GiaLaiOCOP/Products") {
+                  imageUrl = (item as Product).imageUrl
+                } else if (activeFolder === "GiaLaiOCOP/Enterprises") {
+                  imageUrl = (item as Enterprise).imageUrl
+                } else if (activeFolder === "GiaLaiOCOP/Users") {
+                  imageUrl = (item as User).avatarUrl
+                }
+                // Chỉ trả về URL hợp lệ
+                return isValidImageUrl(imageUrl) ? imageUrl : undefined
               })()}
               placeholder="Chọn ảnh để cập nhật"
               maxPreviewSize={300}
@@ -683,6 +766,7 @@ export default function ImageManagementTab() {
                       alt={`Uploaded image ${index + 1}`}
                       fill
                       className="object-cover"
+                      {...getImageAttributes(image.url)}
                       unoptimized={
                         image.url.includes("gialai-ocop-be.onrender.com") ||
                         image.url.includes("res.cloudinary.com") ||

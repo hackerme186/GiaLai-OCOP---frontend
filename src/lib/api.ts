@@ -174,6 +174,7 @@ export interface User {
   wardId?: number;
   addressDetail?: string;
   isEmailVerified?: boolean;
+  isActive?: boolean;
 }
 
 export interface UpdateUserDto {
@@ -1165,7 +1166,11 @@ export async function searchMap(params: MapSearchParams): Promise<EnterpriseMapD
   if (params.page) searchParams.append('page', String(params.page));
   if (params.pageSize) searchParams.append('pageSize', String(params.pageSize));
 
-  return request<EnterpriseMapDto[]>(`/map/search?${searchParams.toString()}`, {
+  // Nếu không có tham số nào, gọi endpoint không có query string
+  const queryString = searchParams.toString();
+  const url = queryString ? `/map/search?${queryString}` : '/map/search';
+
+  return request<EnterpriseMapDto[]>(url, {
     method: "GET",
   });
 }

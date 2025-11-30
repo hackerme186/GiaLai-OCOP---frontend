@@ -2,6 +2,10 @@
 
 import { useEffect, useState } from "react"
 import { getUsers, updateUser, deleteUser, getEnterprises, type User, type Enterprise } from "@/lib/api"
+import ImageUploader from "@/components/upload/ImageUploader"
+import { uploadImage } from "@/lib/upload"
+import Image from "next/image"
+import { isValidImageUrl, getImageUrl, getImageAttributes } from "@/lib/imageUtils"
 
 export default function UserManagementTab() {
     const [loading, setLoading] = useState(false)
@@ -13,6 +17,8 @@ export default function UserManagementTab() {
     const [deletingUser, setDeletingUser] = useState<User | null>(null)
     const [formData, setFormData] = useState<Partial<User>>({})
     const [deleting, setDeleting] = useState(false)
+    const [uploadingAvatar, setUploadingAvatar] = useState(false)
+    const [avatarPreview, setAvatarPreview] = useState<string | null>(null)
 
     useEffect(() => {
         loadUsers()
@@ -57,12 +63,27 @@ export default function UserManagementTab() {
             shippingAddress: user.shippingAddress || "",
             avatarUrl: user.avatarUrl || "",
             isEmailVerified: user.isEmailVerified,
+            isActive: user.isActive !== undefined ? user.isActive : true,
             provinceId: user.provinceId,
             districtId: user.districtId,
             wardId: user.wardId,
             addressDetail: user.addressDetail || "",
         })
+        setAvatarPreview(user.avatarUrl || null)
         setShowEditModal(true)
+    }
+
+    const handleAvatarUpload = async (imageUrl: string) => {
+        setUploadingAvatar(true)
+        try {
+            setFormData({ ...formData, avatarUrl: imageUrl })
+            setAvatarPreview(imageUrl)
+        } catch (err) {
+            console.error("Error setting avatar:", err)
+            alert("Có lỗi xảy ra khi cập nhật avatar. Vui lòng thử lại.")
+        } finally {
+            setUploadingAvatar(false)
+        }
     }
 
     const handleSaveEdit = async () => {
@@ -80,6 +101,7 @@ export default function UserManagementTab() {
             if (formData.shippingAddress !== undefined) payload.shippingAddress = formData.shippingAddress || null
             if (formData.avatarUrl !== undefined) payload.avatarUrl = formData.avatarUrl || null
             if (formData.isEmailVerified !== undefined) payload.isEmailVerified = formData.isEmailVerified
+            if (formData.isActive !== undefined) payload.isActive = formData.isActive
             if (formData.provinceId !== undefined) payload.provinceId = formData.provinceId || null
             if (formData.districtId !== undefined) payload.districtId = formData.districtId || null
             if (formData.wardId !== undefined) payload.wardId = formData.wardId || null
@@ -384,13 +406,67 @@ export default function UserManagementTab() {
                             </div>
 
                             <div>
-                                <label className="block text-sm font-semibold text-gray-900 mb-2">Avatar URL</label>
-                                <input
-                                    type="url"
-                                    value={formData.avatarUrl || ""}
-                                    onChange={(e) => setFormData({ ...formData, avatarUrl: e.target.value })}
-                                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                                />
+                                <label className="block text-sm font-semibold text-gray-900 mb-2">Ảnh đại diện (Avatar)</label>
+                                
+                                {/* Avatar Preview */}
+                                {avatarPreview && isValidImageUrl(avatarPreview) && (
+                                    <div className="mb-3 flex items-center gap-4">
+                                        <div className="relative w-20 h-20 rounded-full overflow-hidden border-2 border-gray-300 bg-gray-200">
+                                            <Image
+                                                src={getImageUrl(avatarPreview)}
+                                                alt="Avatar preview"
+                                                fill
+                                                className="object-cover"
+                                                sizes="80px"
+                                                {...getImageAttributes(avatarPreview)}
+                                                unoptimized={avatarPreview.includes("gialai-ocop-be.onrender.com") || avatarPreview.includes("res.cloudinary.com")}
+                                                onError={(e) => {
+                                                    // Ẩn ảnh nếu lỗi
+                                                    const target = e.target as HTMLImageElement
+                                                    target.style.display = 'none'
+                                                }}
+                                            />
+                                        </div>
+                                        <button
+                                            type="button"
+                                            onClick={() => {
+                                                setAvatarPreview(null)
+                                                setFormData({ ...formData, avatarUrl: "" })
+                                            }}
+                                            className="px-3 py-1.5 text-sm bg-red-500 text-white rounded-lg hover:bg-red-600 transition-colors"
+                                        >
+                                            Xóa ảnh
+                                        </button>
+                                    </div>
+                                )}
+
+                                {/* Image Uploader */}
+                                <div className="mb-3">
+                                    <ImageUploader
+                                        folder="GiaLaiOCOP/Users"
+                                        onUploaded={handleAvatarUpload}
+                                        currentImageUrl={avatarPreview || undefined}
+                                        disabled={uploadingAvatar}
+                                        placeholder="Chọn ảnh đại diện..."
+                                        maxPreviewSize={200}
+                                        showRemoveButton={false}
+                                    />
+                                </div>
+
+                                {/* Manual URL Input (Optional) */}
+                                <div className="mt-3">
+                                    <label className="block text-xs text-gray-600 mb-1">Hoặc nhập URL ảnh (tùy chọn)</label>
+                                    <input
+                                        type="url"
+                                        value={formData.avatarUrl || ""}
+                                        onChange={(e) => {
+                                            setFormData({ ...formData, avatarUrl: e.target.value })
+                                            setAvatarPreview(e.target.value || null)
+                                        }}
+                                        placeholder="https://..."
+                                        className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-sm"
+                                    />
+                                </div>
                             </div>
 
                             <div>
@@ -404,6 +480,66 @@ export default function UserManagementTab() {
                                     <span className="text-sm font-semibold text-gray-900">Email đã xác thực</span>
                                 </label>
                             </div>
+
+                            <div>
+                                <label className="flex items-center gap-2">
+                                    <input
+                                        type="checkbox"
+                                        checked={formData.isActive !== undefined ? formData.isActive : true}
+                                        onChange={(e) => setFormData({ ...formData, isActive: e.target.checked })}
+                                        className="w-4 h-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500"
+                                    />
+                                    <span className="text-sm font-semibold text-gray-900">Tài khoản đang hoạt động</span>
+                                </label>
+                            </div>
+
+                            <div className="border-t pt-4 mt-4">
+                                <h4 className="text-sm font-bold text-gray-900 mb-3">Địa chỉ chi tiết</h4>
+                                
+                                <div className="mb-3">
+                                    <label className="block text-sm font-semibold text-gray-900 mb-2">Mã tỉnh/thành phố</label>
+                                    <input
+                                        type="number"
+                                        value={formData.provinceId || ""}
+                                        onChange={(e) => setFormData({ ...formData, provinceId: e.target.value ? parseInt(e.target.value) : undefined })}
+                                        className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                                        placeholder="Nhập mã tỉnh/thành phố"
+                                    />
+                                </div>
+
+                                <div className="mb-3">
+                                    <label className="block text-sm font-semibold text-gray-900 mb-2">Mã quận/huyện</label>
+                                    <input
+                                        type="number"
+                                        value={formData.districtId || ""}
+                                        onChange={(e) => setFormData({ ...formData, districtId: e.target.value ? parseInt(e.target.value) : undefined })}
+                                        className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                                        placeholder="Nhập mã quận/huyện"
+                                    />
+                                </div>
+
+                                <div className="mb-3">
+                                    <label className="block text-sm font-semibold text-gray-900 mb-2">Mã phường/xã</label>
+                                    <input
+                                        type="number"
+                                        value={formData.wardId || ""}
+                                        onChange={(e) => setFormData({ ...formData, wardId: e.target.value ? parseInt(e.target.value) : undefined })}
+                                        className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                                        placeholder="Nhập mã phường/xã"
+                                    />
+                                </div>
+
+                                <div>
+                                    <label className="block text-sm font-semibold text-gray-900 mb-2">Địa chỉ chi tiết</label>
+                                    <input
+                                        type="text"
+                                        value={formData.addressDetail || ""}
+                                        onChange={(e) => setFormData({ ...formData, addressDetail: e.target.value })}
+                                        className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                                        placeholder="Số nhà, tên đường, ..."
+                                    />
+                                </div>
+                            </div>
                         </div>
 
                         <div className="flex gap-3 mt-6">
@@ -412,6 +548,7 @@ export default function UserManagementTab() {
                                     setShowEditModal(false)
                                     setEditingUser(null)
                                     setFormData({})
+                                    setAvatarPreview(null)
                                 }}
                                 className="flex-1 px-6 py-3 bg-gray-200 text-gray-700 rounded-lg font-semibold hover:bg-gray-300 transition-all"
                             >
