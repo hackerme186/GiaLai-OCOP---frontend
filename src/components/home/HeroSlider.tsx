@@ -8,7 +8,7 @@ const slides = [
     title: 'Cà Phê Gia Lai',
     subtitle: 'Tinh hoa đất Tây Nguyên',
     description: 'Khám phá ngay',
-    image: '/products/featured/coffee-farm.jpg',
+    image: '/coffee gia lai.jpg',
     textPosition: 'left'
   },
   {
@@ -16,7 +16,7 @@ const slides = [
     title: 'Đặc sản Bình Định',
     subtitle: 'Nem chợ Huyện - Bánh tráng An Thái',
     description: 'Xem thêm',
-    image: '/products/featured/binhdinh-food.jpg',
+    image: '/nem chua cho huyen.png',
     textPosition: 'right'
   },
   {
@@ -24,7 +24,7 @@ const slides = [
     title: 'Hạt điều - Tiêu Gia Lai',
     subtitle: 'Vị ngon đậm đà',
     description: 'Mua ngay',
-    image: '/products/featured/spices.jpg',
+    image: '/hat dieu - tieu.png',
     textPosition: 'left'
   }
 ]
@@ -54,6 +54,8 @@ const HeroSlider = () => {
             fill
             className="object-cover"
             priority={index === 0}
+            unoptimized
+            sizes="100vw"
           />
           <div className="absolute inset-0 bg-gradient-to-r from-black/50 to-transparent" />
           <div className={`absolute inset-0 flex items-center ${
