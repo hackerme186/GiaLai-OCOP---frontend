@@ -6,7 +6,7 @@ import { useState, useEffect, useMemo } from "react"
 import { logout } from "@/lib/auth"
 import { getCurrentUser } from "@/lib/api"
 
-export type TabType = 'dashboard' | 'enterprise-approval' | 'enterprise-management' | 'ocop-approval' | 'categories' | 'images' | 'reports' | 'locations' | 'producers' | 'transactions' | 'user-management'
+export type TabType = 'dashboard' | 'enterprise-approval' | 'enterprise-management' | 'ocop-approval' | 'product-management' | 'categories' | 'images' | 'news-management' | 'home-management' | 'reports' | 'locations' | 'producers' | 'transactions' | 'user-management'
 
 interface AdminHeaderProps {
   activeTab: TabType
@@ -45,8 +45,11 @@ export default function AdminHeader({ activeTab, onTabChange }: AdminHeaderProps
     { id: 'enterprise-approval', label: 'Duyệt đơn đăng ký DN', icon: '📅' },
     { id: 'enterprise-management', label: 'Quản lý doanh nghiệp', icon: '🏢' },
     { id: 'ocop-approval', label: 'Duyệt sản phẩm OCOP', icon: '⭐' },
+    { id: 'product-management', label: 'Quản lý sản phẩm', icon: '📦' },
     { id: 'categories', label: 'Quản lý danh mục', icon: '📁' },
     { id: 'images', label: 'Quản lý ảnh', icon: '🖼️' },
+    { id: 'news-management', label: 'Quản lý tin tức', icon: '📰' },
+    { id: 'home-management', label: 'Quản lý trang chủ', icon: '🏠' },
     { id: 'reports', label: 'Báo cáo toàn tỉnh', icon: '📉' },
     { id: 'locations', label: 'Quản lý địa điểm', icon: '📍' },
     { id: 'producers', label: 'Quản lý nhà sản xuất', icon: '🏭' },
@@ -57,7 +60,7 @@ export default function AdminHeader({ activeTab, onTabChange }: AdminHeaderProps
   const roleNormalized = (userRole || "").toLowerCase()
 
   const roleTabMap: Record<string, TabType[]> = {
-    systemadmin: ['dashboard', 'enterprise-approval', 'enterprise-management', 'ocop-approval', 'categories', 'images', 'reports', 'locations', 'producers', 'transactions', 'user-management'],
+    systemadmin: ['dashboard', 'enterprise-approval', 'enterprise-management', 'ocop-approval', 'product-management', 'categories', 'images', 'news-management', 'home-management', 'reports', 'locations', 'producers', 'transactions', 'user-management'],
     enterpriseadmin: ['dashboard', 'ocop-approval'],
     customer: ['dashboard'],
   }

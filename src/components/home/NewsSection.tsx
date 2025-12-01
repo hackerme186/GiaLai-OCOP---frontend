@@ -1,31 +1,74 @@
 "use client"
 import Image from 'next/image'
+import { useState, useEffect } from 'react'
 
-const news = [
+interface NewsItem {
+  id: number
+  title: string
+  date: string
+  description: string
+  image: string
+}
+
+const STORAGE_KEY = "ocop_news_items"
+
+const defaultNews: NewsItem[] = [
   {
     id: 1,
     title: 'Cà phê Gia Lai được công nhận Top 10 sản phẩm OCOP tiêu biểu',
     date: '12/10/2023',
     description: 'Sản phẩm cà phê Gia Lai đạt chứng nhận 4 sao trong chương trình OCOP quốc gia',
-    image: '/news/coffee-news.jpg'
+    image: '/coffee gia lai.jpg'
   },
   {
     id: 2,
     title: 'Bánh tráng Bình Định - Hương vị truyền thống được bảo tồn',
     date: '11/10/2023',
     description: 'Làng nghề bánh tráng An Thái được công nhận là di sản văn hóa phi vật thể',
-    image: '/news/banhtrang-news.jpg'
+    image: '/hero.jpg'
   },
   {
     id: 3,
     title: 'Phát triển bền vững các sản phẩm OCOP tại Tây Nguyên',
     date: '10/10/2023',
     description: 'Chiến lược phát triển và quảng bá sản phẩm OCOP vùng Tây Nguyên',
-    image: '/news/ocop-news.jpg'
+    image: '/hero.jpg'
   }
 ]
 
 const NewsSection = () => {
+  const [news, setNews] = useState<NewsItem[]>(defaultNews)
+
+  useEffect(() => {
+    // Load news from localStorage
+    const loadNews = () => {
+      try {
+        const stored = localStorage.getItem(STORAGE_KEY)
+        if (stored) {
+          const parsed = JSON.parse(stored) as NewsItem[]
+          if (Array.isArray(parsed) && parsed.length > 0) {
+            setNews(parsed)
+          }
+        }
+      } catch (err) {
+        console.error("Failed to load news from storage:", err)
+      }
+    }
+
+    loadNews()
+
+    // Listen for news updates from admin
+    const handleNewsUpdate = (event: CustomEvent) => {
+      if (event.detail && Array.isArray(event.detail)) {
+        setNews(event.detail)
+      }
+    }
+
+    window.addEventListener('newsUpdated' as any, handleNewsUpdate as EventListener)
+    return () => {
+      window.removeEventListener('newsUpdated' as any, handleNewsUpdate as EventListener)
+    }
+  }, [])
   return (
     <section className="py-16 bg-gray-50">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
@@ -37,12 +80,21 @@ const NewsSection = () => {
               key={item.id}
               className="bg-white rounded-lg shadow-md overflow-hidden hover:shadow-xl transition-shadow"
             >
-              <div className="relative h-56">
+              <div className="relative h-56 bg-gray-200">
                 <Image
                   src={item.image}
                   alt={item.title}
                   fill
                   className="object-cover"
+                  onError={(e) => {
+                    // Fallback to hero.jpg if image fails to load
+                    const target = e.target as HTMLImageElement
+                    const currentSrc = target.src
+                    const fallbackSrc = '/hero.jpg'
+                    if (!currentSrc.includes('hero.jpg')) {
+                      target.src = fallbackSrc
+                    }
+                  }}
                 />
               </div>
               <div className="p-6">

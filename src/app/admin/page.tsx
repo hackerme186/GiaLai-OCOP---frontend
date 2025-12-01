@@ -16,6 +16,9 @@ import LocationsTab from "@/components/admin/LocationsTab"
 import ProducersTab from "@/components/admin/ProducersTab"
 import TransactionsTab from "@/components/admin/TransactionsTab"
 import UserManagementTab from "@/components/admin/UserManagementTab"
+import NewsManagementTab from "@/components/admin/NewsManagementTab"
+import HomeManagementTab from "@/components/admin/HomeManagementTab"
+import ProductManagementTab from "@/components/admin/ProductManagementTab"
 
 export default function AdminPage() {
   const router = useRouter()
@@ -103,11 +106,20 @@ export default function AdminPage() {
             {activeTab === 'ocop-approval' && (
               <OcopApprovalTab />
             )}
+            {activeTab === 'product-management' && (
+              <ProductManagementTab />
+            )}
             {activeTab === 'categories' && (
               <CategoryManagementTab />
             )}
             {activeTab === 'images' && (
               <ImageManagementTab />
+            )}
+            {activeTab === 'news-management' && (
+              <NewsManagementTab />
+            )}
+            {activeTab === 'home-management' && (
+              <HomeManagementTab />
             )}
             {activeTab === 'reports' && (
               <ProvinceReportTab />

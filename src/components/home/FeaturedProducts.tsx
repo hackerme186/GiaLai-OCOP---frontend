@@ -3,10 +3,17 @@ import { useState, useEffect } from 'react'
 import Image from 'next/image'
 import { getProducts, Product } from '@/lib/api'
 
+const STORAGE_KEY = "ocop_home_content"
+
+const defaultTitle = 'Sản phẩm OCOP nổi bật'
+const defaultDescription = 'Các sản phẩm đặc trưng từ Gia Lai và Bình Định'
+
 const FeaturedProducts = () => {
   const [products, setProducts] = useState<Product[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
+  const [title, setTitle] = useState(defaultTitle)
+  const [description, setDescription] = useState(defaultDescription)
 
   useEffect(() => {
     const fetchProducts = async () => {
@@ -63,14 +70,45 @@ const FeaturedProducts = () => {
     fetchProducts()
   }, [])
 
+  useEffect(() => {
+    // Load title and description from localStorage
+    const loadContent = () => {
+      try {
+        const stored = localStorage.getItem(STORAGE_KEY)
+        if (stored) {
+          const parsed = JSON.parse(stored) as { featuredProductsTitle?: string; featuredProductsDescription?: string }
+          if (parsed.featuredProductsTitle) setTitle(parsed.featuredProductsTitle)
+          if (parsed.featuredProductsDescription) setDescription(parsed.featuredProductsDescription)
+        }
+      } catch (err) {
+        console.error("Failed to load content from storage:", err)
+      }
+    }
+
+    loadContent()
+
+    // Listen for home content updates from admin
+    const handleContentUpdate = (event: CustomEvent) => {
+      if (event.detail) {
+        if (event.detail.featuredProductsTitle) setTitle(event.detail.featuredProductsTitle)
+        if (event.detail.featuredProductsDescription) setDescription(event.detail.featuredProductsDescription)
+      }
+    }
+
+    window.addEventListener('homeContentUpdated' as any, handleContentUpdate as EventListener)
+    return () => {
+      window.removeEventListener('homeContentUpdated' as any, handleContentUpdate as EventListener)
+    }
+  }, [])
+
   if (loading) {
     return (
       <section className="py-16 bg-gray-50">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <h2 className="text-3xl font-bold text-gray-900 mb-2">
-            Sản phẩm OCOP nổi bật
+            {title}
           </h2>
-          <p className="text-gray-600 mb-8">Các sản phẩm đặc trưng từ Gia Lai và Bình Định</p>
+          <p className="text-gray-600 mb-8">{description}</p>
           <div className="flex justify-center items-center h-64">
             <div className="text-gray-500">Đang tải sản phẩm...</div>
           </div>
@@ -99,9 +137,9 @@ const FeaturedProducts = () => {
     <section className="py-16 bg-gray-50">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <h2 className="text-3xl font-bold text-gray-900 mb-2">
-          Sản phẩm OCOP nổi bật
+          {title}
         </h2>
-        <p className="text-gray-600 mb-8">Các sản phẩm đặc trưng từ Gia Lai và Bình Định</p>
+        <p className="text-gray-600 mb-8">{description}</p>
 
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-8">
           {products.map((product) => (
