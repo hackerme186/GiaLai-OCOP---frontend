@@ -6,7 +6,6 @@ import { getUserProfile, isLoggedIn } from "@/lib/auth"
 import { getCurrentUser, getEnterprise, updateCurrentUser, changePassword, verifyEmail, resendVerificationOtp, type Enterprise, type User, type UpdateUserDto } from "@/lib/api"
 import Header from "@/components/layout/Header"
 import { useRouter } from "next/navigation"
-import { getCurrentAddress } from "@/lib/geolocation"
 import {
   getSavedShippingAddresses,
   addShippingAddress,
@@ -17,8 +16,11 @@ import {
   type SavedShippingAddress
 } from "@/lib/shipping-addresses"
 import NewAddressForm, { type AddressFormData } from "@/components/address/NewAddressForm"
+import dynamic from "next/dynamic"
 import ImageUploader from "@/components/upload/ImageUploader"
 import Image from "next/image"
+
+const AddressMapModal = dynamic(() => import("@/components/address/AddressMapModal"), { ssr: false })
 
 type NotificationItem = {
   id: number
@@ -37,6 +39,7 @@ export default function AccountPage() {
   const [error, setError] = useState<string | null>(null)
   const [success, setSuccess] = useState<string | null>(null)
   const [isEditingAddress, setIsEditingAddress] = useState(false)
+  const [showAddressMapModal, setShowAddressMapModal] = useState(false)
   const [isEditingProfile, setIsEditingProfile] = useState(false)
   const [shippingAddress, setShippingAddress] = useState("")
   const [name, setName] = useState("")
@@ -44,7 +47,6 @@ export default function AccountPage() {
   const [phoneNumber, setPhoneNumber] = useState("")
   const [gender, setGender] = useState<string>("female")
   const [dateOfBirth, setDateOfBirth] = useState<{ day: string; month: string; year: string }>({ day: "", month: "", year: "" })
-  const [loadingAddress, setLoadingAddress] = useState(false)
   const [saving, setSaving] = useState(false)
   const [savingProfile, setSavingProfile] = useState(false)
   const [savedAddresses, setSavedAddresses] = useState<SavedShippingAddress[]>([])
@@ -303,20 +305,6 @@ export default function AccountPage() {
     }
   }, [user?.role])
 
-  const handleGetCurrentLocation = async () => {
-    setLoadingAddress(true)
-    setError(null)
-    try {
-      const addressResult = await getCurrentAddress()
-      setShippingAddress(addressResult.address)
-      setSuccess("Đã lấy địa chỉ từ GPS thành công!")
-      setTimeout(() => setSuccess(null), 3000)
-    } catch (err) {
-      setError(err instanceof Error ? err.message : "Không thể lấy địa chỉ từ GPS")
-    } finally {
-      setLoadingAddress(false)
-    }
-  }
 
   const handleSaveAddress = async () => {
     if (!shippingAddress.trim()) {
@@ -517,7 +505,7 @@ export default function AccountPage() {
       setIsEditingProfile(false)
       setSuccess("Đã cập nhật thông tin hồ sơ thành công!")
       setTimeout(() => setSuccess(null), 3000)
-      
+
       // Trigger window event để các component khác có thể reload avatar
       if (typeof window !== "undefined") {
         window.dispatchEvent(new Event("profileUpdated"))
@@ -839,16 +827,16 @@ export default function AccountPage() {
       if (result.isEmailVerified) {
         setSuccess("Xác thực email thành công!")
         setTimeout(() => setSuccess(null), 3000)
-        
+
         // Reload user data
         const updatedUser = await getCurrentUser()
         setUser(updatedUser)
-        
+
         // Reset form
         setOtpSent(false)
         setOtpCode("")
         setOtpCountdown(0)
-        
+
         // Switch back to profile
         setTimeout(() => setActiveMenu("profile"), 2000)
       }
@@ -1534,11 +1522,34 @@ export default function AccountPage() {
                             Chỉnh sửa
                           </button>
                           <button
-                            onClick={handleGetCurrentLocation}
-                            disabled={loadingAddress}
-                            className="inline-flex items-center justify-center px-4 py-2 rounded-lg border border-orange-200 text-orange-600 font-medium hover:bg-orange-50 transition-colors disabled:opacity-50"
+                            onClick={() => setShowAddressMapModal(true)}
+                            className="inline-flex items-center justify-center gap-2 px-4 py-2 rounded-lg border border-orange-200 text-orange-600 font-medium hover:bg-orange-50 transition-colors"
+                            title="Chọn địa chỉ trên bản đồ"
                           >
-                            {loadingAddress ? "Đang lấy vị trí..." : "Lấy từ GPS"}
+                            <svg className="w-5 h-5" viewBox="0 0 24 24" fill="none">
+                              {/* Folded map - main shape */}
+                              <path d="M4 5.5C4 4.67 4.67 4 5.5 4h6.09c.28 0 .55.08.78.23L16 6.5l3.63-2.27c.23-.15.5-.23.78-.23H21.5c.83 0 1.5.67 1.5 1.5v13c0 .83-.67 1.5-1.5 1.5h-6.09c-.28 0-.55-.08-.78-.23L12 16.5l-3.63 2.27c-.23.15-.5.23-.78.23H5.5C4.67 19 4 18.33 4 17.5V5.5z"
+                                stroke="currentColor"
+                                strokeWidth="1.5"
+                                fill="none"
+                                strokeLinecap="round"
+                                strokeLinejoin="round" />
+                              {/* Map fold line */}
+                              <path d="M12 4v16M4 5.5h8m0 0h8"
+                                stroke="currentColor"
+                                strokeWidth="1"
+                                opacity="0.3"
+                                strokeLinecap="round" />
+                              {/* Location pin - positioned on the map */}
+                              <path d="M16 9.5c0 1.38-1.12 2.5-2.5 2.5S11 10.88 11 9.5 12.12 7 13.5 7 16 8.12 16 9.5z"
+                                fill="currentColor" />
+                              <circle cx="13.5" cy="9.5" r="1.5" fill="white" />
+                              <path d="M13.5 11v3"
+                                stroke="currentColor"
+                                strokeWidth="1.5"
+                                strokeLinecap="round" />
+                            </svg>
+                            <span>Chọn trên bản đồ</span>
                           </button>
                         </>
                       )}
@@ -1940,6 +1951,18 @@ export default function AccountPage() {
           </div>
         </div>
       </main>
+
+      {/* Address Map Modal */}
+      <AddressMapModal
+        isOpen={showAddressMapModal}
+        onClose={() => setShowAddressMapModal(false)}
+        onSelect={(address) => {
+          setShippingAddress(address)
+          setIsEditingAddress(true)
+          setShowAddressMapModal(false)
+        }}
+        initialAddress={shippingAddress}
+      />
     </div>
   )
 }
