@@ -18,19 +18,33 @@ export default function LoginForm() {
     e.preventDefault()
     setError(null)
     setLoading(true)
+    
+    console.log("🔐 [Login] Bắt đầu đăng nhập với email:", email)
+    
     try {
+      console.log("📤 [Login] Gửi request đăng nhập...")
       const res = await login({ email, password }) as any
+      console.log("📥 [Login] Response từ API:", res)
+      console.log("📥 [Login] Response type:", typeof res)
+      console.log("📥 [Login] Response keys:", res ? Object.keys(res) : "null")
       
       // Extract token from various possible response structures
       // Backend trả về Token (chữ hoa) nên cần check cả Token và token
       const token = res?.Token || res?.token || res?.data?.Token || res?.data?.token || res?.accessToken || res?.access_token
+      console.log("🔑 [Login] Token extracted:", token ? `${token.substring(0, 20)}...` : "NULL")
       
       if (!token) {
-        throw new Error("Không nhận được token từ server")
+        console.error("❌ [Login] Không tìm thấy token trong response:", JSON.stringify(res, null, 2))
+        throw new Error("Không nhận được token từ server. Vui lòng kiểm tra thông tin đăng nhập.")
       }
       
       // Save token first
+      console.log("💾 [Login] Lưu token vào localStorage...")
       setAuthToken(token)
+      
+      // Verify token was saved
+      const savedToken = typeof window !== "undefined" ? localStorage.getItem("ocop_auth_token") : null
+      console.log("✅ [Login] Token đã được lưu:", savedToken ? "YES" : "NO")
       
       // Wait a bit to ensure token is saved to localStorage
       await new Promise(resolve => setTimeout(resolve, 100))
@@ -49,20 +63,26 @@ export default function LoginForm() {
       }
       
       // Try decode from JWT token first (most reliable)
+      console.log("👤 [Login] Đang extract role...")
       let role = getRoleFromToken(token) || extractRole(res)
+      console.log("👤 [Login] Role từ token:", role || "NOT FOUND")
       
       // If still no role, try to get from /me endpoint
       if (!role || role.trim() === "") {
+        console.log("👤 [Login] Role không tìm thấy, đang gọi /me endpoint...")
         try {
           const me = await getCurrentUser()
+          console.log("👤 [Login] User info từ /me:", me)
           role = extractRole(me) || (me.role || (me as any).roles)?.toString?.() || ""
+          console.log("👤 [Login] Role từ /me:", role || "NOT FOUND")
         } catch (err) {
-          console.warn("Could not fetch user info:", err)
+          console.warn("⚠️ [Login] Could not fetch user info:", err)
         }
       }
       
       // Normalize role for comparison
       const norm = role.toString().toLowerCase().trim()
+      console.log("👤 [Login] Normalized role:", norm)
       
       // Check roles
       const isSystemAdmin = norm === 'systemadmin' || norm === 'sysadmin'
@@ -74,7 +94,9 @@ export default function LoginForm() {
                      norm === 'admin_role'
       
       try {
+        console.log("👤 [Login] Đang lấy user profile...")
         const profile = await getCurrentUser()
+        console.log("👤 [Login] User profile:", profile)
         setUserProfile({
           id: profile.id,
           name: profile.name,
@@ -83,22 +105,47 @@ export default function LoginForm() {
           enterpriseId: profile.enterpriseId ?? undefined,
           createdAt: profile.createdAt,
         })
+        console.log("✅ [Login] User profile đã được lưu")
       } catch (profileErr) {
-        console.warn("Could not load user profile:", profileErr)
+        console.warn("⚠️ [Login] Could not load user profile:", profileErr)
       }
 
       // Redirect based on role
+      console.log("🔀 [Login] Đang redirect...")
+      console.log("🔀 [Login] isSystemAdmin:", isSystemAdmin)
+      console.log("🔀 [Login] isEnterpriseAdmin:", isEnterpriseAdmin)
+      console.log("🔀 [Login] isAdmin:", isAdmin)
+      
       if (isSystemAdmin || isAdmin) {
+        console.log("🔀 [Login] Redirecting to /admin")
         router.replace("/admin")
       } else if (isEnterpriseAdmin) {
+        console.log("🔀 [Login] Redirecting to /enterprise-admin")
         router.replace("/enterprise-admin")
       } else {
+        console.log("🔀 [Login] Redirecting to /home")
         router.replace("/home")
       }
+      
+      console.log("✅ [Login] Đăng nhập thành công!")
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Đăng nhập thất bại")
+      console.error("❌ [Login] Lỗi đăng nhập:", err)
+      console.error("❌ [Login] Error type:", err?.constructor?.name)
+      console.error("❌ [Login] Error message:", err instanceof Error ? err.message : String(err))
+      
+      if (err instanceof Error && (err as any).status) {
+        console.error("❌ [Login] HTTP Status:", (err as any).status)
+      }
+      
+      if (err instanceof Error && (err as any).response) {
+        console.error("❌ [Login] Response data:", (err as any).response)
+      }
+      
+      const errorMessage = err instanceof Error ? err.message : "Đăng nhập thất bại. Vui lòng thử lại."
+      setError(errorMessage)
     } finally {
       setLoading(false)
+      console.log("🏁 [Login] Kết thúc quá trình đăng nhập")
     }
   }
 

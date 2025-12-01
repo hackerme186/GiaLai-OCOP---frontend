@@ -179,127 +179,165 @@ export default function UserManagementTab() {
     const getRoleLabel = (role: string) => {
         switch (role?.toLowerCase()) {
             case "systemadmin":
-                return { text: "Quản trị hệ thống", color: "bg-purple-100 text-purple-800" }
+                return { text: "Quản trị hệ thống", color: "bg-purple-100 text-purple-800 border-purple-300" }
             case "enterpriseadmin":
-                return { text: "Quản trị doanh nghiệp", color: "bg-blue-100 text-blue-800" }
+                return { text: "Quản trị doanh nghiệp", color: "bg-blue-100 text-blue-800 border-blue-300" }
             case "customer":
-                return { text: "Khách hàng", color: "bg-green-100 text-green-800" }
+                return { text: "Khách hàng", color: "bg-green-100 text-green-800 border-green-300" }
             default:
-                return { text: role || "Không xác định", color: "bg-gray-100 text-gray-800" }
+                return { text: role || "Không xác định", color: "bg-gray-100 text-gray-800 border-gray-300" }
         }
     }
 
     return (
-        <div>
-            <h2 className="text-2xl font-semibold text-gray-900 mb-6">Quản lý người dùng</h2>
+        <div className="space-y-6">
+            {/* Header */}
+            <div className="bg-gradient-to-r from-purple-600 via-pink-600 to-rose-600 rounded-2xl shadow-xl p-8 text-white">
+                <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
+                    <div>
+                        <h2 className="text-3xl font-bold mb-2 drop-shadow-lg">👥 Quản lý người dùng</h2>
+                        <p className="text-white/90 text-lg">Quản lý tất cả người dùng trong hệ thống OCOP Gia Lai</p>
+                    </div>
+                    {users.length > 0 && (
+                        <div className="bg-white/20 backdrop-blur-sm rounded-xl px-6 py-3 border border-white/30">
+                            <div className="text-2xl font-bold">{users.length}</div>
+                            <div className="text-sm opacity-90">Tổng người dùng</div>
+                        </div>
+                    )}
+                </div>
+            </div>
 
             {loading ? (
-                <div className="text-center py-8">
-                    <div className="animate-spin rounded-full h-8 w-8 border-4 border-indigo-200 border-t-indigo-600 mx-auto mb-4" />
-                    <p className="text-gray-600">Đang tải...</p>
+                <div className="bg-white rounded-2xl shadow-lg border border-gray-200 p-12">
+                    <div className="text-center">
+                        <div className="inline-block animate-spin rounded-full h-12 w-12 border-4 border-purple-200 border-t-purple-600 mb-4" />
+                        <p className="text-gray-600 font-medium">Đang tải dữ liệu...</p>
+                    </div>
                 </div>
             ) : users.length === 0 ? (
-                <div className="text-center py-8 text-gray-500">Không có người dùng nào</div>
+                <div className="bg-white rounded-2xl shadow-lg border border-gray-200 p-12">
+                    <div className="text-center">
+                        <svg className="w-20 h-20 text-gray-300 mx-auto mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197M13 7a4 4 0 11-8 0 4 4 0 018 0z" />
+                        </svg>
+                        <p className="text-gray-500 font-medium text-lg mb-2">Không có người dùng nào</p>
+                        <p className="text-gray-400 text-sm">Chưa có người dùng nào trong hệ thống</p>
+                    </div>
+                </div>
             ) : (
-                <div className="border rounded-lg shadow-sm overflow-x-auto">
-                    <table className="min-w-full text-sm">
-                        <thead className="bg-gray-50">
-                            <tr>
-                                <th className="text-left px-4 py-3 font-medium text-gray-700">ID</th>
-                                <th className="text-left px-4 py-3 font-medium text-gray-700">Tên</th>
-                                <th className="text-left px-4 py-3 font-medium text-gray-700">Email</th>
-                                <th className="text-left px-4 py-3 font-medium text-gray-700">Vai trò</th>
-                                <th className="text-left px-4 py-3 font-medium text-gray-700">Doanh nghiệp</th>
-                                <th className="text-left px-4 py-3 font-medium text-gray-700">Số điện thoại</th>
-                                <th className="text-left px-4 py-3 font-medium text-gray-700">Email đã xác thực</th>
-                                <th className="text-right px-4 py-3 font-medium text-gray-700">Thao tác</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            {users.map((user) => {
-                                const roleInfo = getRoleLabel(user.role)
-                                return (
-                                    <tr key={user.id} className="border-t hover:bg-gray-50">
-                                        <td className="px-4 py-3 font-medium">{user.id}</td>
-                                        <td className="px-4 py-3 font-medium">{user.name || "-"}</td>
-                                        <td className="px-4 py-3 text-gray-600">{user.email || "-"}</td>
-                                        <td className="px-4 py-3">
-                                            <span className={`px-2 py-1 rounded text-xs font-medium ${roleInfo.color}`}>
-                                                {roleInfo.text}
-                                            </span>
-                                        </td>
-                                        <td className="px-4 py-3 text-gray-600">
-                                            {user.enterprise ? (
-                                                <span className="text-sm">{user.enterprise.name}</span>
-                                            ) : user.enterpriseId ? (
-                                                <span className="text-sm text-gray-400">ID: {user.enterpriseId}</span>
-                                            ) : (
-                                                "-"
-                                            )}
-                                        </td>
-                                        <td className="px-4 py-3 text-gray-600">{user.phoneNumber || "-"}</td>
-                                        <td className="px-4 py-3">
-                                            {user.isEmailVerified ? (
-                                                <span className="px-2 py-1 rounded text-xs font-medium bg-green-100 text-green-800">
-                                                    Đã xác thực
+                <div className="bg-white rounded-2xl shadow-lg border border-gray-200 overflow-hidden">
+                    <div className="overflow-x-auto">
+                        <table className="min-w-full text-sm">
+                            <thead className="bg-gradient-to-r from-purple-50 to-pink-50">
+                                <tr>
+                                    <th className="text-left px-6 py-4 font-bold text-gray-900 uppercase tracking-wider border-b-2 border-gray-200">ID</th>
+                                    <th className="text-left px-6 py-4 font-bold text-gray-900 uppercase tracking-wider border-b-2 border-gray-200">Tên</th>
+                                    <th className="text-left px-6 py-4 font-bold text-gray-900 uppercase tracking-wider border-b-2 border-gray-200">Email</th>
+                                    <th className="text-left px-6 py-4 font-bold text-gray-900 uppercase tracking-wider border-b-2 border-gray-200">Vai trò</th>
+                                    <th className="text-left px-6 py-4 font-bold text-gray-900 uppercase tracking-wider border-b-2 border-gray-200">Doanh nghiệp</th>
+                                    <th className="text-left px-6 py-4 font-bold text-gray-900 uppercase tracking-wider border-b-2 border-gray-200">Số điện thoại</th>
+                                    <th className="text-left px-6 py-4 font-bold text-gray-900 uppercase tracking-wider border-b-2 border-gray-200">Email đã xác thực</th>
+                                    <th className="text-right px-6 py-4 font-bold text-gray-900 uppercase tracking-wider border-b-2 border-gray-200">Thao tác</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {users.map((user, index) => {
+                                    const roleInfo = getRoleLabel(user.role)
+                                    return (
+                                        <tr 
+                                            key={user.id} 
+                                            className="border-t hover:bg-gradient-to-r hover:from-purple-50/50 hover:to-pink-50/50 transition-all duration-200"
+                                            style={{
+                                                animation: `fadeInUp 0.3s ease-out ${index * 0.05}s both`
+                                            }}
+                                        >
+                                            <td className="px-6 py-4 font-bold text-gray-900">{user.id}</td>
+                                            <td className="px-6 py-4 font-semibold text-gray-900">{user.name || "-"}</td>
+                                            <td className="px-6 py-4 text-gray-600">{user.email || "-"}</td>
+                                            <td className="px-6 py-4">
+                                                <span className={`inline-flex items-center gap-1 px-3 py-1.5 rounded-full text-xs font-bold border-2 ${roleInfo.color}`}>
+                                                    {roleInfo.text}
                                                 </span>
-                                            ) : (
-                                                <span className="px-2 py-1 rounded text-xs font-medium bg-yellow-100 text-yellow-800">
-                                                    Chưa xác thực
-                                                </span>
-                                            )}
-                                        </td>
-                                        <td className="px-4 py-3 text-right">
-                                            <div className="flex items-center justify-end gap-2">
-                                                <button
-                                                    onClick={() => handleEdit(user)}
-                                                    className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-blue-500 text-white text-sm font-medium hover:bg-blue-600 transition-all duration-200"
-                                                    title="Chỉnh sửa"
-                                                >
-                                                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
-                                                    </svg>
-                                                    Sửa
-                                                </button>
-                                                <button
-                                                    onClick={() => handleDelete(user)}
-                                                    className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-red-500 text-white text-sm font-medium hover:bg-red-600 transition-all duration-200"
-                                                    title="Xóa người dùng"
-                                                >
-                                                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
-                                                    </svg>
-                                                    Xóa
-                                                </button>
-                                            </div>
-                                        </td>
-                                    </tr>
-                                )
-                            })}
-                        </tbody>
-                    </table>
+                                            </td>
+                                            <td className="px-6 py-4 text-gray-600">
+                                                {user.enterprise ? (
+                                                    <span className="text-sm font-semibold">{user.enterprise.name}</span>
+                                                ) : user.enterpriseId ? (
+                                                    <span className="text-sm text-gray-400">ID: {user.enterpriseId}</span>
+                                                ) : (
+                                                    "-"
+                                                )}
+                                            </td>
+                                            <td className="px-6 py-4 text-gray-600">{user.phoneNumber || "-"}</td>
+                                            <td className="px-6 py-4">
+                                                {user.isEmailVerified ? (
+                                                    <span className="inline-flex items-center gap-1 px-3 py-1.5 rounded-full text-xs font-bold bg-green-100 text-green-800 border-2 border-green-300">
+                                                        ✅ Đã xác thực
+                                                    </span>
+                                                ) : (
+                                                    <span className="inline-flex items-center gap-1 px-3 py-1.5 rounded-full text-xs font-bold bg-yellow-100 text-yellow-800 border-2 border-yellow-300">
+                                                        ⏳ Chưa xác thực
+                                                    </span>
+                                                )}
+                                            </td>
+                                            <td className="px-6 py-4 text-right">
+                                                <div className="flex items-center justify-end gap-2">
+                                                    <button
+                                                        onClick={() => handleEdit(user)}
+                                                        className="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl bg-gradient-to-r from-blue-500 to-blue-600 text-white text-sm font-semibold hover:from-blue-600 hover:to-blue-700 transition-all shadow-md hover:shadow-lg transform hover:-translate-y-0.5"
+                                                        title="Chỉnh sửa"
+                                                    >
+                                                        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+                                                        </svg>
+                                                        Sửa
+                                                    </button>
+                                                    <button
+                                                        onClick={() => handleDelete(user)}
+                                                        className="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl bg-gradient-to-r from-red-500 to-red-600 text-white text-sm font-semibold hover:from-red-600 hover:to-red-700 transition-all shadow-md hover:shadow-lg transform hover:-translate-y-0.5"
+                                                        title="Xóa người dùng"
+                                                    >
+                                                        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                                                        </svg>
+                                                        Xóa
+                                                    </button>
+                                                </div>
+                                            </td>
+                                        </tr>
+                                    )
+                                })}
+                            </tbody>
+                        </table>
+                    </div>
+                    <div className="bg-gradient-to-r from-purple-50 to-pink-50 px-6 py-4 border-t-2 border-gray-200">
+                        <div className="text-sm font-semibold text-gray-700">
+                            Tổng cộng: <span className="text-lg font-bold text-purple-600">{users.length}</span> người dùng
+                        </div>
+                    </div>
                 </div>
             )}
 
             {/* Edit Modal */}
             {showEditModal && editingUser && (
-                <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-                    <div className="bg-white rounded-xl shadow-2xl p-6 max-w-2xl w-full mx-4 max-h-[90vh] overflow-y-auto">
-                        <div className="flex items-center justify-between mb-4">
-                            <h3 className="text-xl font-bold text-gray-900">Chỉnh sửa người dùng</h3>
+                <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50 p-4 overflow-y-auto animate-fadeIn">
+                    <div className="bg-white rounded-2xl shadow-2xl p-8 max-w-3xl w-full max-h-[90vh] overflow-y-auto animate-scaleIn">
+                        <div className="sticky top-0 bg-gradient-to-r from-purple-600 to-pink-600 px-8 py-6 flex items-center justify-between shadow-lg -m-8 mb-0 rounded-t-2xl">
+                            <h3 className="text-2xl font-bold text-white">✏️ Chỉnh sửa người dùng</h3>
                             <button
                                 onClick={() => {
                                     setShowEditModal(false)
                                     setEditingUser(null)
                                     setFormData({})
                                 }}
-                                className="text-gray-400 hover:text-gray-600"
+                                className="text-white/80 hover:text-white hover:bg-white/20 rounded-full p-2 transition-all"
                             >
                                 <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
                                 </svg>
                             </button>
                         </div>
+                        <div className="pt-8">
 
                         <div className="space-y-4">
                             <div>
@@ -542,24 +580,25 @@ export default function UserManagementTab() {
                             </div>
                         </div>
 
-                        <div className="flex gap-3 mt-6">
-                            <button
-                                onClick={() => {
-                                    setShowEditModal(false)
-                                    setEditingUser(null)
-                                    setFormData({})
-                                    setAvatarPreview(null)
-                                }}
-                                className="flex-1 px-6 py-3 bg-gray-200 text-gray-700 rounded-lg font-semibold hover:bg-gray-300 transition-all"
-                            >
-                                Hủy
-                            </button>
-                            <button
-                                onClick={handleSaveEdit}
-                                className="flex-1 px-6 py-3 bg-gradient-to-r from-blue-600 to-blue-700 text-white rounded-lg font-semibold hover:from-blue-700 hover:to-blue-800 transition-all"
-                            >
-                                Lưu thay đổi
-                            </button>
+                            <div className="flex gap-3 mt-8 pt-6 border-t-2 border-gray-200">
+                                <button
+                                    onClick={() => {
+                                        setShowEditModal(false)
+                                        setEditingUser(null)
+                                        setFormData({})
+                                        setAvatarPreview(null)
+                                    }}
+                                    className="flex-1 px-6 py-3 bg-gray-100 text-gray-700 rounded-xl font-semibold hover:bg-gray-200 transition-all shadow-sm"
+                                >
+                                    Hủy
+                                </button>
+                                <button
+                                    onClick={handleSaveEdit}
+                                    className="flex-1 px-6 py-3 bg-gradient-to-r from-purple-600 to-pink-600 text-white rounded-xl font-semibold hover:from-purple-700 hover:to-pink-700 transition-all shadow-lg hover:shadow-xl transform hover:-translate-y-0.5"
+                                >
+                                    💾 Lưu thay đổi
+                                </button>
+                            </div>
                         </div>
                     </div>
                 </div>
@@ -567,16 +606,23 @@ export default function UserManagementTab() {
 
             {/* Delete Modal */}
             {showDeleteModal && deletingUser && (
-                <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-                    <div className="bg-white rounded-xl shadow-2xl p-6 max-w-md w-full mx-4">
-                        <div className="flex items-center justify-between mb-4">
-                            <h3 className="text-xl font-bold text-red-600">Xóa người dùng</h3>
+                <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50 p-4 animate-fadeIn">
+                    <div className="bg-white rounded-2xl shadow-2xl p-8 max-w-lg w-full mx-4 animate-scaleIn">
+                        <div className="flex items-center justify-between mb-6">
+                            <div className="flex items-center gap-3">
+                                <div className="w-12 h-12 rounded-full bg-red-100 flex items-center justify-center">
+                                    <svg className="w-6 h-6 text-red-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                                    </svg>
+                                </div>
+                                <h3 className="text-2xl font-bold text-red-600">Xóa người dùng</h3>
+                            </div>
                             <button
                                 onClick={() => {
                                     setShowDeleteModal(false)
                                     setDeletingUser(null)
                                 }}
-                                className="text-gray-400 hover:text-gray-600"
+                                className="text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-full p-2 transition-all"
                             >
                                 <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
@@ -615,16 +661,16 @@ export default function UserManagementTab() {
                                     setShowDeleteModal(false)
                                     setDeletingUser(null)
                                 }}
-                                className="flex-1 px-6 py-3 bg-gray-200 text-gray-700 rounded-lg font-semibold hover:bg-gray-300 transition-all"
+                                className="flex-1 px-6 py-3 bg-gray-100 text-gray-700 rounded-xl font-semibold hover:bg-gray-200 transition-all shadow-sm"
                             >
                                 Hủy
                             </button>
                             <button
                                 onClick={handleConfirmDelete}
                                 disabled={deleting}
-                                className="flex-1 px-6 py-3 bg-gradient-to-r from-red-600 to-red-700 text-white rounded-lg font-semibold hover:from-red-700 hover:to-red-800 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+                                className="flex-1 px-6 py-3 bg-gradient-to-r from-red-600 to-red-700 text-white rounded-xl font-semibold hover:from-red-700 hover:to-red-800 transition-all shadow-lg hover:shadow-xl transform hover:-translate-y-0.5 disabled:opacity-50 disabled:cursor-not-allowed disabled:transform-none disabled:shadow-none"
                             >
-                                {deleting ? "Đang xóa..." : "Xác nhận xóa"}
+                                {deleting ? "Đang xóa..." : "🗑️ Xác nhận xóa"}
                             </button>
                         </div>
                     </div>

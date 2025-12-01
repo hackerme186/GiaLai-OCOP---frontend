@@ -36,6 +36,13 @@ async function request<TResponse>(
 
   let response: Response;
   try {
+    // Debug logging for login requests
+    if (path.includes("/auth/login")) {
+      console.log("🌐 [API] Fetching:", url);
+      console.log("🌐 [API] Method:", options.method || "GET");
+      console.log("🌐 [API] Headers:", headers);
+    }
+    
     response = await fetch(url, {
       method: options.method || "GET",
       headers,
@@ -44,6 +51,11 @@ async function request<TResponse>(
       credentials: "omit", // Don't send cookies - fixes CORS with wildcard origin
       cache: "no-store",
     });
+    
+    if (path.includes("/auth/login")) {
+      console.log("🌐 [API] Response status:", response.status, response.statusText);
+      console.log("🌐 [API] Response headers:", Object.fromEntries(response.headers.entries()));
+    }
   } catch (fetchError) {
     // Network error - backend không available
     const errorMsg = fetchError instanceof Error ? fetchError.message : 'Network error';
@@ -66,11 +78,18 @@ async function request<TResponse>(
   if (isJson) {
     try {
       data = await response.json();
-    } catch {
+      if (path.includes("/auth/login")) {
+        console.log("🌐 [API] Parsed JSON response:", data);
+      }
+    } catch (parseError) {
+      console.error("🌐 [API] JSON parse error:", parseError);
       data = null;
     }
   } else {
     data = await response.text();
+    if (path.includes("/auth/login")) {
+      console.log("🌐 [API] Text response:", data);
+    }
   }
 
   if (!response.ok) {
@@ -611,10 +630,18 @@ export async function register(payload: RegisterPayload): Promise<AuthResponse> 
 }
 
 export async function login(payload: LoginPayload): Promise<AuthResponse> {
-  return request<AuthResponse>("/auth/login", {
-    method: "POST",
-    json: payload,
-  });
+  console.log("🌐 [API] Login request:", { email: payload.email, url: `${API_BASE_URL}/auth/login` });
+  try {
+    const result = await request<AuthResponse>("/auth/login", {
+      method: "POST",
+      json: payload,
+    });
+    console.log("🌐 [API] Login response:", result);
+    return result;
+  } catch (error) {
+    console.error("🌐 [API] Login error:", error);
+    throw error;
+  }
 }
 
 // OTP Login
