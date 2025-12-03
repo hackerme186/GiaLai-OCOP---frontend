@@ -1,6 +1,7 @@
 "use client"
 import { useState, useEffect } from 'react'
 import Image from 'next/image'
+import Link from 'next/link'
 import { isValidImageUrl, getImageUrl, getImageAttributes } from '@/lib/imageUtils'
 
 interface HeroSlide {
@@ -116,9 +117,12 @@ const HeroSlider = () => {
             <div className="text-white max-w-xl">
               <h1 className="text-5xl font-bold mb-2">{slide.title}</h1>
               <h2 className="text-4xl font-semibold mb-6">{slide.subtitle}</h2>
-              <button className="bg-green-600 text-white px-8 py-4 rounded-md text-lg font-medium hover:bg-green-700 transition-colors">
+              <Link 
+                href="/products"
+                className="inline-block bg-green-600 text-white px-8 py-4 rounded-md text-lg font-medium hover:bg-green-700 transition-colors"
+              >
                 {slide.description}
-              </button>
+              </Link>
             </div>
           </div>
         </div>
