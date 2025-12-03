@@ -322,91 +322,227 @@ function DashboardTab() {
   ]
 
   return (
-    <div>
-      <div className="flex justify-between items-center mb-6">
-        <h2 className="text-2xl font-semibold text-gray-900">Tổng quan hệ thống</h2>
-        <button
-          onClick={loadDashboard}
-          className="inline-flex items-center gap-2 px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition-colors text-sm font-medium"
-        >
-          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
-          </svg>
-          Làm mới
-        </button>
+    <div className="space-y-8">
+      {/* Header Section */}
+      <div className="bg-gradient-to-r from-indigo-600 via-purple-600 to-pink-600 rounded-2xl shadow-xl p-8 text-white">
+        <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
+          <div>
+            <h2 className="text-3xl font-bold mb-2 drop-shadow-lg">📊 Tổng quan hệ thống</h2>
+            <p className="text-white/90 text-lg">Thống kê và phân tích toàn diện hệ thống OCOP Gia Lai</p>
+          </div>
+          <button
+            onClick={loadDashboard}
+            className="inline-flex items-center gap-2 px-6 py-3 bg-white/20 backdrop-blur-sm text-white rounded-xl hover:bg-white/30 transition-all shadow-lg hover:shadow-xl transform hover:-translate-y-0.5 font-semibold"
+          >
+            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+            </svg>
+            Làm mới dữ liệu
+          </button>
+        </div>
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
+      {/* Stats Cards Grid */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
         {statsCards.map((card, index) => (
           <div
             key={index}
-            className={`bg-gradient-to-br ${card.bgClass} rounded-lg p-6 border ${card.borderClass} shadow-sm hover:shadow-md transition-shadow`}
+            className={`bg-white rounded-2xl p-6 border-2 ${card.borderClass} shadow-lg hover:shadow-2xl transition-all duration-300 transform hover:-translate-y-2 relative overflow-hidden group`}
+            style={{
+              animation: `fadeInUp 0.5s ease-out ${index * 0.1}s both`
+            }}
           >
-            <div className="flex items-start justify-between">
-              <div className="flex-1">
-                <p className={`text-sm font-medium ${card.textClass}`}>{card.label}</p>
-                <p className={`text-3xl font-bold ${card.valueClass} mt-2`}>
+            {/* Background gradient overlay on hover */}
+            <div className={`absolute inset-0 bg-gradient-to-br ${card.bgClass} opacity-0 group-hover:opacity-10 transition-opacity duration-300`}></div>
+            
+            <div className="relative z-10">
+              <div className="flex items-start justify-between mb-4">
+                <div className={`flex items-center justify-center w-14 h-14 rounded-xl bg-gradient-to-br ${card.bgClass} shadow-md`}>
+                  <span className="text-2xl">{card.icon}</span>
+                </div>
+                <div className={`px-3 py-1 rounded-full ${card.bgClass} border ${card.borderClass} shadow-sm`}>
+                  <span className={`text-xs font-bold ${card.textClass}`}>#{index + 1}</span>
+                </div>
+              </div>
+              
+              <div className="space-y-2">
+                <p className={`text-sm font-semibold ${card.textClass} uppercase tracking-wide`}>
+                  {card.label}
+                </p>
+                <p className={`text-4xl font-bold ${card.valueClass} leading-tight`}>
                   {card.value}
                 </p>
                 {card.description && (
-                  <p className={`text-xs ${card.textClass} mt-2 opacity-75`}>
-                    {card.description}
-                  </p>
+                  <div className="pt-2 border-t border-gray-200">
+                    <p className={`text-xs ${card.textClass} font-medium`}>
+                      {card.description}
+                    </p>
+                  </div>
                 )}
               </div>
-              <div className="text-4xl ml-4">{card.icon}</div>
             </div>
           </div>
         ))}
       </div>
 
-      {/* Summary Section */}
-      <div className="mt-8 grid grid-cols-1 md:grid-cols-2 gap-6">
-        <div className="bg-white rounded-lg border border-gray-200 p-6">
-          <h3 className="text-lg font-semibold text-gray-900 mb-4">Thống kê sản phẩm</h3>
-          <div className="space-y-3">
-            <div className="flex justify-between items-center">
-              <span className="text-gray-600">Tổng sản phẩm:</span>
-              <span className="font-semibold text-gray-900">{summary.totalProducts}</span>
+      {/* Detailed Statistics Section */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        {/* Product Statistics */}
+        <div className="bg-gradient-to-br from-white to-blue-50 rounded-2xl border-2 border-blue-200 shadow-xl p-8 hover:shadow-2xl transition-all duration-300">
+          <div className="flex items-center gap-3 mb-6">
+            <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-blue-500 to-blue-600 flex items-center justify-center shadow-lg">
+              <svg className="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4" />
+              </svg>
             </div>
-            <div className="flex justify-between items-center">
-              <span className="text-gray-600">Đã duyệt:</span>
-              <span className="font-semibold text-green-600">{summary.approvedProducts}</span>
+            <h3 className="text-2xl font-bold text-gray-900">Thống kê sản phẩm</h3>
+          </div>
+          
+          <div className="space-y-4">
+            <div className="flex items-center justify-between p-4 bg-white rounded-xl shadow-sm hover:shadow-md transition-all border border-gray-100">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-lg bg-gray-100 flex items-center justify-center">
+                  <svg className="w-5 h-5 text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
+                  </svg>
+                </div>
+                <span className="text-gray-700 font-medium">Tổng sản phẩm</span>
+              </div>
+              <span className="text-2xl font-bold text-gray-900">{summary.totalProducts}</span>
             </div>
-            <div className="flex justify-between items-center">
-              <span className="text-gray-600">Chờ duyệt:</span>
-              <span className="font-semibold text-yellow-600">{summary.pendingProducts}</span>
+            
+            <div className="flex items-center justify-between p-4 bg-gradient-to-r from-green-50 to-emerald-50 rounded-xl shadow-sm hover:shadow-md transition-all border border-green-200">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-lg bg-green-100 flex items-center justify-center">
+                  <svg className="w-5 h-5 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                  </svg>
+                </div>
+                <span className="text-gray-700 font-medium">Đã duyệt</span>
+              </div>
+              <span className="text-2xl font-bold text-green-600">{summary.approvedProducts}</span>
             </div>
-            <div className="flex justify-between items-center">
-              <span className="text-gray-600">Bị từ chối:</span>
-              <span className="font-semibold text-red-600">{summary.rejectedProducts}</span>
+            
+            <div className="flex items-center justify-between p-4 bg-gradient-to-r from-yellow-50 to-amber-50 rounded-xl shadow-sm hover:shadow-md transition-all border border-yellow-200">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-lg bg-yellow-100 flex items-center justify-center">
+                  <svg className="w-5 h-5 text-yellow-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+                  </svg>
+                </div>
+                <span className="text-gray-700 font-medium">Chờ duyệt</span>
+              </div>
+              <span className="text-2xl font-bold text-yellow-600">{summary.pendingProducts}</span>
+            </div>
+            
+            <div className="flex items-center justify-between p-4 bg-gradient-to-r from-red-50 to-rose-50 rounded-xl shadow-sm hover:shadow-md transition-all border border-red-200">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-lg bg-red-100 flex items-center justify-center">
+                  <svg className="w-5 h-5 text-red-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                  </svg>
+                </div>
+                <span className="text-gray-700 font-medium">Bị từ chối</span>
+              </div>
+              <span className="text-2xl font-bold text-red-600">{summary.rejectedProducts}</span>
             </div>
           </div>
         </div>
 
-        <div className="bg-white rounded-lg border border-gray-200 p-6">
-          <h3 className="text-lg font-semibold text-gray-900 mb-4">Thống kê thanh toán</h3>
-          <div className="space-y-3">
-            <div className="flex justify-between items-center">
-              <span className="text-gray-600">Tổng thanh toán:</span>
-              <span className="font-semibold text-gray-900">{summary.totalPayments}</span>
+        {/* Payment Statistics */}
+        <div className="bg-gradient-to-br from-white to-purple-50 rounded-2xl border-2 border-purple-200 shadow-xl p-8 hover:shadow-2xl transition-all duration-300">
+          <div className="flex items-center gap-3 mb-6">
+            <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-purple-500 to-purple-600 flex items-center justify-center shadow-lg">
+              <svg className="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+              </svg>
             </div>
-            <div className="flex justify-between items-center">
-              <span className="text-gray-600">Đã thanh toán:</span>
-              <span className="font-semibold text-green-600">{formatCurrency(summary.paidPaymentsAmount)}</span>
+            <h3 className="text-2xl font-bold text-gray-900">Thống kê thanh toán</h3>
+          </div>
+          
+          <div className="space-y-4">
+            <div className="flex items-center justify-between p-4 bg-white rounded-xl shadow-sm hover:shadow-md transition-all border border-gray-100">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-lg bg-gray-100 flex items-center justify-center">
+                  <svg className="w-5 h-5 text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                  </svg>
+                </div>
+                <span className="text-gray-700 font-medium">Tổng giao dịch</span>
+              </div>
+              <span className="text-2xl font-bold text-gray-900">{summary.totalPayments}</span>
             </div>
-            <div className="flex justify-between items-center">
-              <span className="text-gray-600">Chờ chuyển khoản:</span>
-              <span className="font-semibold text-yellow-600">{formatCurrency(summary.awaitingTransferAmount)}</span>
+            
+            <div className="flex items-center justify-between p-4 bg-gradient-to-r from-green-50 to-emerald-50 rounded-xl shadow-sm hover:shadow-md transition-all border border-green-200">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-lg bg-green-100 flex items-center justify-center">
+                  <svg className="w-5 h-5 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                  </svg>
+                </div>
+                <span className="text-gray-700 font-medium">Đã thanh toán</span>
+              </div>
+              <span className="text-xl font-bold text-green-600">{formatCurrency(summary.paidPaymentsAmount)}</span>
+            </div>
+            
+            <div className="flex items-center justify-between p-4 bg-gradient-to-r from-yellow-50 to-amber-50 rounded-xl shadow-sm hover:shadow-md transition-all border border-yellow-200">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-lg bg-yellow-100 flex items-center justify-center">
+                  <svg className="w-5 h-5 text-yellow-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 10h18M7 15h1m4 0h1m-7 4h12a3 3 0 003-3V8a3 3 0 00-3-3H6a3 3 0 00-3 3v8a3 3 0 003 3z" />
+                  </svg>
+                </div>
+                <span className="text-gray-700 font-medium">Chờ chuyển khoản</span>
+              </div>
+              <span className="text-xl font-bold text-yellow-600">{formatCurrency(summary.awaitingTransferAmount)}</span>
             </div>
           </div>
         </div>
       </div>
 
-      <div className="mt-6 p-4 bg-blue-50 border border-blue-200 rounded-lg">
-        <p className="text-sm text-blue-800">
-          💡 <strong>Lưu ý:</strong> Chọn một tab ở trên để bắt đầu quản lý hệ thống. Dữ liệu được cập nhật tự động khi bạn làm mới trang.
-        </p>
+      {/* Quick Actions & Info */}
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        <div className="lg:col-span-2 bg-gradient-to-r from-indigo-500 to-purple-600 rounded-2xl shadow-xl p-6 text-white">
+          <div className="flex items-start gap-4">
+            <div className="w-12 h-12 rounded-xl bg-white/20 backdrop-blur-sm flex items-center justify-center flex-shrink-0">
+              <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+              </svg>
+            </div>
+            <div>
+              <h4 className="text-lg font-bold mb-2">💡 Hướng dẫn nhanh</h4>
+              <p className="text-white/90 text-sm leading-relaxed">
+                Chọn một tab ở trên để bắt đầu quản lý hệ thống. Dữ liệu được cập nhật tự động khi bạn làm mới trang. 
+                Sử dụng nút <strong>"Làm mới dữ liệu"</strong> để cập nhật thông tin mới nhất.
+              </p>
+            </div>
+          </div>
+        </div>
+        
+        <div className="bg-gradient-to-br from-blue-50 to-indigo-50 rounded-2xl border-2 border-blue-200 shadow-xl p-6">
+          <div className="flex items-center gap-3 mb-4">
+            <div className="w-10 h-10 rounded-lg bg-blue-100 flex items-center justify-center">
+              <svg className="w-5 h-5 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+              </svg>
+            </div>
+            <h4 className="text-lg font-bold text-gray-900">Trạng thái hệ thống</h4>
+          </div>
+          <div className="space-y-2">
+            <div className="flex items-center justify-between">
+              <span className="text-sm text-gray-600">Kết nối API</span>
+              <span className="px-2 py-1 bg-green-100 text-green-700 rounded-full text-xs font-semibold">✓ Hoạt động</span>
+            </div>
+            <div className="flex items-center justify-between">
+              <span className="text-sm text-gray-600">Cơ sở dữ liệu</span>
+              <span className="px-2 py-1 bg-green-100 text-green-700 rounded-full text-xs font-semibold">✓ Hoạt động</span>
+            </div>
+            <div className="flex items-center justify-between">
+              <span className="text-sm text-gray-600">Cập nhật lần cuối</span>
+              <span className="text-xs text-gray-500">{new Date().toLocaleTimeString('vi-VN')}</span>
+            </div>
+          </div>
+        </div>
       </div>
     </div>
   )
