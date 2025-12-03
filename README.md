@@ -251,6 +251,15 @@ NEXT_PUBLIC_API_BASE=https://gialai-ocop-be.onrender.com/api
 # NextAuth
 NEXTAUTH_URL=http://localhost:3000
 NEXTAUTH_SECRET=your-secret-key
+
+# Google OAuth 2.0 Client ID
+# Get from: https://console.cloud.google.com/apis/credentials
+# Application type: Web application
+NEXT_PUBLIC_GOOGLE_CLIENT_ID=your-google-client-id.apps.googleusercontent.com
+
+# Facebook App ID
+# Get from: https://developers.facebook.com/apps/
+NEXT_PUBLIC_FACEBOOK_APP_ID=your-facebook-app-id
 ```
 
 ---

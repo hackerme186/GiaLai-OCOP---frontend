@@ -1,0 +1,203 @@
+"use client"
+import { useState } from "react"
+import { GoogleOAuthProvider, GoogleLogin } from "@react-oauth/google"
+import { loginWithGoogle } from "@/lib/api"
+import { setAuthToken, getRoleFromToken, setUserProfile } from "@/lib/auth"
+import { getCurrentUser } from "@/lib/api"
+import { useRouter } from "next/navigation"
+
+interface GoogleLoginButtonProps {
+  onError?: (error: string) => void
+}
+
+export default function GoogleLoginButton({ onError }: GoogleLoginButtonProps) {
+  const router = useRouter()
+  const [isLoading, setIsLoading] = useState(false)
+  const GOOGLE_CLIENT_ID = process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID || ""
+
+  if (!GOOGLE_CLIENT_ID) {
+    console.warn("⚠️ [GoogleLogin] NEXT_PUBLIC_GOOGLE_CLIENT_ID chưa được cấu hình")
+    return null
+  }
+
+  const handleGoogleSuccess = async (credentialResponse: any) => {
+    if (!credentialResponse.credential) {
+      console.error("❌ [GoogleLogin] Không nhận được credential từ Google")
+      onError?.("Đăng nhập Google thất bại. Vui lòng thử lại.")
+      return
+    }
+
+    setIsLoading(true)
+    console.log("🔐 [GoogleLogin] Bắt đầu đăng nhập với Google...")
+
+    try {
+      const idToken = credentialResponse.credential
+      console.log("📤 [GoogleLogin] Gửi idToken lên backend...")
+
+      const res = await loginWithGoogle({ idToken }) as any
+      console.log("📥 [GoogleLogin] Response từ API:", res)
+
+      // Extract token
+      const token = res?.token || res?.Token || res?.data?.token || res?.data?.Token
+      console.log("🔑 [GoogleLogin] Token extracted:", token ? `${token.substring(0, 20)}...` : "NULL")
+
+      if (!token) {
+        console.error("❌ [GoogleLogin] Không tìm thấy token trong response")
+        throw new Error("Không nhận được token từ server. Vui lòng thử lại.")
+      }
+
+      // Save token
+      console.log("💾 [GoogleLogin] Lưu token vào localStorage...")
+      setAuthToken(token)
+
+      // Wait a bit to ensure token is saved
+      await new Promise(resolve => setTimeout(resolve, 100))
+
+      // Extract role
+      const extractRole = (obj: any): string => {
+        if (!obj) return ""
+        const u = obj.user || obj.data || obj
+        const direct = u.role || u.userRole || u.authorities || u.permission || u.permissions
+        if (Array.isArray(direct)) return (direct[0] || "").toString()
+        if (typeof direct === 'string') return direct
+        if (Array.isArray(u.roles)) return (u.roles[0] || "").toString()
+        return ""
+      }
+
+      let role = getRoleFromToken(token) || extractRole(res)
+      console.log("👤 [GoogleLogin] Role từ token:", role || "NOT FOUND")
+
+      // If still no role, try to get from /me endpoint
+      if (!role || role.trim() === "") {
+        console.log("👤 [GoogleLogin] Role không tìm thấy, đang gọi /me endpoint...")
+        try {
+          const me = await getCurrentUser()
+          console.log("👤 [GoogleLogin] User info từ /me:", me)
+          role = extractRole(me) || (me.role || (me as any).roles)?.toString?.() || ""
+          console.log("👤 [GoogleLogin] Role từ /me:", role || "NOT FOUND")
+        } catch (err) {
+          console.warn("⚠️ [GoogleLogin] Could not fetch user info:", err)
+        }
+      }
+
+      // Normalize role
+      const norm = role.toString().toLowerCase().trim()
+      console.log("👤 [GoogleLogin] Normalized role:", norm)
+
+      // Check roles
+      const isSystemAdmin = norm === 'systemadmin' || norm === 'sysadmin'
+      const isEnterpriseAdmin = norm === 'enterpriseadmin'
+      const isAdmin = isSystemAdmin ||
+        norm === 'admin' ||
+        norm === 'administrator' ||
+        norm === 'role_admin' ||
+        norm === 'admin_role'
+
+      // Get user profile
+      try {
+        console.log("👤 [GoogleLogin] Đang lấy user profile...")
+        const profile = await getCurrentUser()
+        console.log("👤 [GoogleLogin] User profile:", profile)
+        setUserProfile({
+          id: profile.id,
+          name: profile.name,
+          email: profile.email,
+          role: profile.role,
+          enterpriseId: profile.enterpriseId ?? undefined,
+          createdAt: profile.createdAt,
+        })
+        console.log("✅ [GoogleLogin] User profile đã được lưu")
+      } catch (profileErr) {
+        console.warn("⚠️ [GoogleLogin] Could not load user profile:", profileErr)
+      }
+
+      // Redirect based on role
+      console.log("🔀 [GoogleLogin] Đang redirect...")
+      if (isSystemAdmin || isAdmin) {
+        console.log("🔀 [GoogleLogin] Redirecting to /admin")
+        router.replace("/admin")
+      } else if (isEnterpriseAdmin) {
+        console.log("🔀 [GoogleLogin] Redirecting to /enterprise-admin")
+        router.replace("/enterprise-admin")
+      } else {
+        console.log("🔀 [GoogleLogin] Redirecting to /home")
+        router.replace("/home")
+      }
+
+      console.log("✅ [GoogleLogin] Đăng nhập thành công!")
+    } catch (err) {
+      console.error("❌ [GoogleLogin] Lỗi đăng nhập:", err)
+      const errorMessage = err instanceof Error ? err.message : "Đăng nhập Google thất bại. Vui lòng thử lại."
+      onError?.(errorMessage)
+    } finally {
+      setIsLoading(false)
+    }
+  }
+
+  const handleGoogleError = () => {
+    console.log("❌ [GoogleLogin] Google login failed")
+    onError?.("Đăng nhập Google thất bại. Vui lòng thử lại.")
+  }
+
+  return (
+    <GoogleOAuthProvider clientId={GOOGLE_CLIENT_ID}>
+      <div className="w-full">
+        <div className={`google-login-wrapper ${isLoading ? 'opacity-60 pointer-events-none' : ''}`}>
+          <GoogleLogin
+            onSuccess={handleGoogleSuccess}
+            onError={handleGoogleError}
+            text="signin_with"
+            shape="rectangular"
+            theme="outline"
+            size="large"
+            width="100%"
+          />
+        </div>
+        {isLoading && (
+          <p className="text-center text-sm text-white/80 mt-2 animate-pulse">Đang xử lý...</p>
+        )}
+        <style jsx global>{`
+          .google-login-wrapper {
+            width: 100% !important;
+            min-width: 0 !important;
+            max-width: 100% !important;
+          }
+          .google-login-wrapper > div {
+            width: 100% !important;
+            min-width: 0 !important;
+            max-width: 100% !important;
+          }
+          .google-login-wrapper > div > div {
+            width: 100% !important;
+            min-width: 0 !important;
+            max-width: 100% !important;
+            min-height: 48px !important;
+            height: 48px !important;
+            max-height: 48px !important;
+            padding: 14px 16px !important;
+            border-radius: 0.5rem !important;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15) !important;
+            transition: all 0.2s ease !important;
+            display: flex !important;
+            align-items: center !important;
+            justify-content: center !important;
+            box-sizing: border-box !important;
+          }
+          .google-login-wrapper > div > div:hover:not(:disabled) {
+            box-shadow: 0 6px 16px rgba(0, 0, 0, 0.2) !important;
+            transform: translateY(-1px) !important;
+          }
+          .google-login-wrapper > div > div:active:not(:disabled) {
+            transform: translateY(0) !important;
+          }
+          .google-login-wrapper > div > div:disabled {
+            opacity: 0.6 !important;
+            cursor: not-allowed !important;
+          }
+        `}</style>
+      </div>
+    </GoogleOAuthProvider>
+  )
+}
+
+

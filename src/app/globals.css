@@ -118,3 +118,8 @@ textarea::placeholder {
 .animate-float {
   animation: float 3s ease-in-out infinite;
 }
+
+/* Login Form Animation */
+.animate-fadeInUp {
+  animation: fadeInUp 0.5s ease-out;
+}

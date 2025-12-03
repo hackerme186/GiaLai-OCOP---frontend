@@ -714,6 +714,50 @@ export async function verifyEmail(payload: VerifyOtpDto): Promise<{ message: str
   });
 }
 
+// Social Login
+export interface GoogleLoginDto {
+  idToken: string;
+}
+
+export interface FacebookLoginDto {
+  accessToken: string;
+}
+
+export interface SocialLoginResponse extends AuthResponse {
+  user?: User;
+  expires?: string;
+}
+
+export async function loginWithGoogle(payload: GoogleLoginDto): Promise<SocialLoginResponse> {
+  console.log("🌐 [API] Google login request:", { url: `${API_BASE_URL}/auth/google` });
+  try {
+    const result = await request<SocialLoginResponse>("/auth/google", {
+      method: "POST",
+      json: payload,
+    });
+    console.log("🌐 [API] Google login response:", result);
+    return result;
+  } catch (error) {
+    console.error("🌐 [API] Google login error:", error);
+    throw error;
+  }
+}
+
+export async function loginWithFacebook(payload: FacebookLoginDto): Promise<SocialLoginResponse> {
+  console.log("🌐 [API] Facebook login request:", { url: `${API_BASE_URL}/auth/facebook` });
+  try {
+    const result = await request<SocialLoginResponse>("/auth/facebook", {
+      method: "POST",
+      json: payload,
+    });
+    console.log("🌐 [API] Facebook login response:", result);
+    return result;
+  } catch (error) {
+    console.error("🌐 [API] Facebook login error:", error);
+    throw error;
+  }
+}
+
 // ------ USERS ------
 export async function getCurrentUser(): Promise<User> {
   try {
