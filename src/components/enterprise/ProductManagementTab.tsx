@@ -352,16 +352,16 @@ export default function ProductManagementTab({ user }: ProductManagementTabProps
         </div>
       )}
 
-      {/* Header */}
-      <div className="bg-white rounded-xl shadow-lg p-6">
-        <div className="flex items-center justify-between mb-6">
+      {/* Header Section */}
+      <div className="bg-gradient-to-r from-green-600 via-emerald-600 to-teal-600 rounded-2xl shadow-xl p-8 text-white">
+        <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
           <div>
-            <h2 className="text-2xl font-bold text-gray-900">Quản lý sản phẩm</h2>
-            <p className="text-sm text-gray-500 mt-1">Tạo, chỉnh sửa và quản lý sản phẩm của doanh nghiệp</p>
+            <h2 className="text-3xl font-bold mb-2 drop-shadow-lg">📦 Quản lý sản phẩm</h2>
+            <p className="text-white/90 text-lg">Tạo, chỉnh sửa và quản lý sản phẩm của doanh nghiệp</p>
           </div>
           <button
             onClick={handleCreate}
-            className="px-6 py-3 bg-gradient-to-r from-green-600 to-emerald-600 text-white rounded-lg font-semibold hover:from-green-700 hover:to-emerald-700 transition-all shadow-lg hover:shadow-xl flex items-center gap-2"
+            className="inline-flex items-center gap-2 px-6 py-3 bg-white/20 backdrop-blur-sm text-white rounded-xl hover:bg-white/30 transition-all shadow-lg hover:shadow-xl transform hover:-translate-y-0.5 font-semibold"
           >
             <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
@@ -369,8 +369,10 @@ export default function ProductManagementTab({ user }: ProductManagementTabProps
             Tạo sản phẩm mới
           </button>
         </div>
+      </div>
 
-        {/* Filter Tabs */}
+      {/* Filter Tabs */}
+      <div className="bg-white rounded-xl shadow-lg p-6">
         <div className="flex gap-2 border-b border-gray-200">
           {[
             { id: "all" as const, label: "Tất cả" },
@@ -419,7 +421,7 @@ export default function ProductManagementTab({ user }: ProductManagementTabProps
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
           {filteredProducts.map((product) => (
-            <div key={product.id} className="bg-white rounded-xl shadow-lg overflow-hidden hover:shadow-xl transition-shadow">
+            <div key={product.id} className="bg-white rounded-2xl shadow-lg overflow-hidden hover:shadow-2xl transition-all duration-300 transform hover:-translate-y-2 border-2 border-gray-200">
               {/* Product Image */}
               <div className="relative h-48 bg-gray-200">
                 <Image
