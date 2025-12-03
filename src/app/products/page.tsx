@@ -6,6 +6,7 @@ import { useSearchParams, useRouter } from "next/navigation"
 import Image from "next/image"
 import Link from "next/link"
 import { getProducts, getCategories, Product, Category } from "@/lib/api"
+import { getImageAttributes, isValidImageUrl, getImageUrl } from "@/lib/imageUtils"
 import Header from "@/components/layout/Header"
 import Footer from "@/components/layout/Footer"
 
@@ -303,10 +304,17 @@ function ProductsContent() {
                 >
                   <div className="aspect-square bg-gray-200 relative overflow-hidden">
                     <Image
-                      src={product.imageUrl || "/hero.jpg"}
+                      src={isValidImageUrl(product.imageUrl) ? getImageUrl(product.imageUrl, "/hero.jpg") : "/hero.jpg"}
                       alt={product.name}
                       fill
                       className="object-cover group-hover:scale-105 transition-transform duration-300"
+                      {...getImageAttributes(product.imageUrl)}
+                      onError={(e) => {
+                        const target = e.target as HTMLImageElement
+                        if (!target.src.includes('hero.jpg')) {
+                          target.src = '/hero.jpg'
+                        }
+                      }}
                     />
                     {product.categoryName && (
                       <div className="absolute top-2 left-2">
