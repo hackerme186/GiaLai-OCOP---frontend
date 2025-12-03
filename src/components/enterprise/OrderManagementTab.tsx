@@ -315,16 +315,16 @@ export default function OrderManagementTab({ user }: OrderManagementTabProps) {
         </div>
       )}
 
-      {/* Header & Filters */}
-      <div className="bg-white rounded-xl shadow-lg p-6">
-        <div className="mb-6 flex items-center justify-between">
+      {/* Header Section */}
+      <div className="bg-gradient-to-r from-green-600 via-emerald-600 to-teal-600 rounded-2xl shadow-xl p-8 text-white">
+        <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
           <div>
-            <h2 className="text-2xl font-bold text-gray-900">Quản lý đơn hàng</h2>
-            <p className="text-sm text-gray-500 mt-1">Quản lý và cập nhật trạng thái đơn hàng của doanh nghiệp</p>
+            <h2 className="text-3xl font-bold mb-2 drop-shadow-lg">📋 Quản lý đơn hàng</h2>
+            <p className="text-white/90 text-lg">Quản lý và cập nhật trạng thái đơn hàng của doanh nghiệp</p>
           </div>
           <button
             onClick={exportOrdersToExcel}
-            className="px-4 py-2 bg-blue-600 text-white rounded-lg font-semibold hover:bg-blue-700 transition-colors flex items-center gap-2"
+            className="inline-flex items-center gap-2 px-6 py-3 bg-white/20 backdrop-blur-sm text-white rounded-xl hover:bg-white/30 transition-all shadow-lg hover:shadow-xl transform hover:-translate-y-0.5 font-semibold"
           >
             <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
@@ -332,6 +332,10 @@ export default function OrderManagementTab({ user }: OrderManagementTabProps) {
             Xuất Excel
           </button>
         </div>
+      </div>
+
+      {/* Filters Section */}
+      <div className="bg-white rounded-xl shadow-lg p-6">
 
         {/* Status Filters */}
         <div className="flex flex-wrap gap-2 mb-4">
@@ -346,9 +350,9 @@ export default function OrderManagementTab({ user }: OrderManagementTabProps) {
             <button
               key={tab.id}
               onClick={() => setFilter(tab.id)}
-              className={`px-4 py-2 rounded-lg font-medium text-sm transition-colors ${
+              className={`px-4 py-2 rounded-lg font-medium text-sm transition-all ${
                 filter === tab.id
-                  ? "bg-green-600 text-white"
+                  ? "bg-green-600 text-white shadow-lg"
                   : "bg-gray-100 text-gray-700 hover:bg-gray-200"
               }`}
             >
@@ -385,7 +389,7 @@ export default function OrderManagementTab({ user }: OrderManagementTabProps) {
             const nextStatus = getNextStatus(order.status || "")
 
             return (
-              <div key={order.id} className="bg-white rounded-xl shadow-lg overflow-hidden hover:shadow-xl transition-shadow">
+              <div key={order.id} className="bg-white rounded-2xl shadow-lg overflow-hidden hover:shadow-2xl transition-all duration-300 transform hover:-translate-y-1 border-2 border-gray-200">
                 {/* Order Header */}
                 <div className="bg-gray-50 border-b border-gray-200 px-6 py-4 flex items-center justify-between">
                   <div className="flex items-center gap-4">

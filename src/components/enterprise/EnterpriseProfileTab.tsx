@@ -15,18 +15,37 @@ export default function EnterpriseProfileTab({ user }: EnterpriseProfileTabProps
   const [error, setError] = useState<string | null>(null)
   const [success, setSuccess] = useState<string | null>(null)
   
-  // Form state
+  // Form state - Tất cả các trường như trong form đăng ký OCOP
   const [formData, setFormData] = useState({
+    // Thông tin cơ bản
     name: "",
     description: "",
+    businessType: "",
+    taxCode: "",
+    businessLicenseNumber: "",
+    licenseIssuedDate: "",
+    licenseIssuedBy: "",
+    // Địa chỉ
     address: "",
     ward: "",
     district: "",
     province: "",
+    // Liên hệ
     phoneNumber: "",
     emailContact: "",
     website: "",
+    // Ngành nghề
     businessField: "",
+    // Thông tin đại diện pháp luật
+    representativeName: "",
+    representativePosition: "",
+    representativeIdNumber: "",
+    representativeIdIssuedDate: "",
+    representativeIdIssuedBy: "",
+    // Thông tin sản xuất
+    productionLocation: "",
+    numberOfEmployees: "",
+    productionScale: "",
   })
   
   // File uploads
@@ -51,10 +70,15 @@ export default function EnterpriseProfileTab({ user }: EnterpriseProfileTabProps
       const data = await getMyEnterprise()
       setEnterprise(data)
       
-      // Populate form
+      // Populate form - chỉ các trường có trong Enterprise model
       setFormData({
         name: data.name || "",
         description: data.description || "",
+        businessType: "", // Không có trong Enterprise model
+        taxCode: "", // Không có trong Enterprise model
+        businessLicenseNumber: "", // Không có trong Enterprise model
+        licenseIssuedDate: "", // Không có trong Enterprise model
+        licenseIssuedBy: "", // Không có trong Enterprise model
         address: data.address || "",
         ward: data.ward || "",
         district: data.district || "",
@@ -63,6 +87,14 @@ export default function EnterpriseProfileTab({ user }: EnterpriseProfileTabProps
         emailContact: data.emailContact || "",
         website: data.website || "",
         businessField: data.businessField || "",
+        representativeName: "", // Không có trong Enterprise model
+        representativePosition: "", // Không có trong Enterprise model
+        representativeIdNumber: "", // Không có trong Enterprise model
+        representativeIdIssuedDate: "", // Không có trong Enterprise model
+        representativeIdIssuedBy: "", // Không có trong Enterprise model
+        productionLocation: "", // Không có trong Enterprise model
+        numberOfEmployees: "", // Không có trong Enterprise model
+        productionScale: "", // Không có trong Enterprise model
       })
       
       // Set previews
@@ -170,7 +202,7 @@ export default function EnterpriseProfileTab({ user }: EnterpriseProfileTabProps
         }
       }
       
-      // Update enterprise
+      // Update enterprise - chỉ gửi các trường được backend hỗ trợ
       await updateMyEnterprise({
         name: formData.name,
         description: formData.description,
@@ -183,6 +215,9 @@ export default function EnterpriseProfileTab({ user }: EnterpriseProfileTabProps
         website: formData.website,
         businessField: formData.businessField,
         imageUrl: logoUrl,
+        // Các trường khác (businessType, taxCode, representativeName, etc.) 
+        // không được backend hỗ trợ trong UpdateEnterpriseDto
+        // Có thể lưu local hoặc hiển thị read-only
       })
       
       setSuccess("Đã cập nhật thông tin doanh nghiệp thành công!")
@@ -247,15 +282,17 @@ export default function EnterpriseProfileTab({ user }: EnterpriseProfileTabProps
         </div>
       )}
 
-      {/* Header */}
-      <div className="bg-white rounded-xl shadow-lg p-6">
-        <h2 className="text-2xl font-bold text-gray-900 mb-2">Hồ sơ doanh nghiệp</h2>
-        <p className="text-sm text-gray-500">Quản lý thông tin và tài liệu của doanh nghiệp</p>
+      {/* Header Section */}
+      <div className="bg-gradient-to-r from-green-600 via-emerald-600 to-teal-600 rounded-2xl shadow-xl p-8 text-white">
+        <div>
+          <h2 className="text-3xl font-bold mb-2 drop-shadow-lg">🏢 Hồ sơ doanh nghiệp</h2>
+          <p className="text-white/90 text-lg">Quản lý thông tin và tài liệu của doanh nghiệp</p>
+        </div>
       </div>
 
       {/* Approval Status */}
       {enterprise && (
-        <div className="bg-white rounded-xl shadow-lg p-6">
+        <div className="bg-white rounded-2xl shadow-lg p-6 border-2 border-gray-200">
           <h3 className="text-lg font-semibold text-gray-900 mb-4">Trạng thái phê duyệt</h3>
           <div className="flex flex-col gap-4">
             <div className="flex items-center gap-4">
@@ -307,13 +344,14 @@ export default function EnterpriseProfileTab({ user }: EnterpriseProfileTabProps
               <li>• Thông tin doanh nghiệp sẽ được System Admin xem xét và phê duyệt</li>
               <li>• Sau khi cập nhật, thông tin sẽ chuyển về trạng thái "Chờ duyệt"</li>
               <li>• Chỉ thông tin đã được duyệt mới hiển thị công khai</li>
+              <li>• Một số trường (Loại hình DN, Mã số thuế, Thông tin đại diện pháp luật, v.v.) hiện chỉ để hiển thị và chưa được lưu vào hệ thống</li>
             </ul>
           </div>
         </div>
       </div>
 
       {/* Form */}
-      <form onSubmit={handleSubmit} className="bg-white rounded-xl shadow-lg p-6 space-y-6">
+      <form onSubmit={handleSubmit} className="bg-white rounded-2xl shadow-lg p-6 space-y-6 border-2 border-gray-200">
         {/* Logo Upload */}
         <div>
           <label className="block text-sm font-semibold text-gray-900 mb-2">
@@ -367,31 +405,139 @@ export default function EnterpriseProfileTab({ user }: EnterpriseProfileTabProps
         </div>
 
         {/* Basic Information */}
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          <div>
-            <label className="block text-sm font-semibold text-gray-900 mb-2">
-              Tên doanh nghiệp <span className="text-red-500">*</span>
-            </label>
-            <input
-              type="text"
-              value={formData.name}
-              onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-              className="w-full px-4 py-3 border-2 border-gray-200 rounded-lg focus:border-green-500 focus:ring-2 focus:ring-green-200"
-              required
-            />
-          </div>
+        <div className="space-y-6">
+          <h3 className="text-xl font-semibold text-gray-900 border-b-2 border-gray-200 pb-2">
+            1. Thông tin doanh nghiệp
+          </h3>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div>
+              <label className="block text-sm font-semibold text-gray-900 mb-2">
+                Tên doanh nghiệp <span className="text-red-500">*</span>
+              </label>
+              <input
+                type="text"
+                value={formData.name}
+                onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+                className="w-full px-4 py-3 border-2 border-gray-200 rounded-lg focus:border-green-500 focus:ring-2 focus:ring-green-200"
+                required
+              />
+            </div>
 
-          <div>
-            <label className="block text-sm font-semibold text-gray-900 mb-2">
-              Ngành nghề <span className="text-red-500">*</span>
-            </label>
-            <input
-              type="text"
-              value={formData.businessField}
-              onChange={(e) => setFormData({ ...formData, businessField: e.target.value })}
-              className="w-full px-4 py-3 border-2 border-gray-200 rounded-lg focus:border-green-500 focus:ring-2 focus:ring-green-200"
-              required
-            />
+            <div>
+              <label className="block text-sm font-semibold text-gray-900 mb-2">
+                Loại hình doanh nghiệp
+              </label>
+              <input
+                type="text"
+                value={formData.businessType}
+                onChange={(e) => setFormData({ ...formData, businessType: e.target.value })}
+                className="w-full px-4 py-3 border-2 border-gray-200 rounded-lg focus:border-green-500 focus:ring-2 focus:ring-green-200"
+                placeholder="Công ty TNHH, HTX, Hộ kinh doanh..."
+              />
+            </div>
+
+            <div>
+              <label className="block text-sm font-semibold text-gray-900 mb-2">
+                Mã số thuế
+              </label>
+              <input
+                type="text"
+                value={formData.taxCode}
+                onChange={(e) => setFormData({ ...formData, taxCode: e.target.value })}
+                className="w-full px-4 py-3 border-2 border-gray-200 rounded-lg focus:border-green-500 focus:ring-2 focus:ring-green-200"
+                placeholder="Nhập mã số thuế"
+              />
+            </div>
+
+            <div>
+              <label className="block text-sm font-semibold text-gray-900 mb-2">
+                Số giấy phép kinh doanh
+              </label>
+              <input
+                type="text"
+                value={formData.businessLicenseNumber}
+                onChange={(e) => setFormData({ ...formData, businessLicenseNumber: e.target.value })}
+                className="w-full px-4 py-3 border-2 border-gray-200 rounded-lg focus:border-green-500 focus:ring-2 focus:ring-green-200"
+                placeholder="Nhập số giấy phép kinh doanh"
+              />
+            </div>
+
+            <div>
+              <label className="block text-sm font-semibold text-gray-900 mb-2">
+                Ngày cấp giấy phép
+              </label>
+              <input
+                type="date"
+                value={formData.licenseIssuedDate}
+                onChange={(e) => setFormData({ ...formData, licenseIssuedDate: e.target.value })}
+                className="w-full px-4 py-3 border-2 border-gray-200 rounded-lg focus:border-green-500 focus:ring-2 focus:ring-green-200"
+              />
+            </div>
+
+            <div>
+              <label className="block text-sm font-semibold text-gray-900 mb-2">
+                Nơi cấp giấy phép
+              </label>
+              <input
+                type="text"
+                value={formData.licenseIssuedBy}
+                onChange={(e) => setFormData({ ...formData, licenseIssuedBy: e.target.value })}
+                className="w-full px-4 py-3 border-2 border-gray-200 rounded-lg focus:border-green-500 focus:ring-2 focus:ring-green-200"
+                placeholder="Nhập nơi cấp giấy phép"
+              />
+            </div>
+
+            <div>
+              <label className="block text-sm font-semibold text-gray-900 mb-2">
+                Ngành nghề <span className="text-red-500">*</span>
+              </label>
+              <input
+                type="text"
+                value={formData.businessField}
+                onChange={(e) => setFormData({ ...formData, businessField: e.target.value })}
+                className="w-full px-4 py-3 border-2 border-gray-200 rounded-lg focus:border-green-500 focus:ring-2 focus:ring-green-200"
+                required
+              />
+            </div>
+
+            <div>
+              <label className="block text-sm font-semibold text-gray-900 mb-2">
+                Quy mô sản xuất
+              </label>
+              <input
+                type="text"
+                value={formData.productionScale}
+                onChange={(e) => setFormData({ ...formData, productionScale: e.target.value })}
+                className="w-full px-4 py-3 border-2 border-gray-200 rounded-lg focus:border-green-500 focus:ring-2 focus:ring-green-200"
+                placeholder="Nhập quy mô sản xuất"
+              />
+            </div>
+
+            <div>
+              <label className="block text-sm font-semibold text-gray-900 mb-2">
+                Địa điểm sản xuất
+              </label>
+              <input
+                type="text"
+                value={formData.productionLocation}
+                onChange={(e) => setFormData({ ...formData, productionLocation: e.target.value })}
+                className="w-full px-4 py-3 border-2 border-gray-200 rounded-lg focus:border-green-500 focus:ring-2 focus:ring-green-200"
+                placeholder="Địa điểm sản xuất"
+              />
+            </div>
+
+            <div>
+              <label className="block text-sm font-semibold text-gray-900 mb-2">
+                Số lao động
+              </label>
+              <input
+                type="number"
+                value={formData.numberOfEmployees}
+                onChange={(e) => setFormData({ ...formData, numberOfEmployees: e.target.value })}
+                className="w-full px-4 py-3 border-2 border-gray-200 rounded-lg focus:border-green-500 focus:ring-2 focus:ring-green-200"
+                placeholder="Nhập số lao động"
+              />
+            </div>
           </div>
         </div>
 
@@ -408,98 +554,180 @@ export default function EnterpriseProfileTab({ user }: EnterpriseProfileTabProps
         </div>
 
         {/* Address */}
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          <div>
-            <label className="block text-sm font-semibold text-gray-900 mb-2">
-              Địa chỉ <span className="text-red-500">*</span>
-            </label>
-            <input
-              type="text"
-              value={formData.address}
-              onChange={(e) => setFormData({ ...formData, address: e.target.value })}
-              className="w-full px-4 py-3 border-2 border-gray-200 rounded-lg focus:border-green-500 focus:ring-2 focus:ring-green-200"
-              required
-            />
-          </div>
+        <div className="space-y-4">
+          <h3 className="text-xl font-semibold text-gray-900 border-b-2 border-gray-200 pb-2">
+            2. Địa chỉ
+          </h3>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div className="md:col-span-2">
+              <label className="block text-sm font-semibold text-gray-900 mb-2">
+                Địa chỉ <span className="text-red-500">*</span>
+              </label>
+              <input
+                type="text"
+                value={formData.address}
+                onChange={(e) => setFormData({ ...formData, address: e.target.value })}
+                className="w-full px-4 py-3 border-2 border-gray-200 rounded-lg focus:border-green-500 focus:ring-2 focus:ring-green-200"
+                required
+              />
+            </div>
 
-          <div>
-            <label className="block text-sm font-semibold text-gray-900 mb-2">
-              Phường/Xã
-            </label>
-            <input
-              type="text"
-              value={formData.ward}
-              onChange={(e) => setFormData({ ...formData, ward: e.target.value })}
-              className="w-full px-4 py-3 border-2 border-gray-200 rounded-lg focus:border-green-500 focus:ring-2 focus:ring-green-200"
-            />
-          </div>
+            <div>
+              <label className="block text-sm font-semibold text-gray-900 mb-2">
+                Tỉnh/Thành phố <span className="text-red-500">*</span>
+              </label>
+              <input
+                type="text"
+                value={formData.province}
+                onChange={(e) => setFormData({ ...formData, province: e.target.value })}
+                className="w-full px-4 py-3 border-2 border-gray-200 rounded-lg focus:border-green-500 focus:ring-2 focus:ring-green-200"
+                required
+              />
+            </div>
 
-          <div>
-            <label className="block text-sm font-semibold text-gray-900 mb-2">
-              Quận/Huyện <span className="text-red-500">*</span>
-            </label>
-            <input
-              type="text"
-              value={formData.district}
-              onChange={(e) => setFormData({ ...formData, district: e.target.value })}
-              className="w-full px-4 py-3 border-2 border-gray-200 rounded-lg focus:border-green-500 focus:ring-2 focus:ring-green-200"
-              required
-            />
-          </div>
+            <div>
+              <label className="block text-sm font-semibold text-gray-900 mb-2">
+                Quận/Huyện <span className="text-red-500">*</span>
+              </label>
+              <input
+                type="text"
+                value={formData.district}
+                onChange={(e) => setFormData({ ...formData, district: e.target.value })}
+                className="w-full px-4 py-3 border-2 border-gray-200 rounded-lg focus:border-green-500 focus:ring-2 focus:ring-green-200"
+                required
+              />
+            </div>
 
-          <div>
-            <label className="block text-sm font-semibold text-gray-900 mb-2">
-              Tỉnh/Thành phố <span className="text-red-500">*</span>
-            </label>
-            <input
-              type="text"
-              value={formData.province}
-              onChange={(e) => setFormData({ ...formData, province: e.target.value })}
-              className="w-full px-4 py-3 border-2 border-gray-200 rounded-lg focus:border-green-500 focus:ring-2 focus:ring-green-200"
-              required
-            />
+            <div>
+              <label className="block text-sm font-semibold text-gray-900 mb-2">
+                Phường/Xã
+              </label>
+              <input
+                type="text"
+                value={formData.ward}
+                onChange={(e) => setFormData({ ...formData, ward: e.target.value })}
+                className="w-full px-4 py-3 border-2 border-gray-200 rounded-lg focus:border-green-500 focus:ring-2 focus:ring-green-200"
+              />
+            </div>
           </div>
         </div>
 
         {/* Contact Information */}
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          <div>
-            <label className="block text-sm font-semibold text-gray-900 mb-2">
-              Số điện thoại <span className="text-red-500">*</span>
-            </label>
-            <input
-              type="tel"
-              value={formData.phoneNumber}
-              onChange={(e) => setFormData({ ...formData, phoneNumber: e.target.value })}
-              className="w-full px-4 py-3 border-2 border-gray-200 rounded-lg focus:border-green-500 focus:ring-2 focus:ring-green-200"
-              required
-            />
-          </div>
+        <div className="space-y-4">
+          <h3 className="text-xl font-semibold text-gray-900 border-b-2 border-gray-200 pb-2">
+            3. Thông tin liên hệ
+          </h3>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div>
+              <label className="block text-sm font-semibold text-gray-900 mb-2">
+                Số điện thoại <span className="text-red-500">*</span>
+              </label>
+              <input
+                type="tel"
+                value={formData.phoneNumber}
+                onChange={(e) => setFormData({ ...formData, phoneNumber: e.target.value })}
+                className="w-full px-4 py-3 border-2 border-gray-200 rounded-lg focus:border-green-500 focus:ring-2 focus:ring-green-200"
+                required
+              />
+            </div>
 
-          <div>
-            <label className="block text-sm font-semibold text-gray-900 mb-2">
-              Email <span className="text-red-500">*</span>
-            </label>
-            <input
-              type="email"
-              value={formData.emailContact}
-              onChange={(e) => setFormData({ ...formData, emailContact: e.target.value })}
-              className="w-full px-4 py-3 border-2 border-gray-200 rounded-lg focus:border-green-500 focus:ring-2 focus:ring-green-200"
-              required
-            />
-          </div>
+            <div>
+              <label className="block text-sm font-semibold text-gray-900 mb-2">
+                Email <span className="text-red-500">*</span>
+              </label>
+              <input
+                type="email"
+                value={formData.emailContact}
+                onChange={(e) => setFormData({ ...formData, emailContact: e.target.value })}
+                className="w-full px-4 py-3 border-2 border-gray-200 rounded-lg focus:border-green-500 focus:ring-2 focus:ring-green-200"
+                required
+              />
+            </div>
 
-          <div>
-            <label className="block text-sm font-semibold text-gray-900 mb-2">
-              Website
-            </label>
-            <input
-              type="url"
-              value={formData.website}
-              onChange={(e) => setFormData({ ...formData, website: e.target.value })}
-              className="w-full px-4 py-3 border-2 border-gray-200 rounded-lg focus:border-green-500 focus:ring-2 focus:ring-green-200"
-              placeholder="https://example.com"
-            />
+            <div>
+              <label className="block text-sm font-semibold text-gray-900 mb-2">
+                Website
+              </label>
+              <input
+                type="url"
+                value={formData.website}
+                onChange={(e) => setFormData({ ...formData, website: e.target.value })}
+                className="w-full px-4 py-3 border-2 border-gray-200 rounded-lg focus:border-green-500 focus:ring-2 focus:ring-green-200"
+                placeholder="https://example.com"
+              />
+            </div>
+          </div>
+        </div>
+
+        {/* Representative Information */}
+        <div className="space-y-4">
+          <h3 className="text-xl font-semibold text-gray-900 border-b-2 border-gray-200 pb-2">
+            4. Thông tin đại diện pháp luật
+          </h3>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div>
+              <label className="block text-sm font-semibold text-gray-900 mb-2">
+                Họ tên đại diện
+              </label>
+              <input
+                type="text"
+                value={formData.representativeName}
+                onChange={(e) => setFormData({ ...formData, representativeName: e.target.value })}
+                className="w-full px-4 py-3 border-2 border-gray-200 rounded-lg focus:border-green-500 focus:ring-2 focus:ring-green-200"
+                placeholder="Nhập họ tên đại diện"
+              />
+            </div>
+
+            <div>
+              <label className="block text-sm font-semibold text-gray-900 mb-2">
+                Chức vụ đại diện
+              </label>
+              <input
+                type="text"
+                value={formData.representativePosition}
+                onChange={(e) => setFormData({ ...formData, representativePosition: e.target.value })}
+                className="w-full px-4 py-3 border-2 border-gray-200 rounded-lg focus:border-green-500 focus:ring-2 focus:ring-green-200"
+                placeholder="Nhập chức vụ đại diện"
+              />
+            </div>
+
+            <div>
+              <label className="block text-sm font-semibold text-gray-900 mb-2">
+                CMND/CCCD
+              </label>
+              <input
+                type="text"
+                value={formData.representativeIdNumber}
+                onChange={(e) => setFormData({ ...formData, representativeIdNumber: e.target.value })}
+                className="w-full px-4 py-3 border-2 border-gray-200 rounded-lg focus:border-green-500 focus:ring-2 focus:ring-green-200"
+                placeholder="Nhập CMND/CCCD"
+              />
+            </div>
+
+            <div>
+              <label className="block text-sm font-semibold text-gray-900 mb-2">
+                Ngày cấp
+              </label>
+              <input
+                type="date"
+                value={formData.representativeIdIssuedDate}
+                onChange={(e) => setFormData({ ...formData, representativeIdIssuedDate: e.target.value })}
+                className="w-full px-4 py-3 border-2 border-gray-200 rounded-lg focus:border-green-500 focus:ring-2 focus:ring-green-200"
+              />
+            </div>
+
+            <div>
+              <label className="block text-sm font-semibold text-gray-900 mb-2">
+                Nơi cấp
+              </label>
+              <input
+                type="text"
+                value={formData.representativeIdIssuedBy}
+                onChange={(e) => setFormData({ ...formData, representativeIdIssuedBy: e.target.value })}
+                className="w-full px-4 py-3 border-2 border-gray-200 rounded-lg focus:border-green-500 focus:ring-2 focus:ring-green-200"
+                placeholder="Nhập nơi cấp"
+              />
+            </div>
           </div>
         </div>
 

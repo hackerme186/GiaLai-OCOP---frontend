@@ -51,15 +51,17 @@ export default function OcopStatusTab({ user }: OcopStatusTabProps) {
 
   return (
     <div className="space-y-6">
-      {/* Header */}
-      <div className="bg-white rounded-xl shadow-lg p-6">
-        <h2 className="text-2xl font-bold text-gray-900 mb-2">Trạng thái OCOP</h2>
-        <p className="text-sm text-gray-500">Theo dõi trạng thái duyệt sản phẩm OCOP của doanh nghiệp</p>
+      {/* Header Section */}
+      <div className="bg-gradient-to-r from-green-600 via-emerald-600 to-teal-600 rounded-2xl shadow-xl p-8 text-white">
+        <div>
+          <h2 className="text-3xl font-bold mb-2 drop-shadow-lg">⭐ Trạng thái OCOP</h2>
+          <p className="text-white/90 text-lg">Theo dõi trạng thái duyệt sản phẩm OCOP của doanh nghiệp</p>
+        </div>
       </div>
 
       {/* Status Cards */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-        <div className="bg-white rounded-xl shadow-lg p-6 border-l-4 border-green-600">
+        <div className="bg-white rounded-2xl shadow-lg p-6 border-2 border-green-200 hover:shadow-2xl transition-all duration-300 transform hover:-translate-y-2">
           <div className="flex items-center justify-between mb-4">
             <div className="w-12 h-12 bg-green-100 rounded-lg flex items-center justify-center">
               <svg className="w-6 h-6 text-green-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -72,7 +74,7 @@ export default function OcopStatusTab({ user }: OcopStatusTabProps) {
           <p className="text-sm text-gray-600">Sản phẩm đã được phê duyệt</p>
         </div>
 
-        <div className="bg-white rounded-xl shadow-lg p-6 border-l-4 border-yellow-600">
+        <div className="bg-white rounded-2xl shadow-lg p-6 border-2 border-yellow-200 hover:shadow-2xl transition-all duration-300 transform hover:-translate-y-2">
           <div className="flex items-center justify-between mb-4">
             <div className="w-12 h-12 bg-yellow-100 rounded-lg flex items-center justify-center">
               <svg className="w-6 h-6 text-yellow-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -85,7 +87,7 @@ export default function OcopStatusTab({ user }: OcopStatusTabProps) {
           <p className="text-sm text-gray-600">Đang chờ quản trị viên xét duyệt</p>
         </div>
 
-        <div className="bg-white rounded-xl shadow-lg p-6 border-l-4 border-red-600">
+        <div className="bg-white rounded-2xl shadow-lg p-6 border-2 border-red-200 hover:shadow-2xl transition-all duration-300 transform hover:-translate-y-2">
           <div className="flex items-center justify-between mb-4">
             <div className="w-12 h-12 bg-red-100 rounded-lg flex items-center justify-center">
               <svg className="w-6 h-6 text-red-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">

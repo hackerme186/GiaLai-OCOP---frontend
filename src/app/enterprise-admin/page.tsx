@@ -2,8 +2,11 @@
 
 import { useEffect, useState } from "react"
 import { useRouter } from "next/navigation"
-import { isLoggedIn, getAuthToken, logout } from "@/lib/auth"
+import { isLoggedIn } from "@/lib/auth"
 import { getCurrentUser, type User } from "@/lib/api"
+import Footer from "@/components/layout/Footer"
+import EnterpriseHeader, { type TabType } from "@/components/enterprise/EnterpriseHeader"
+import DashboardTab from "@/components/enterprise/DashboardTab"
 import ProductManagementTab from "@/components/enterprise/ProductManagementTab"
 import OrderManagementTab from "@/components/enterprise/OrderManagementTab"
 import OcopStatusTab from "@/components/enterprise/OcopStatusTab"
@@ -13,13 +16,11 @@ import InventoryTab from "@/components/enterprise/InventoryTab"
 import SettingsTab from "@/components/enterprise/SettingsTab"
 import NotificationsTab from "@/components/enterprise/NotificationsTab"
 
-type TabType = "products" | "orders" | "ocop-status" | "reports" | "profile" | "inventory" | "settings" | "notifications"
-
 export default function EnterpriseAdminPage() {
   const router = useRouter()
   const [authorized, setAuthorized] = useState<boolean | null>(null)
   const [user, setUser] = useState<User | null>(null)
-  const [activeTab, setActiveTab] = useState<TabType>("products")
+  const [activeTab, setActiveTab] = useState<TabType>("dashboard")
 
   useEffect(() => {
     const check = async () => {
@@ -60,19 +61,13 @@ export default function EnterpriseAdminPage() {
     check()
   }, [router])
 
-  const handleLogout = () => {
-    if (confirm("Bạn có chắc chắn muốn đăng xuất?")) {
-      logout()
-      router.replace("/login")
-    }
-  }
 
   if (authorized === null) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-gray-50 to-gray-100 flex items-center justify-center">
+      <div className="min-h-screen bg-white flex items-center justify-center">
         <div className="text-center">
-          <div className="animate-spin rounded-full h-16 w-16 border-4 border-indigo-200 border-t-indigo-600 mx-auto mb-4" />
-          <p className="text-gray-600 font-medium">Đang tải...</p>
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-green-600 mx-auto"></div>
+          <p className="mt-4 text-gray-600">Đang kiểm tra quyền truy cập...</p>
         </div>
       </div>
     )
@@ -82,89 +77,44 @@ export default function EnterpriseAdminPage() {
     return null
   }
 
-  const tabs: Array<{ id: TabType; label: string; icon: string }> = [
-    { id: "products", label: "Quản lý sản phẩm", icon: "📦" },
-    { id: "orders", label: "Quản lý đơn hàng", icon: "📋" },
-    { id: "inventory", label: "Quản lý kho", icon: "📦" },
-    { id: "profile", label: "Hồ sơ doanh nghiệp", icon: "🏢" },
-    { id: "ocop-status", label: "Trạng thái OCOP", icon: "⭐" },
-    { id: "reports", label: "Báo cáo", icon: "📊" },
-    { id: "notifications", label: "Thông báo", icon: "🔔" },
-    { id: "settings", label: "Cài đặt", icon: "⚙️" },
-  ]
-
   return (
-    <div className="min-h-screen bg-gradient-to-br from-gray-50 to-gray-100">
-      {/* Header */}
-      <header className="bg-white shadow-sm border-b border-gray-200">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-4">
-              <div className="w-12 h-12 bg-gradient-to-br from-green-600 to-emerald-600 rounded-xl flex items-center justify-center shadow-lg">
-                <svg className="w-7 h-7 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4" />
-                </svg>
-              </div>
-              <div>
-                <h1 className="text-2xl font-bold text-gray-900">Quản lý doanh nghiệp</h1>
-                <p className="text-sm text-gray-500">
-                  Chào mừng, {user?.name || "Enterprise Admin"}
-                </p>
-              </div>
-            </div>
-
-            <div className="flex items-center gap-4">
-              <button
-                onClick={() => router.push("/home")}
-                className="px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors"
-              >
-                Trang chủ
-              </button>
-              <button
-                onClick={handleLogout}
-                className="px-4 py-2 text-sm font-medium text-white bg-red-600 rounded-lg hover:bg-red-700 transition-colors flex items-center gap-2"
-              >
-                <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />
-                </svg>
-                Đăng xuất
-              </button>
-            </div>
-          </div>
-
-          {/* Tabs */}
-          <div className="mt-6 border-b border-gray-200">
-            <nav className="flex space-x-8 overflow-x-auto" aria-label="Tabs">
-              {tabs.map((tab) => (
-                <button
-                  key={tab.id}
-                  onClick={() => setActiveTab(tab.id)}
-                  className={`whitespace-nowrap pb-4 px-1 border-b-2 font-medium text-sm transition-colors ${
-                    activeTab === tab.id
-                      ? "border-green-600 text-green-600"
-                      : "border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300"
-                  }`}
-                >
-                  <span className="mr-2">{tab.icon}</span>
-                  {tab.label}
-                </button>
-              ))}
-            </nav>
+    <div className="min-h-screen bg-gray-50" suppressHydrationWarning>
+      <EnterpriseHeader activeTab={activeTab} onTabChange={setActiveTab} />
+      <main>
+        <div className="max-w-7xl mx-auto px-4 py-6">
+          {/* Tab Content */}
+          <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6 mt-6">
+            {activeTab === 'dashboard' && (
+              <DashboardTab user={user} />
+            )}
+            {activeTab === 'products' && (
+              <ProductManagementTab user={user} />
+            )}
+            {activeTab === 'orders' && (
+              <OrderManagementTab user={user} />
+            )}
+            {activeTab === 'inventory' && (
+              <InventoryTab user={user} />
+            )}
+            {activeTab === 'profile' && (
+              <EnterpriseProfileTab user={user} />
+            )}
+            {activeTab === 'ocop-status' && (
+              <OcopStatusTab user={user} />
+            )}
+            {activeTab === 'reports' && (
+              <ReportsTab user={user} />
+            )}
+            {activeTab === 'notifications' && (
+              <NotificationsTab user={user} />
+            )}
+            {activeTab === 'settings' && (
+              <SettingsTab user={user} />
+            )}
           </div>
         </div>
-      </header>
-
-      {/* Main Content */}
-      <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        {activeTab === "products" && <ProductManagementTab user={user} />}
-        {activeTab === "orders" && <OrderManagementTab user={user} />}
-        {activeTab === "inventory" && <InventoryTab user={user} />}
-        {activeTab === "profile" && <EnterpriseProfileTab user={user} />}
-        {activeTab === "ocop-status" && <OcopStatusTab user={user} />}
-        {activeTab === "reports" && <ReportsTab user={user} />}
-        {activeTab === "notifications" && <NotificationsTab user={user} />}
-        {activeTab === "settings" && <SettingsTab user={user} />}
       </main>
+      <Footer />
     </div>
   )
 }
