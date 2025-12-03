@@ -52,39 +52,45 @@ export default function AuthLayout({
 }: AuthLayoutProps) {
   return (
     <main className="min-h-screen relative flex items-center justify-center overflow-hidden">
-      {/* Misty Mountain Background */}
-      <div className="absolute inset-0 bg-gradient-to-br from-gray-900 via-gray-800 to-gray-900">
-        {/* Background Image Overlay - Less Blur to Show More Detail */}
+      {/* Fantasy Background with Gradient */}
+      <div className="absolute inset-0 bg-gradient-to-br from-amber-900 via-orange-800 to-yellow-700">
+        {/* Background Image Overlay */}
         <div 
-          className="absolute inset-0"
+          className="absolute inset-0 opacity-40"
           style={{
             backgroundImage: `url('/hero.jpg')`,
             backgroundSize: 'cover',
             backgroundPosition: 'center',
             backgroundRepeat: 'no-repeat',
-            filter: 'blur(3px) brightness(0.5) contrast(1.1)',
           }}
         />
         
-        {/* Dark Misty Overlay Effects - More Transparent */}
-        <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-gray-900/40 to-gray-800/30" />
-        <div className="absolute inset-0 bg-gradient-to-br from-blue-950/20 via-transparent to-purple-950/15" />
+        {/* Fantasy Overlay Effects */}
+        <div className="absolute inset-0 bg-gradient-to-t from-purple-900/30 via-transparent to-amber-500/20" />
+        <div className="absolute inset-0 bg-gradient-to-br from-yellow-400/10 via-transparent to-orange-600/10" />
         
-        {/* Very Subtle Mist Particles */}
+        {/* Animated Fireflies / Magical Particles */}
         <div className="absolute inset-0 overflow-hidden">
-          {[...Array(10)].map((_, i) => (
+          {[...Array(20)].map((_, i) => (
             <div
               key={i}
-              className="absolute rounded-full bg-white/5 blur-xl animate-pulse"
+              className="absolute rounded-full bg-yellow-300/60 blur-sm animate-pulse"
               style={getParticleStyle(i)}
             />
           ))}
         </div>
       </div>
 
-      {/* Login Form - Directly on Background (No Container) */}
+      {/* Glassmorphism Login Form Container */}
       <div className="relative z-10 w-full max-w-md mx-auto px-4">
-        {children}
+        <div 
+          className="backdrop-blur-xl bg-white/15 rounded-3xl border border-white/30 shadow-2xl p-8 md:p-10"
+          style={{
+            boxShadow: '0 8px 32px 0 rgba(31, 38, 135, 0.37)',
+          }}
+        >
+          {children}
+        </div>
       </div>
     </main>
   )

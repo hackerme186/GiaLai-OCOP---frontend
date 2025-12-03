@@ -1,13 +1,13 @@
 "use client"
 
-import { useEffect, useState, Suspense } from "react"
+import { useEffect, useState, Suspense, useMemo } from "react"
 import { useParams, useSearchParams, useRouter } from "next/navigation"
 import Image from "next/image"
 import Header from "@/components/layout/Header"
 import Footer from "@/components/layout/Footer"
-import { createPayment, getOrder, getPaymentsByOrder, type Payment, type Order } from "@/lib/api"
+import { createPayment, getOrder, getPaymentsByOrder, getProduct, type Payment, type Order, type OrderItem } from "@/lib/api"
 import { isLoggedIn } from "@/lib/auth"
-import { getImageAttributes } from "@/lib/imageUtils"
+import { getImageAttributes, isValidImageUrl, getImageUrl } from "@/lib/imageUtils"
 
 // Component con sử dụng useSearchParams (phải wrap trong Suspense)
 function PaymentContent() {
@@ -22,8 +22,125 @@ function PaymentContent() {
     const [loading, setLoading] = useState(true)
     const [error, setError] = useState<string | null>(null)
     const [creatingPayment, setCreatingPayment] = useState(false)
+    const [orderItemsWithEnterprise, setOrderItemsWithEnterprise] = useState<OrderItem[]>([])
+
+    // Nhóm orderItems theo enterpriseId để hiển thị với payment tương ứng
+    // Sử dụng orderItemsWithEnterprise (đã load enterpriseId từ product nếu cần)
+    // Phải đặt trước useEffect để tuân thủ Rules of Hooks
+    const orderItemsByEnterprise = useMemo(() => {
+        const itemsToUse = orderItemsWithEnterprise.length > 0 ? orderItemsWithEnterprise : (order?.orderItems || [])
+        if (itemsToUse.length === 0) return new Map<number, OrderItem[]>()
+        
+        const grouped = new Map<number, OrderItem[]>()
+        itemsToUse.forEach((item) => {
+            if (item.enterpriseId) {
+                const existing = grouped.get(item.enterpriseId) || []
+                grouped.set(item.enterpriseId, [...existing, item])
+            }
+        })
+        return grouped
+    }, [orderItemsWithEnterprise, order?.orderItems])
+
+    // Lấy danh sách enterpriseId từ orderItems để filter payments
+    // Sử dụng orderItemsWithEnterprise (đã load enterpriseId từ product nếu cần)
+    // Phải đặt trước useEffect để tuân thủ Rules of Hooks
+    const enterpriseIdsInOrder = useMemo(() => {
+        const itemsToUse = orderItemsWithEnterprise.length > 0 ? orderItemsWithEnterprise : (order?.orderItems || [])
+        if (itemsToUse.length === 0) return new Set<number>()
+        const ids = new Set<number>()
+        itemsToUse.forEach((item) => {
+            if (item.enterpriseId) {
+                ids.add(item.enterpriseId)
+            }
+        })
+        return ids
+    }, [orderItemsWithEnterprise, order?.orderItems])
+
+    // Chỉ lấy payments có enterpriseId trong danh sách sản phẩm của đơn hàng
+    // KHÔNG hiển thị tất cả payments - chỉ hiển thị payments của doanh nghiệp có sản phẩm trong đơn hàng
+    // Phải đặt trước useEffect để tuân thủ Rules of Hooks
+    const bankTransferPayments = useMemo(() => {
+        console.log("=== FILTERING PAYMENTS ===")
+        console.log("enterpriseIdsInOrder:", Array.from(enterpriseIdsInOrder))
+        console.log("total payments:", payments.length)
+        console.log("payments details:", payments.map(p => ({
+            id: p.id,
+            orderId: p.orderId,
+            enterpriseId: p.enterpriseId,
+            enterpriseName: p.enterpriseName,
+            method: p.method
+        })))
+        
+        const filtered = payments.filter((p) => {
+            // Chỉ lấy BankTransfer payments của đơn hàng này
+            if (p.method !== "BankTransfer" || p.orderId !== orderId) {
+                return false
+            }
+            
+            // Nếu payment không có enterpriseId, không hiển thị
+            if (!p.enterpriseId) {
+                console.log(`❌ Payment ${p.id} has no enterpriseId - skipping`)
+                return false
+            }
+            
+            // Nếu không có enterpriseIds trong orderItems, không hiển thị payment nào
+            if (enterpriseIdsInOrder.size === 0) {
+                console.log("❌ No enterpriseIds in orderItems - no payments to show")
+                return false
+            }
+            
+            // Chỉ hiển thị payments có enterpriseId trong danh sách sản phẩm
+            const hasMatch = enterpriseIdsInOrder.has(p.enterpriseId)
+            if (!hasMatch) {
+                console.log(`❌ Payment ${p.id} enterpriseId ${p.enterpriseId} NOT in orderItems. OrderItems enterpriseIds:`, Array.from(enterpriseIdsInOrder))
+            } else {
+                console.log(`✅ Payment ${p.id} enterpriseId ${p.enterpriseId} MATCHES - including`)
+            }
+            return hasMatch
+        })
+        
+        console.log(`=== FILTERED RESULT: ${filtered.length} payments out of ${payments.length} ===`)
+        console.log("Filtered payments:", filtered.map(p => ({
+            id: p.id,
+            enterpriseId: p.enterpriseId,
+            enterpriseName: p.enterpriseName,
+            amount: p.amount
+        })))
+        
+        // Kiểm tra xem có đủ payments cho tất cả doanh nghiệp không
+        const filteredEnterpriseIds = new Set(filtered.map(p => p.enterpriseId).filter(Boolean))
+        const missingEnterpriseIds = Array.from(enterpriseIdsInOrder).filter(id => !filteredEnterpriseIds.has(id))
+        
+        if (missingEnterpriseIds.length > 0) {
+            console.warn(`⚠️ WARNING: Missing payments for ${missingEnterpriseIds.length} enterprise(s):`, missingEnterpriseIds)
+            console.warn(`⚠️ Expected ${enterpriseIdsInOrder.size} payments but only got ${filtered.length}`)
+        } else {
+            console.log(`✅ All enterprises have payments: ${filtered.length} payments for ${enterpriseIdsInOrder.size} enterprises`)
+        }
+        
+        return filtered
+    }, [payments, enterpriseIdsInOrder, orderId])
+
+    // Tính tổng tiền cần chuyển
+    // Phải đặt trước useEffect để tuân thủ Rules of Hooks
+    const totalPaymentAmount = useMemo(() => {
+        return bankTransferPayments.reduce((sum, p) => sum + p.amount, 0)
+    }, [bankTransferPayments])
 
     useEffect(() => {
+        // QUAN TRỌNG: Reset tất cả state trước khi load dữ liệu mới
+        // Đảm bảo không hiển thị dữ liệu của đơn hàng trước đó
+        setOrder(null)
+        setPayments([])
+        setOrderItemsWithEnterprise([])
+        setError(null)
+        setLoading(true)
+        setCreatingPayment(false)
+        
+        // Track orderId hiện tại để tránh race condition
+        // Sử dụng ref-like pattern với object để có thể update từ cleanup
+        const controller = { cancelled: false, currentOrderId: orderId }
+        
         const init = async () => {
             const loggedIn = await isLoggedIn()
             if (!loggedIn) {
@@ -32,40 +149,215 @@ function PaymentContent() {
             }
 
             try {
-                // Load order
+                // Load order mới - đảm bảo mỗi orderId có dữ liệu riêng
                 const orderData = await getOrder(orderId)
+                
+                // Kiểm tra nếu orderId đã thay đổi (race condition)
+                if (controller.currentOrderId !== orderId || controller.cancelled) {
+                    console.log(`OrderId changed during load: ${controller.currentOrderId} -> ${orderId}, skipping update`)
+                    return
+                }
+                
+                // Kiểm tra orderId có khớp không (tránh race condition)
+                if (orderData.id !== orderId) {
+                    console.warn(`Order ID mismatch: expected ${orderId}, got ${orderData.id}`)
+                    return
+                }
+                
                 setOrder(orderData)
 
-                // Load existing payments
-                const paymentsData = await getPaymentsByOrder(orderId)
-                setPayments(paymentsData)
+                // Load enterpriseId từ product nếu orderItems không có enterpriseId
+                let itemsWithEnterprise = orderData.orderItems || []
+                const itemsWithoutEnterprise = itemsWithEnterprise.filter(item => !item.enterpriseId)
+                
+                if (itemsWithoutEnterprise.length > 0) {
+                    console.log("Some orderItems missing enterpriseId, loading from products...")
+                    // Load products để lấy enterpriseId
+                    const productPromises = itemsWithoutEnterprise.map(item => 
+                        getProduct(item.productId, { silent: true }).catch(err => {
+                            console.debug(`Could not load product ${item.productId}:`, err)
+                            return null
+                        })
+                    )
+                    const products = await Promise.all(productPromises)
+                    
+                    // Cập nhật orderItems với enterpriseId từ products
+                    itemsWithEnterprise = itemsWithEnterprise.map(item => {
+                        if (item.enterpriseId) return item
+                        const product = products.find(p => p && p.id === item.productId)
+                        if (product && product.enterpriseId) {
+                            return { ...item, enterpriseId: product.enterpriseId }
+                        }
+                        return item
+                    })
+                    console.log("Updated orderItems with enterpriseId from products:", itemsWithEnterprise)
+                }
+                
+                // Kiểm tra lại orderId trước khi set state
+                if (controller.currentOrderId !== orderId || controller.cancelled) {
+                    console.log(`OrderId changed during processing, skipping state update`)
+                    return
+                }
+                
+                setOrderItemsWithEnterprise(itemsWithEnterprise)
 
-                // If BankTransfer and no payment exists, create one
-                if (paymentMethod === "BankTransfer" && paymentsData.length === 0) {
+                // Load existing payments - CHỈ load payments của orderId hiện tại
+                const paymentsData = await getPaymentsByOrder(orderId)
+                
+                // Kiểm tra lại orderId sau khi load payments
+                if (controller.currentOrderId !== orderId || controller.cancelled) {
+                    console.log(`OrderId changed after loading payments, skipping state update`)
+                    return
+                }
+                
+                // Đảm bảo chỉ lấy payments của orderId này (double check)
+                const filteredPayments = paymentsData.filter(p => p.orderId === orderId)
+                
+                console.log(`Loaded payments for order ${orderId}:`, filteredPayments.length, "payments")
+                console.log("Order items:", orderData.orderItems)
+                
+                // QUAN TRỌNG: Mỗi lần chọn thanh toán ngân hàng, tạo payment MỚI
+                // Không sử dụng payments cũ - luôn tạo payment mới khi method=BankTransfer
+                if (paymentMethod === "BankTransfer") {
+                    // Kiểm tra lại orderId trước khi tạo payment
+                    if (controller.currentOrderId !== orderId || controller.cancelled) {
+                        console.log(`OrderId changed before creating payment, skipping`)
+                        return
+                    }
+                    
                     setCreatingPayment(true)
                     try {
+                        console.log(`Creating NEW payment for order ${orderId} - replacing any existing payments`)
+                        
+                        // Tạo payment MỚI cho orderId này
+                        // Backend sẽ tạo payment mới, không merge với payments cũ
                         const newPayments = await createPayment({
                             orderId,
                             method: "BankTransfer",
                         })
-                        setPayments(newPayments)
+                        
+                        // Kiểm tra lại orderId sau khi tạo payment
+                        if (controller.currentOrderId !== orderId || controller.cancelled) {
+                            console.log(`OrderId changed after creating payment, skipping state update`)
+                            return
+                        }
+                        
+                        // Đảm bảo payments được tạo có orderId đúng
+                        const validPayments = newPayments.filter(p => p.orderId === orderId)
+                        
+                        console.log(`Created ${validPayments.length} NEW payments for order ${orderId}`)
+                        console.log(`Payments details:`, validPayments.map(p => ({
+                            id: p.id,
+                            enterpriseId: p.enterpriseId,
+                            enterpriseName: p.enterpriseName,
+                            amount: p.amount,
+                            createdAt: p.createdAt
+                        })))
+                        console.log(`Expected enterpriseIds from orderItems:`, Array.from(enterpriseIdsInOrder))
+                        
+                        // Kiểm tra xem có đủ payments cho tất cả doanh nghiệp không
+                        const paymentEnterpriseIds = new Set(validPayments.map(p => p.enterpriseId).filter(Boolean))
+                        const missingEnterpriseIds = Array.from(enterpriseIdsInOrder).filter(id => !paymentEnterpriseIds.has(id))
+                        
+                        if (missingEnterpriseIds.length > 0) {
+                            console.warn(`⚠️ Missing payments for enterpriseIds:`, missingEnterpriseIds)
+                            console.warn(`⚠️ Backend may not have created payments for all enterprises`)
+                        }
+                        
+                        // Sắp xếp payments theo createdAt giảm dần
+                        const sortedPayments = validPayments.sort((a, b) => {
+                            const dateA = new Date(a.createdAt).getTime()
+                            const dateB = new Date(b.createdAt).getTime()
+                            return dateB - dateA // Mới nhất trước
+                        })
+                        
+                        // Lấy payments mới nhất
+                        // Nếu có nhiều payments được tạo cùng lúc (trong vòng 1 giây), lấy tất cả
+                        // Nếu không, chỉ lấy payments có createdAt mới nhất
+                        const latestCreatedAt = sortedPayments[0]?.createdAt
+                        if (!latestCreatedAt) {
+                            console.warn("No payments with createdAt")
+                            setPayments([])
+                            return
+                        }
+                        
+                        const latestTime = new Date(latestCreatedAt).getTime()
+                        // Lấy tất cả payments được tạo trong vòng 2 giây (để bao gồm tất cả payments trong cùng một batch)
+                        const latestPayments = sortedPayments.filter(p => {
+                            const paymentTime = new Date(p.createdAt).getTime()
+                            return Math.abs(paymentTime - latestTime) <= 2000 // 2 giây
+                        })
+                        
+                        console.log(`Showing ${latestPayments.length} latest payments (created within 2 seconds of ${latestCreatedAt})`)
+                        console.log(`Latest payments enterpriseIds:`, latestPayments.map(p => p.enterpriseId))
+                        console.log(`Latest payments details:`, latestPayments.map(p => ({
+                            id: p.id,
+                            enterpriseId: p.enterpriseId,
+                            enterpriseName: p.enterpriseName,
+                            createdAt: p.createdAt
+                        })))
+                        
+                        // Set payments MỚI - thay thế hoàn toàn payments cũ
+                        // Hiển thị TẤT CẢ payments mới nhất được tạo (cho tất cả doanh nghiệp)
+                        setPayments(latestPayments)
                     } catch (err) {
                         console.error("Failed to create payment:", err)
-                        setError("Không thể tạo thông tin thanh toán. Vui lòng thử lại.")
+                        if (!controller.cancelled) {
+                            setError("Không thể tạo thông tin thanh toán. Vui lòng thử lại.")
+                        }
                     } finally {
-                        setCreatingPayment(false)
+                        if (!controller.cancelled) {
+                            setCreatingPayment(false)
+                        }
+                    }
+                } else {
+                    // Nếu không phải BankTransfer, chỉ hiển thị payments hiện có
+                    // Nếu có nhiều payments, chỉ lấy payments mới nhất
+                    if (filteredPayments.length > 0) {
+                        const sortedPayments = filteredPayments.sort((a, b) => {
+                            const dateA = new Date(a.createdAt).getTime()
+                            const dateB = new Date(b.createdAt).getTime()
+                            return dateB - dateA // Mới nhất trước
+                        })
+                        
+                        // Lấy payments mới nhất (có cùng createdAt mới nhất)
+                        const latestCreatedAt = sortedPayments[0]?.createdAt
+                        const latestPayments = sortedPayments.filter(p => p.createdAt === latestCreatedAt)
+                        
+                        console.log(`Showing latest ${latestPayments.length} payments out of ${filteredPayments.length} total payments`)
+                        setPayments(latestPayments)
+                    } else {
+                        setPayments(filteredPayments)
                     }
                 }
             } catch (err) {
-                console.error("Failed to load payment info:", err)
-                setError(err instanceof Error ? err.message : "Không thể tải thông tin thanh toán")
+                if (!controller.cancelled) {
+                    console.error("Failed to load payment info:", err)
+                    setError(err instanceof Error ? err.message : "Không thể tải thông tin thanh toán")
+                }
             } finally {
-                setLoading(false)
+                if (!controller.cancelled) {
+                    setLoading(false)
+                }
             }
         }
 
         if (orderId) {
             init()
+        }
+        
+        // Cleanup function: Reset state khi orderId thay đổi hoặc component unmount
+        return () => {
+            // Đánh dấu là đã cancel để tránh update state sau khi unmount
+            controller.cancelled = true
+            
+            // Reset state ngay lập tức khi orderId thay đổi
+            setOrder(null)
+            setPayments([])
+            setOrderItemsWithEnterprise([])
+            setError(null)
+            setLoading(true)
+            setCreatingPayment(false)
         }
     }, [orderId, paymentMethod, router])
 
@@ -100,8 +392,7 @@ function PaymentContent() {
         )
     }
 
-    const bankTransferPayments = payments.filter((p) => p.method === "BankTransfer")
-    const totalPaymentAmount = bankTransferPayments.reduce((sum, p) => sum + p.amount, 0)
+    console.log("Final bankTransferPayments count:", bankTransferPayments.length, "enterpriseIdsInOrder:", Array.from(enterpriseIdsInOrder))
 
     return (
         <>
@@ -137,6 +428,54 @@ function PaymentContent() {
                                 </div>
                             )}
                         </div>
+
+                        {/* Order Items Summary */}
+                        {order.orderItems && order.orderItems.length > 0 && (
+                            <div className="mt-6 pt-6 border-t border-gray-200">
+                                <h3 className="text-lg font-semibold text-gray-900 mb-4">Sản phẩm trong đơn hàng</h3>
+                                <div className="space-y-3">
+                                    {order.orderItems.map((item) => (
+                                        <div key={item.id} className="flex items-center gap-4 p-3 bg-gray-50 rounded-lg">
+                                            <div className="relative w-16 h-16 rounded-lg overflow-hidden bg-gray-200 flex-shrink-0">
+                                                <Image
+                                                    src={isValidImageUrl(item.productImageUrl) ? getImageUrl(item.productImageUrl, "/hero.jpg") : "/hero.jpg"}
+                                                    alt={item.productName || `Sản phẩm #${item.productId}`}
+                                                    fill
+                                                    className="object-cover"
+                                                    sizes="64px"
+                                                    {...getImageAttributes(item.productImageUrl)}
+                                                    onError={(e) => {
+                                                        const target = e.target as HTMLImageElement
+                                                        if (!target.src.includes('hero.jpg')) {
+                                                            target.src = '/hero.jpg'
+                                                        }
+                                                    }}
+                                                />
+                                            </div>
+                                            <div className="flex-1 min-w-0">
+                                                <h4 className="font-semibold text-gray-900 text-sm mb-1">
+                                                    {item.productName || `Sản phẩm #${item.productId}`}
+                                                </h4>
+                                                {item.enterpriseName && (
+                                                    <p className="text-xs text-gray-500 mb-1">Doanh nghiệp: {item.enterpriseName}</p>
+                                                )}
+                                                <div className="text-sm text-gray-600">
+                                                    <span className="font-semibold text-green-600">
+                                                        {item.price.toLocaleString("vi-VN")}₫
+                                                    </span>
+                                                    <span className="text-gray-500"> x {item.quantity}</span>
+                                                </div>
+                                            </div>
+                                            <div className="text-right">
+                                                <div className="text-sm font-bold text-green-600">
+                                                    {((item.price || 0) * (item.quantity || 0)).toLocaleString("vi-VN")}₫
+                                                </div>
+                                            </div>
+                                        </div>
+                                    ))}
+                                </div>
+                            </div>
+                        )}
                     </div>
 
                     {/* Payment Method */}
@@ -191,7 +530,13 @@ function PaymentContent() {
 
                             {/* List all payments */}
                             <div className="space-y-6">
-                                {bankTransferPayments.map((payment, index) => (
+                                {bankTransferPayments.map((payment, index) => {
+                                    // Lấy sản phẩm của enterprise này
+                                    const enterpriseItems = payment.enterpriseId 
+                                        ? (orderItemsByEnterprise.get(payment.enterpriseId) || [])
+                                        : []
+                                    
+                                    return (
                                     <div key={payment.id} className="border-2 border-gray-200 rounded-lg p-6">
                                         {/* Enterprise name if available */}
                                         {payment.enterpriseName && (
@@ -204,6 +549,52 @@ function PaymentContent() {
                                                         Thanh toán {index + 1} / {bankTransferPayments.length}
                                                     </p>
                                                 )}
+                                            </div>
+                                        )}
+
+                                        {/* Products for this enterprise */}
+                                        {enterpriseItems.length > 0 && (
+                                            <div className="mb-6 pb-6 border-b border-gray-200">
+                                                <h4 className="text-sm font-semibold text-gray-900 mb-3">Sản phẩm cần thanh toán:</h4>
+                                                <div className="space-y-2">
+                                                    {enterpriseItems.map((item) => (
+                                                        <div key={item.id} className="flex items-center gap-3 p-2 bg-gray-50 rounded">
+                                                            <div className="relative w-12 h-12 rounded overflow-hidden bg-gray-200 flex-shrink-0">
+                                                                <Image
+                                                                    src={isValidImageUrl(item.productImageUrl) ? getImageUrl(item.productImageUrl, "/hero.jpg") : "/hero.jpg"}
+                                                                    alt={item.productName || `Sản phẩm #${item.productId}`}
+                                                                    fill
+                                                                    className="object-cover"
+                                                                    sizes="48px"
+                                                                    {...getImageAttributes(item.productImageUrl)}
+                                                                    onError={(e) => {
+                                                                        const target = e.target as HTMLImageElement
+                                                                        if (!target.src.includes('hero.jpg')) {
+                                                                            target.src = '/hero.jpg'
+                                                                        }
+                                                                    }}
+                                                                />
+                                                            </div>
+                                                            <div className="flex-1 min-w-0">
+                                                                <p className="text-sm font-medium text-gray-900 truncate">
+                                                                    {item.productName || `Sản phẩm #${item.productId}`}
+                                                                </p>
+                                                                <p className="text-xs text-gray-600">
+                                                                    {item.price.toLocaleString("vi-VN")}₫ x {item.quantity}
+                                                                </p>
+                                                            </div>
+                                                            <div className="text-sm font-semibold text-gray-900">
+                                                                {((item.price || 0) * (item.quantity || 0)).toLocaleString("vi-VN")}₫
+                                                            </div>
+                                                        </div>
+                                                    ))}
+                                                    <div className="flex justify-between items-center pt-2 mt-2 border-t border-gray-200">
+                                                        <span className="text-sm font-semibold text-gray-700">Tổng tiền doanh nghiệp này:</span>
+                                                        <span className="text-base font-bold text-indigo-600">
+                                                            {payment.amount.toLocaleString("vi-VN")} ₫
+                                                        </span>
+                                                    </div>
+                                                </div>
                                             </div>
                                         )}
 
@@ -268,7 +659,7 @@ function PaymentContent() {
                                             </div>
                                         )}
                                     </div>
-                                ))}
+                                )})}
                             </div>
 
                             {/* Instructions */}
