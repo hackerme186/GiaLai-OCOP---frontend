@@ -205,16 +205,9 @@ export default function GoogleLoginButton({ onError }: GoogleLoginButtonProps) {
 
   return (
     <div className="w-full">
-      <div 
-        ref={buttonRef}
-        className={`google-login-wrapper ${isLoading ? 'opacity-60 pointer-events-none' : ''}`}
-        style={{
-          minHeight: "48px",
-          display: "flex",
-          alignItems: "center",
-          justifyContent: "center",
-        }}
-      />
+      <div className={`google-login-wrapper ${isLoading ? 'opacity-60 pointer-events-none' : ''}`}>
+        <div ref={buttonRef} />
+      </div>
       {isLoading && (
         <p className="text-center text-sm text-white/80 mt-2 animate-pulse">Đang xử lý...</p>
       )}
@@ -228,6 +221,28 @@ export default function GoogleLoginButton({ onError }: GoogleLoginButtonProps) {
           width: 100% !important;
           min-width: 0 !important;
           max-width: 100% !important;
+          min-height: 48px !important;
+          height: 48px !important;
+          max-height: 48px !important;
+          padding: 14px 16px !important;
+          border-radius: 0.5rem !important;
+          box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15) !important;
+          transition: all 0.2s ease !important;
+          display: flex !important;
+          align-items: center !important;
+          justify-content: center !important;
+          box-sizing: border-box !important;
+        }
+        .google-login-wrapper > div:hover:not(:disabled) {
+          box-shadow: 0 6px 16px rgba(0, 0, 0, 0.2) !important;
+          transform: translateY(-1px) !important;
+        }
+        .google-login-wrapper > div:active:not(:disabled) {
+          transform: translateY(0) !important;
+        }
+        .google-login-wrapper > div:disabled {
+          opacity: 0.6 !important;
+          cursor: not-allowed !important;
         }
         .google-login-wrapper iframe {
           width: 100% !important;
