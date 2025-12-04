@@ -4,6 +4,8 @@ import { useState } from "react"
 import { login, getCurrentUser } from "@/lib/api"
 import { setAuthToken, getRoleFromToken, setUserProfile } from "@/lib/auth"
 import { useRouter } from "next/navigation"
+import FacebookLoginButton from "./FacebookLoginButton"
+import GoogleLoginButton from "./GoogleLoginButton"
 
 export default function LoginForm() {
   const router = useRouter()
@@ -240,6 +242,27 @@ export default function LoginForm() {
       >
         {loading ? "Logging in..." : "Login"}
       </button>
+
+      {/* Divider */}
+      <div className="relative my-6 text-center">
+        <span className="relative bg-transparent px-2 text-white/70 text-sm" style={{ textShadow: '0 1px 3px rgba(0, 0, 0, 0.5)' }}>
+          hoặc đăng nhập bằng
+        </span>
+        <div className="absolute inset-0 top-1/2 -z-10 border-t border-white/30" />
+      </div>
+
+      {/* Social Login Buttons - Side by Side */}
+      <div className="flex items-stretch justify-center gap-3">
+        {/* Facebook Button - Left */}
+        <div className="flex-1 min-w-0">
+          <FacebookLoginButton onError={(err) => setError(err)} />
+        </div>
+
+        {/* Google Button - Right */}
+        <div className="flex-1 min-w-0">
+          <GoogleLoginButton onError={(err) => setError(err)} />
+        </div>
+      </div>
 
       {/* Registration Link */}
       <p className="text-center text-sm text-white/90 mt-6">
