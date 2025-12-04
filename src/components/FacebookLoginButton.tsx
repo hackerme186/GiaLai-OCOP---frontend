@@ -214,11 +214,7 @@ export default function FacebookLoginButton({ onError }: FacebookLoginButtonProp
         type="button"
         onClick={handleFacebookClick}
         disabled={isLoading || !isSDKLoaded}
-        className="w-full flex items-center justify-center gap-3 px-4 py-3 rounded-lg bg-[#1877f2] text-white font-semibold text-sm shadow-lg hover:bg-[#166fe5] disabled:opacity-60 disabled:cursor-not-allowed transition-all focus:outline-none focus:ring-2 focus:ring-[#1877f2]/50"
-        style={{
-          minHeight: "48px",
-          boxShadow: "0 4px 12px rgba(24, 119, 242, 0.3)",
-        }}
+        className="facebook-login-button"
       >
         <svg
           width="20"
@@ -234,6 +230,53 @@ export default function FacebookLoginButton({ onError }: FacebookLoginButtonProp
       {isLoading && (
         <p className="text-center text-sm text-white/90 mt-2">Đang xử lý...</p>
       )}
+      <style jsx global>{`
+        .facebook-login-button {
+          width: 100% !important;
+          min-width: 0 !important;
+          max-width: 100% !important;
+          display: flex !important;
+          align-items: center !important;
+          justify-content: flex-start !important;
+          gap: 10px !important;
+          padding: 14px 16px !important;
+          min-height: 48px !important;
+          height: 48px !important;
+          max-height: 48px !important;
+          border-radius: 0.5rem !important;
+          border: none !important;
+          background: #1877f2 !important;
+          color: white !important;
+          font-weight: 600 !important;
+          font-size: 15px !important;
+          cursor: pointer !important;
+          box-shadow: 0 4px 12px rgba(24, 119, 242, 0.3) !important;
+          transition: all 0.2s ease !important;
+          box-sizing: border-box !important;
+        }
+        .facebook-login-button:hover:not(:disabled) {
+          background-color: #166fe5 !important;
+          box-shadow: 0 6px 16px rgba(24, 119, 242, 0.4) !important;
+          transform: translateY(-1px) !important;
+        }
+        .facebook-login-button:active:not(:disabled) {
+          transform: translateY(0) !important;
+        }
+        .facebook-login-button:disabled {
+          opacity: 0.6 !important;
+          cursor: not-allowed !important;
+        }
+        .facebook-login-button:focus {
+          outline: none !important;
+          box-shadow: 0 0 0 3px rgba(24, 119, 242, 0.3) !important;
+        }
+        .facebook-login-button svg,
+        .facebook-login-button .fa-facebook {
+          flex-shrink: 0 !important;
+          width: 20px !important;
+          height: 20px !important;
+        }
+      `}</style>
     </div>
   )
 }
