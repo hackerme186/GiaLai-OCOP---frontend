@@ -316,15 +316,15 @@ export default function OrderManagementTab({ user }: OrderManagementTabProps) {
       )}
 
       {/* Header & Filters */}
-      <div className="bg-white rounded-xl shadow-lg p-6">
+      <div className="bg-gradient-to-r from-blue-600 via-indigo-600 to-purple-600 rounded-2xl shadow-xl p-8 text-white">
         <div className="mb-6 flex items-center justify-between">
           <div>
-            <h2 className="text-2xl font-bold text-gray-900">Quản lý đơn hàng</h2>
-            <p className="text-sm text-gray-500 mt-1">Quản lý và cập nhật trạng thái đơn hàng của doanh nghiệp</p>
+            <h2 className="text-3xl font-bold mb-2 drop-shadow-lg">📋 Quản lý đơn hàng</h2>
+            <p className="text-blue-100 text-lg">Quản lý và cập nhật trạng thái đơn hàng của doanh nghiệp</p>
           </div>
           <button
             onClick={exportOrdersToExcel}
-            className="px-4 py-2 bg-blue-600 text-white rounded-lg font-semibold hover:bg-blue-700 transition-colors flex items-center gap-2"
+            className="px-6 py-3 bg-white/20 backdrop-blur-sm text-white rounded-xl font-semibold hover:bg-white/30 transition-all shadow-lg hover:shadow-xl transform hover:-translate-y-0.5 flex items-center gap-2"
           >
             <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
@@ -334,7 +334,7 @@ export default function OrderManagementTab({ user }: OrderManagementTabProps) {
         </div>
 
         {/* Status Filters */}
-        <div className="flex flex-wrap gap-2 mb-4">
+        <div className="flex flex-wrap gap-2">
           {[
             { id: "all", label: "Tất cả" },
             { id: "pending", label: "Chờ xác nhận" },
@@ -346,10 +346,10 @@ export default function OrderManagementTab({ user }: OrderManagementTabProps) {
             <button
               key={tab.id}
               onClick={() => setFilter(tab.id)}
-              className={`px-4 py-2 rounded-lg font-medium text-sm transition-colors ${
+              className={`px-5 py-2.5 rounded-lg font-medium text-sm transition-all ${
                 filter === tab.id
-                  ? "bg-green-600 text-white"
-                  : "bg-gray-100 text-gray-700 hover:bg-gray-200"
+                  ? "bg-white text-blue-700 shadow-lg"
+                  : "bg-white/10 text-white hover:bg-white/20"
               }`}
             >
               {tab.label}
@@ -385,18 +385,18 @@ export default function OrderManagementTab({ user }: OrderManagementTabProps) {
             const nextStatus = getNextStatus(order.status || "")
 
             return (
-              <div key={order.id} className="bg-white rounded-xl shadow-lg overflow-hidden hover:shadow-xl transition-shadow">
+              <div key={order.id} className="bg-white rounded-2xl shadow-lg overflow-hidden hover:shadow-2xl transition-all duration-300 transform hover:-translate-y-1 border border-gray-100">
                 {/* Order Header */}
-                <div className="bg-gray-50 border-b border-gray-200 px-6 py-4 flex items-center justify-between">
+                <div className="bg-gradient-to-r from-gray-50 to-gray-100 border-b border-gray-200 px-6 py-4 flex items-center justify-between">
                   <div className="flex items-center gap-4">
-                    <div className="text-sm text-gray-500">Mã đơn hàng</div>
-                    <div className="text-lg font-bold text-gray-900">#{order.id}</div>
-                    <span className={`px-3 py-1 rounded-full text-xs font-semibold border flex items-center gap-2 ${statusInfo.color}`}>
+                    <div className="text-sm text-gray-600 font-medium">Mã đơn hàng</div>
+                    <div className="text-xl font-bold bg-gradient-to-r from-blue-600 to-indigo-600 bg-clip-text text-transparent">#{order.id}</div>
+                    <span className={`px-4 py-1.5 rounded-full text-xs font-semibold border-2 flex items-center gap-2 shadow-sm ${statusInfo.color}`}>
                       {statusInfo.icon}
                       {statusInfo.text}
                     </span>
                   </div>
-                  <div className="text-sm text-gray-500">
+                  <div className="text-sm text-gray-600 font-medium">
                     {new Date(order.orderDate).toLocaleDateString("vi-VN")}
                   </div>
                 </div>

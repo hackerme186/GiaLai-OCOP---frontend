@@ -101,9 +101,9 @@ export default function ReportsTab({ user }: ReportsTabProps) {
   return (
     <div className="space-y-6">
       {/* Header */}
-      <div className="bg-white rounded-xl shadow-lg p-6">
-        <h2 className="text-2xl font-bold text-gray-900 mb-2">Báo cáo doanh nghiệp</h2>
-        <p className="text-sm text-gray-500">Thống kê doanh thu và hiệu suất kinh doanh</p>
+      <div className="bg-gradient-to-r from-indigo-600 via-purple-600 to-pink-600 rounded-2xl shadow-xl p-8 text-white">
+        <h2 className="text-3xl font-bold mb-2 drop-shadow-lg">📊 Báo cáo doanh nghiệp</h2>
+        <p className="text-indigo-100 text-lg">Thống kê doanh thu và hiệu suất kinh doanh</p>
       </div>
 
       {/* Key Metrics */}

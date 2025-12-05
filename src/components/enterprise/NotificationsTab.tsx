@@ -106,16 +106,16 @@ export default function NotificationsTab({ user }: NotificationsTabProps) {
   return (
     <div className="space-y-6">
       {/* Header */}
-      <div className="bg-white rounded-xl shadow-lg p-6">
+      <div className="bg-gradient-to-r from-amber-500 via-orange-500 to-red-500 rounded-2xl shadow-xl p-8 text-white">
         <div className="flex items-center justify-between mb-4">
           <div>
-            <h2 className="text-2xl font-bold text-gray-900">Thông báo</h2>
-            <p className="text-sm text-gray-500 mt-1">Quản lý thông báo và cập nhật từ hệ thống</p>
+            <h2 className="text-3xl font-bold mb-2 drop-shadow-lg">🔔 Thông báo</h2>
+            <p className="text-amber-100 text-lg">Quản lý thông báo và cập nhật từ hệ thống</p>
           </div>
           {unreadCount > 0 && (
             <button
               onClick={handleMarkAllAsRead}
-              className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 text-sm font-medium"
+              className="px-6 py-3 bg-white/20 backdrop-blur-sm text-white rounded-xl font-semibold hover:bg-white/30 transition-all shadow-lg hover:shadow-xl transform hover:-translate-y-0.5"
             >
               Đánh dấu tất cả đã đọc
             </button>

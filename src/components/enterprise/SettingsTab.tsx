@@ -158,9 +158,9 @@ export default function SettingsTab({ user }: SettingsTabProps) {
       )}
 
       {/* Header */}
-      <div className="bg-white rounded-xl shadow-lg p-6">
-        <h2 className="text-2xl font-bold text-gray-900 mb-2">Cài đặt doanh nghiệp</h2>
-        <p className="text-sm text-gray-500">Cấu hình thông tin và phương thức giao hàng</p>
+      <div className="bg-gradient-to-r from-slate-600 via-gray-600 to-zinc-600 rounded-2xl shadow-xl p-8 text-white">
+        <h2 className="text-3xl font-bold mb-2 drop-shadow-lg">⚙️ Cài đặt doanh nghiệp</h2>
+        <p className="text-slate-100 text-lg">Cấu hình thông tin và phương thức giao hàng</p>
       </div>
 
       {/* Contact Information */}
