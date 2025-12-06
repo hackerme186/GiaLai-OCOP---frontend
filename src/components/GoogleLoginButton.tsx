@@ -1,10 +1,24 @@
 "use client"
-import { useState } from "react"
-import { GoogleOAuthProvider, GoogleLogin } from "@react-oauth/google"
+import { useState, useEffect, useRef, useCallback } from "react"
 import { loginWithGoogle } from "@/lib/api"
 import { setAuthToken, getRoleFromToken, setUserProfile } from "@/lib/auth"
 import { getCurrentUser } from "@/lib/api"
 import { useRouter } from "next/navigation"
+
+// Google Identity Services types
+declare global {
+  interface Window {
+    google?: {
+      accounts: {
+        id: {
+          initialize: (config: { client_id: string; callback: (response: any) => void }) => void
+          prompt: () => void
+          renderButton: (element: HTMLElement, config: { theme?: string; size?: string; text?: string; width?: string; type?: string }) => void
+        }
+      }
+    }
+  }
+}
 
 interface GoogleLoginButtonProps {
   onError?: (error: string) => void
@@ -13,7 +27,10 @@ interface GoogleLoginButtonProps {
 export default function GoogleLoginButton({ onError }: GoogleLoginButtonProps) {
   const router = useRouter()
   const [isLoading, setIsLoading] = useState(false)
+  const [isSDKLoaded, setIsSDKLoaded] = useState(false)
+  const buttonRef = useRef<HTMLDivElement>(null)
   const GOOGLE_CLIENT_ID = process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID || ""
+
 
   if (!GOOGLE_CLIENT_ID) {
     console.warn("⚠️ [GoogleLogin] NEXT_PUBLIC_GOOGLE_CLIENT_ID chưa được cấu hình")
@@ -22,6 +39,7 @@ export default function GoogleLoginButton({ onError }: GoogleLoginButtonProps) {
 
 
   const handleGoogleSuccess = async (credentialResponse: any) => {
+ main
     if (!credentialResponse.credential) {
       console.error("❌ [GoogleLogin] Không nhận được credential từ Google")
       onError?.("Đăng nhập Google thất bại. Vui lòng thử lại.")
@@ -32,7 +50,7 @@ export default function GoogleLoginButton({ onError }: GoogleLoginButtonProps) {
     console.log("🔐 [GoogleLogin] Bắt đầu đăng nhập với Google...")
 
     try {
-      const idToken = credentialResponse.credential
+      const idToken = credentialResponse.credential || credentialResponse
       console.log("📤 [GoogleLogin] Gửi idToken lên backend...")
 
       const res = await loginWithGoogle({ idToken }) as any
@@ -133,71 +151,114 @@ export default function GoogleLoginButton({ onError }: GoogleLoginButtonProps) {
     } finally {
       setIsLoading(false)
     }
-  }
+  }, [router, onError])
 
-  const handleGoogleError = () => {
-    console.log("❌ [GoogleLogin] Google login failed")
-    onError?.("Đăng nhập Google thất bại. Vui lòng thử lại.")
+  // Load Google Identity Services SDK
+  useEffect(() => {
+    if (!GOOGLE_CLIENT_ID) {
+      console.warn("⚠️ [GoogleLogin] NEXT_PUBLIC_GOOGLE_CLIENT_ID chưa được cấu hình")
+      return
+    }
+
+    // Check if SDK is already loaded
+    if (window.google?.accounts?.id) {
+      window.google.accounts.id.initialize({
+        client_id: GOOGLE_CLIENT_ID,
+        callback: handleGoogleSuccess,
+      })
+      setIsSDKLoaded(true)
+      return
+    }
+
+    // Load Google Identity Services script
+    const script = document.createElement("script")
+    script.src = "https://accounts.google.com/gsi/client"
+    script.async = true
+    script.defer = true
+    script.onload = () => {
+      if (window.google?.accounts?.id) {
+        window.google.accounts.id.initialize({
+          client_id: GOOGLE_CLIENT_ID,
+          callback: handleGoogleSuccess,
+        })
+        setIsSDKLoaded(true)
+      }
+    }
+    document.body.appendChild(script)
+
+    return () => {
+      // Cleanup if needed
+      if (script.parentNode) {
+        script.parentNode.removeChild(script)
+      }
+    }
+  }, [GOOGLE_CLIENT_ID, handleGoogleSuccess])
+
+  // Render Google button when SDK is loaded
+  useEffect(() => {
+    if (isSDKLoaded && buttonRef.current && window.google?.accounts?.id) {
+      window.google.accounts.id.renderButton(buttonRef.current, {
+        theme: "outline",
+        size: "large",
+        text: "signin_with",
+        width: "100%",
+        type: "standard",
+      })
+    }
+  }, [isSDKLoaded])
+
+  if (!GOOGLE_CLIENT_ID) {
+    return null
   }
 
   return (
-    <GoogleOAuthProvider clientId={GOOGLE_CLIENT_ID}>
-      <div className="w-full">
-        <div className={`google-login-wrapper ${isLoading ? 'opacity-60 pointer-events-none' : ''}`}>
-          <GoogleLogin
-            onSuccess={handleGoogleSuccess}
-            onError={handleGoogleError}
-            text="signin_with"
-            shape="rectangular"
-            theme="outline"
-            size="large"
-            width="100%"
-          />
-        </div>
-        {isLoading && (
-          <p className="text-center text-sm text-white/80 mt-2 animate-pulse">Đang xử lý...</p>
-        )}
-        <style jsx global>{`
-          .google-login-wrapper {
-            width: 100% !important;
-            min-width: 0 !important;
-            max-width: 100% !important;
-          }
-          .google-login-wrapper > div {
-            width: 100% !important;
-            min-width: 0 !important;
-            max-width: 100% !important;
-          }
-          .google-login-wrapper > div > div {
-            width: 100% !important;
-            min-width: 0 !important;
-            max-width: 100% !important;
-            min-height: 48px !important;
-            height: 48px !important;
-            max-height: 48px !important;
-            padding: 14px 16px !important;
-            border-radius: 0.5rem !important;
-            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15) !important;
-            transition: all 0.2s ease !important;
-            display: flex !important;
-            align-items: center !important;
-            justify-content: center !important;
-            box-sizing: border-box !important;
-          }
-          .google-login-wrapper > div > div:hover:not(:disabled) {
-            box-shadow: 0 6px 16px rgba(0, 0, 0, 0.2) !important;
-            transform: translateY(-1px) !important;
-          }
-          .google-login-wrapper > div > div:active:not(:disabled) {
-            transform: translateY(0) !important;
-          }
-          .google-login-wrapper > div > div:disabled {
-            opacity: 0.6 !important;
-            cursor: not-allowed !important;
-          }
-        `}</style>
+    <div className="w-full">
+      <div className={`google-login-wrapper ${isLoading ? 'opacity-60 pointer-events-none' : ''}`}>
+        <div ref={buttonRef} />
       </div>
-    </GoogleOAuthProvider>
+      {isLoading && (
+        <p className="text-center text-sm text-white/80 mt-2 animate-pulse">Đang xử lý...</p>
+      )}
+      <style jsx global>{`
+        .google-login-wrapper {
+          width: 100% !important;
+          min-width: 0 !important;
+          max-width: 100% !important;
+        }
+        .google-login-wrapper > div {
+          width: 100% !important;
+          min-width: 0 !important;
+          max-width: 100% !important;
+          min-height: 48px !important;
+          height: 48px !important;
+          max-height: 48px !important;
+          padding: 14px 16px !important;
+          border-radius: 0.5rem !important;
+          box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15) !important;
+          transition: all 0.2s ease !important;
+          display: flex !important;
+          align-items: center !important;
+          justify-content: center !important;
+          box-sizing: border-box !important;
+        }
+        .google-login-wrapper > div:hover:not(:disabled) {
+          box-shadow: 0 6px 16px rgba(0, 0, 0, 0.2) !important;
+          transform: translateY(-1px) !important;
+        }
+        .google-login-wrapper > div:active:not(:disabled) {
+          transform: translateY(0) !important;
+        }
+        .google-login-wrapper > div:disabled {
+          opacity: 0.6 !important;
+          cursor: not-allowed !important;
+        }
+        .google-login-wrapper iframe {
+          width: 100% !important;
+          min-width: 0 !important;
+          max-width: 100% !important;
+        }
+      `}</style>
+    </div>
   )
 }
 

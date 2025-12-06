@@ -1,10 +1,21 @@
 "use client"
-import { useState } from "react"
-import FacebookLogin from "react-facebook-login"
+import { useState, useEffect } from "react"
 import { loginWithFacebook } from "@/lib/api"
 import { setAuthToken, getRoleFromToken, setUserProfile } from "@/lib/auth"
 import { getCurrentUser } from "@/lib/api"
 import { useRouter } from "next/navigation"
+
+// Facebook SDK types
+declare global {
+  interface Window {
+    FB?: {
+      init: (config: { appId: string; version: string; cookie?: boolean; xfbml?: boolean }) => void
+      login: (callback: (response: any) => void, options?: { scope?: string }) => void
+      getLoginStatus: (callback: (response: any) => void) => void
+    }
+    fbAsyncInit?: () => void
+  }
+}
 
 interface FacebookLoginButtonProps {
   onError?: (error: string) => void
@@ -13,25 +24,90 @@ interface FacebookLoginButtonProps {
 export default function FacebookLoginButton({ onError }: FacebookLoginButtonProps) {
   const router = useRouter()
   const [isLoading, setIsLoading] = useState(false)
+  const [isSDKLoaded, setIsSDKLoaded] = useState(false)
   const FACEBOOK_APP_ID = process.env.NEXT_PUBLIC_FACEBOOK_APP_ID || ""
 
+  // Load Facebook SDK
+  useEffect(() => {
+    if (!FACEBOOK_APP_ID) {
+      console.warn("⚠️ [FacebookLogin] NEXT_PUBLIC_FACEBOOK_APP_ID chưa được cấu hình")
+      return
+    }
+
+    // Check if SDK is already loaded
+    if (window.FB) {
+      window.FB.init({
+        appId: FACEBOOK_APP_ID,
+        version: "v18.0",
+        cookie: true,
+        xfbml: true,
+      })
+      setIsSDKLoaded(true)
+      return
+    }
+
+    // Load Facebook SDK script
+    window.fbAsyncInit = () => {
+      if (window.FB) {
+        window.FB.init({
+          appId: FACEBOOK_APP_ID,
+          version: "v18.0",
+          cookie: true,
+          xfbml: true,
+        })
+        setIsSDKLoaded(true)
+      }
+    }
+
+    // Inject Facebook SDK script
+    const script = document.createElement("script")
+    script.src = "https://connect.facebook.net/en_US/sdk.js"
+    script.async = true
+    script.defer = true
+    script.crossOrigin = "anonymous"
+    document.body.appendChild(script)
+
+    return () => {
+      // Cleanup if needed
+      if (script.parentNode) {
+        script.parentNode.removeChild(script)
+      }
+    }
+  }, [FACEBOOK_APP_ID])
+
   if (!FACEBOOK_APP_ID) {
-    console.warn("⚠️ [FacebookLogin] NEXT_PUBLIC_FACEBOOK_APP_ID chưa được cấu hình")
     return null
   }
+
 
 
   const handleFacebookResponse = async (response: any) => {
     if (!response.accessToken) {
       console.log("❌ [FacebookLogin] User cancelled login or did not fully authorize")
+
       return
     }
 
     setIsLoading(true)
     console.log("🔐 [FacebookLogin] Bắt đầu đăng nhập với Facebook...")
 
+    window.FB.login(
+      async (response: any) => {
+        if (response.authResponse && response.authResponse.accessToken) {
+          await handleFacebookResponse(response.authResponse.accessToken)
+        } else {
+          console.log("❌ [FacebookLogin] User cancelled login or did not fully authorize")
+          setIsLoading(false)
+        }
+      },
+      { scope: "email,public_profile" }
+    )
+  }
+
+  const handleFacebookResponse = async (accessToken: string) => {
+    console.log("🔐 [FacebookLogin] Nhận được accessToken từ Facebook")
+
     try {
-      const accessToken = response.accessToken
       console.log("📤 [FacebookLogin] Gửi accessToken lên backend...")
 
       const res = await loginWithFacebook({ accessToken }) as any
@@ -136,18 +212,23 @@ export default function FacebookLoginButton({ onError }: FacebookLoginButtonProp
 
   return (
     <div className="w-full">
-      <FacebookLogin
-        appId={FACEBOOK_APP_ID}
-        autoLoad={false}
-        fields="name,email,picture"
-        callback={handleFacebookResponse}
-        scope="email,public_profile"
-        cssClass="facebook-login-button"
-        icon="fa-facebook"
-        textButton="Facebook"
-        isDisabled={isLoading}
-        isMobile={false}
-      />
+      <button
+        type="button"
+        onClick={handleFacebookClick}
+        disabled={isLoading || !isSDKLoaded}
+        className="facebook-login-button"
+      >
+        <svg
+          width="20"
+          height="20"
+          viewBox="0 0 24 24"
+          fill="currentColor"
+          className="flex-shrink-0"
+        >
+          <path d="M24 12.073c0-6.627-5.373-12-12-12s-12 5.373-12 12c0 5.99 4.388 10.954 10.125 11.854v-8.385H7.078v-3.47h3.047V9.43c0-3.007 1.792-4.669 4.533-4.669 1.312 0 2.686.235 2.686.235v2.953H15.83c-1.491 0-1.956.925-1.956 1.874v2.25h3.328l-.532 3.47h-2.796v8.385C19.612 23.027 24 18.062 24 12.073z" />
+        </svg>
+        <span>Facebook</span>
+      </button>
       {isLoading && (
         <p className="text-center text-sm text-white/90 mt-2">Đang xử lý...</p>
       )}

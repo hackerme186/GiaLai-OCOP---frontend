@@ -2,6 +2,7 @@
 import { useState, useEffect } from 'react'
 import Image from 'next/image'
 import { getProducts, Product } from '@/lib/api'
+import { getImageAttributes, isValidImageUrl, getImageUrl } from '@/lib/imageUtils'
 
 const STORAGE_KEY = "ocop_home_content"
 
@@ -159,10 +160,20 @@ const FeaturedProducts = () => {
                   </div>
                 )}
                 <Image
-                  src={product.imageUrl || '/hero.jpg'}
+                  src={isValidImageUrl(product.imageUrl) ? getImageUrl(product.imageUrl, '/hero.jpg') : '/hero.jpg'}
                   alt={product.name}
                   fill
                   className="object-cover"
+                  {...getImageAttributes(product.imageUrl)}
+                  onError={(e) => {
+                    // Fallback to hero.jpg if image fails to load
+                    const target = e.target as HTMLImageElement
+                    const currentSrc = target.src
+                    const fallbackSrc = '/hero.jpg'
+                    if (!currentSrc.includes('hero.jpg')) {
+                      target.src = fallbackSrc
+                    }
+                  }}
                 />
               </div>
               <div className="p-4">

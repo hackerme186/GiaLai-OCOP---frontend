@@ -1,11 +1,13 @@
 "use client"
 
-import { useEffect, useState } from "react"
+import { useEffect, useState, useMemo } from "react"
 import { useRouter } from "next/navigation"
+
 import { getCurrentUser, getReportSummary, type ReportSummary } from "@/lib/api"
 import { getAuthToken, getRoleFromToken } from "@/lib/auth"
 import AdminHeader, { type TabType } from "@/components/admin/AdminHeader"
 import { PieChart as RechartsPieChart, Pie, Cell, ResponsiveContainer, Legend } from "recharts"
+
 import EnterpriseApprovalTab from "@/components/admin/EnterpriseApprovalTab"
 import EnterpriseManagementTab from "@/components/admin/EnterpriseManagementTab"
 import OcopApprovalTab from "@/components/admin/OcopApprovalTab"
@@ -24,6 +26,109 @@ export default function AdminPage() {
   const router = useRouter()
   const [authorized, setAuthorized] = useState<boolean | null>(null)
   const [activeTab, setActiveTab] = useState<TabType>('dashboard')
+  const [sidebarOpen, setSidebarOpen] = useState(false)
+  const [user, setUser] = useState<User | null>(null)
+  const [unreadCount, setUnreadCount] = useState(0)
+  const [notifications, setNotifications] = useState<Notification[]>([])
+  const [showNotificationDropdown, setShowNotificationDropdown] = useState(false)
+
+  // Define constants with useMemo to avoid recreation on each render
+  const allTabs = useMemo<Array<{ id: TabType; label: string; icon: string }>>(() => [
+    { id: 'dashboard', label: 'Tổng quan', icon: '📊' },
+    { id: 'enterprise-approval', label: 'Duyệt đơn đăng ký DN', icon: '📅' },
+    { id: 'enterprise-management', label: 'Quản lý doanh nghiệp', icon: '🏢' },
+    { id: 'ocop-approval', label: 'Duyệt sản phẩm OCOP', icon: '⭐' },
+    { id: 'product-management', label: 'Quản lý sản phẩm', icon: '📦' },
+    { id: 'categories', label: 'Quản lý danh mục', icon: '📁' },
+    { id: 'images', label: 'Quản lý ảnh', icon: '🖼️' },
+    { id: 'news-management', label: 'Quản lý tin tức', icon: '📰' },
+    { id: 'home-management', label: 'Quản lý trang chủ', icon: '🏠' },
+    { id: 'reports', label: 'Báo cáo toàn tỉnh', icon: '📉' },
+    { id: 'locations', label: 'Quản lý địa điểm', icon: '📍' },
+    { id: 'producers', label: 'Quản lý nhà sản xuất', icon: '🏭' },
+    { id: 'transactions', label: 'Giao dịch', icon: '💳' },
+    { id: 'user-management', label: 'Quản lý người dùng', icon: '👥' },
+  ], [])
+
+  const roleTabMap = useMemo<Record<string, TabType[]>>(() => ({
+    systemadmin: ['dashboard', 'enterprise-approval', 'enterprise-management', 'ocop-approval', 'product-management', 'categories', 'images', 'news-management', 'home-management', 'reports', 'locations', 'producers', 'transactions', 'user-management'],
+    enterpriseadmin: ['dashboard', 'ocop-approval'],
+    customer: ['dashboard'],
+  }), [])
+
+  const roleNormalized = (user?.role || "").toLowerCase()
+  
+  // For SystemAdmin, show all tabs. For others, filter based on role
+  const visibleTabs = useMemo(() => {
+    // If user is not loaded yet, show all tabs (will be filtered after user loads)
+    if (!user) {
+      return allTabs
+    }
+    const allowed = roleTabMap[roleNormalized] || roleTabMap.systemadmin
+    return allTabs.filter(tab => allowed.includes(tab.id))
+  }, [allTabs, roleTabMap, roleNormalized, user])
+
+  const userName = user?.name || user?.fullName || user?.username || "Admin"
+  const userEmail = user?.email || ""
+  const roleLabel = useMemo(() => {
+    switch (roleNormalized) {
+      case 'systemadmin':
+        return 'Quản trị hệ thống'
+      case 'enterpriseadmin':
+        return 'Quản trị doanh nghiệp'
+      case 'customer':
+        return 'Khách hàng'
+      default:
+        return user?.role || 'Không xác định'
+    }
+  }, [roleNormalized, user?.role])
+
+  // Get current date
+  const currentDate = new Date()
+  const days = ['Chủ nhật', 'Thứ hai', 'Thứ ba', 'Thứ tư', 'Thứ năm', 'Thứ sáu', 'Thứ bảy']
+  const months = ['Tháng 1', 'Tháng 2', 'Tháng 3', 'Tháng 4', 'Tháng 5', 'Tháng 6', 'Tháng 7', 'Tháng 8', 'Tháng 9', 'Tháng 10', 'Tháng 11', 'Tháng 12']
+  const dayName = days[currentDate.getDay()]
+  const dateString = `Hôm nay là ${dayName}, ${currentDate.getDate()} ${months[currentDate.getMonth()]} ${currentDate.getFullYear()}`
+
+  const handleLogout = () => {
+    if (confirm('Bạn có chắc chắn muốn đăng xuất?')) {
+      logout()
+      router.replace('/login')
+    }
+  }
+
+  // Load notifications
+  const loadNotifications = async () => {
+    try {
+      const data = await getNotifications()
+      setNotifications(data)
+      const unread = data.filter(n => !n.read).length
+      setUnreadCount(unread)
+    } catch (err) {
+      console.error("Failed to load notifications:", err)
+      setNotifications([])
+      setUnreadCount(0)
+    }
+  }
+
+  // Ensure activeTab is valid when visibleTabs change
+  useEffect(() => {
+    if (visibleTabs.length === 0) return
+    const hasActive = visibleTabs.some(tab => tab.id === activeTab)
+    if (!hasActive) {
+      setActiveTab(visibleTabs[0].id)
+    }
+  }, [visibleTabs, activeTab])
+
+  // Load notifications when authorized
+  useEffect(() => {
+    if (authorized) {
+      loadNotifications()
+      // Poll for new notifications every 30 seconds
+      const interval = setInterval(loadNotifications, 30000)
+      return () => clearInterval(interval)
+    }
+  }, [authorized])
 
   useEffect(() => {
     const check = async () => {
@@ -50,6 +155,7 @@ export default function AdminPage() {
       // 2) Fallback: gọi API /me nếu token không chứa role
       try {
         const me = await getCurrentUser()
+        setUser(me)
         const role = (me.role || (me as any).roles || (me as any).userRole)?.toString?.() || ""
         const normRole = role.toLowerCase().trim()
         const isAdmin = normRole === 'admin' ||
@@ -88,6 +194,7 @@ export default function AdminPage() {
   }
 
   return (
+
     <div className="min-h-screen bg-white" suppressHydrationWarning>
       <AdminHeader activeTab={activeTab} onTabChange={setActiveTab} />
       <main className="ml-64">
@@ -137,6 +244,7 @@ export default function AdminPage() {
           )}
         </div>
       </main>
+
     </div>
   )
 }
