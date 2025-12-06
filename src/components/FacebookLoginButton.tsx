@@ -79,10 +79,12 @@ export default function FacebookLoginButton({ onError }: FacebookLoginButtonProp
     return null
   }
 
-  const handleFacebookClick = () => {
-    if (!window.FB || !isSDKLoaded) {
-      console.error("❌ [FacebookLogin] Facebook SDK chưa được tải")
-      onError?.("Facebook SDK chưa sẵn sàng. Vui lòng thử lại sau.")
+
+
+  const handleFacebookResponse = async (response: any) => {
+    if (!response.accessToken) {
+      console.log("❌ [FacebookLogin] User cancelled login or did not fully authorize")
+
       return
     }
 
@@ -161,11 +163,11 @@ export default function FacebookLoginButton({ onError }: FacebookLoginButtonProp
       // Check roles
       const isSystemAdmin = norm === 'systemadmin' || norm === 'sysadmin'
       const isEnterpriseAdmin = norm === 'enterpriseadmin'
-      const isAdmin = isSystemAdmin || 
-                     norm === 'admin' || 
-                     norm === 'administrator' || 
-                     norm === 'role_admin' || 
-                     norm === 'admin_role'
+      const isAdmin = isSystemAdmin ||
+        norm === 'admin' ||
+        norm === 'administrator' ||
+        norm === 'role_admin' ||
+        norm === 'admin_role'
 
       // Get user profile
       try {

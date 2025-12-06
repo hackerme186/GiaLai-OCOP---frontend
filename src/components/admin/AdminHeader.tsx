@@ -41,8 +41,8 @@ export default function AdminHeader({ activeTab, onTabChange }: AdminHeaderProps
   }
 
   const allTabs: Array<{ id: TabType; label: string; icon: string }> = [
-    { id: 'dashboard', label: 'Tổng quan', icon: '📊' },
-    { id: 'enterprise-approval', label: 'Duyệt đơn đăng ký DN', icon: '📅' },
+    { id: 'dashboard', label: 'Trang tổng quan', icon: '📊' },
+    { id: 'enterprise-approval', label: 'Duyệt đơn đăng ký DN', icon: '👥' },
     { id: 'enterprise-management', label: 'Quản lý doanh nghiệp', icon: '🏢' },
     { id: 'ocop-approval', label: 'Duyệt sản phẩm OCOP', icon: '⭐' },
     { id: 'product-management', label: 'Quản lý sản phẩm', icon: '📦' },
@@ -78,80 +78,101 @@ export default function AdminHeader({ activeTab, onTabChange }: AdminHeaderProps
     }
   }, [visibleTabs, activeTab, onTabChange])
 
-  const roleLabel = useMemo(() => {
-    switch (roleNormalized) {
-      case 'systemadmin':
-        return 'Quản trị hệ thống'
-      case 'enterpriseadmin':
-        return 'Quản trị doanh nghiệp'
-      case 'customer':
-        return 'Khách hàng'
-      default:
-        return userRole || 'Không xác định'
-    }
-  }, [roleNormalized, userRole])
-
   return (
-    <header className="bg-white shadow-sm sticky top-0 z-50">
-      <div className="max-w-7xl mx-auto px-4">
-        {/* Top Bar: Logo and User Info */}
-        <div className="flex items-center justify-between py-3 border-b border-gray-200">
-          {/* Logo */}
-          <div className="flex items-center">
-            <Image
-              src="/Logo.png"
-              alt="Logo"
-              width={40}
-              height={40}
-              className="mr-3"
-            />
-            <div>
-              <h1 className="text-lg font-bold text-gray-900">Hệ thống Quản trị</h1>
-              <p className="text-xs text-gray-500">OCOP Gia Lai</p>
-            </div>
-          </div>
-
-          {/* User Account Section */}
-          <div className="flex items-center gap-4">
-            <div className="text-right">
-              <p className="text-sm font-medium text-gray-900">{userName}</p>
-              {userEmail && (
-                <p className="text-xs text-gray-500">{userEmail}</p>
-              )}
-              {roleLabel && (
-                <p className="text-xs text-indigo-600 font-semibold">{roleLabel}</p>
-              )}
-            </div>
-            <div className="w-10 h-10 rounded-full bg-indigo-100 flex items-center justify-center">
-              <span className="text-indigo-600 text-lg">👤</span>
-            </div>
-            <button
-              onClick={handleLogout}
-              className="px-4 py-2 text-sm font-medium text-white bg-red-600 rounded-lg hover:bg-red-700 transition-colors"
-            >
-              Đăng xuất
-            </button>
+    <aside className="fixed left-0 top-0 h-screen w-64 bg-gray-100 flex flex-col shadow-lg z-50">
+      {/* Logo Section */}
+      <div className="p-4 border-b border-gray-200">
+        <div className="flex items-center gap-3">
+          <Image
+            src="/Logo.png"
+            alt="Logo"
+            width={40}
+            height={40}
+            className="rounded"
+          />
+          <div>
+            <h1 className="text-lg font-bold text-gray-900">OCOP Gia Lai</h1>
+            <p className="text-xs text-gray-500">Hệ thống Quản trị</p>
           </div>
         </div>
+      </div>
 
-        {/* Navigation Tabs */}
-        <div className="flex flex-wrap">
+      {/* User Profile Section */}
+      <div className="p-4 border-b border-gray-200">
+        <div className="flex flex-col items-center">
+          <div className="w-16 h-16 rounded-full bg-indigo-100 flex items-center justify-center mb-2">
+            <span className="text-2xl">👤</span>
+          </div>
+          <p className="text-sm font-semibold text-gray-900">{userName}</p>
+          <div className="flex gap-1 mt-2">
+            <div className="w-2 h-2 rounded-full bg-gray-300"></div>
+            <div className="w-2 h-2 rounded-full bg-gray-300"></div>
+            <div className="w-2 h-2 rounded-full bg-gray-300"></div>
+          </div>
+        </div>
+      </div>
+
+      {/* Navigation Menu */}
+      <div className="flex-1 overflow-y-auto py-4">
+        <div className="px-2">
+          <p className="text-xs font-semibold text-gray-500 uppercase px-3 mb-2">CHÍNH</p>
           {visibleTabs.map((tab) => (
             <button
               key={tab.id}
               onClick={() => onTabChange(tab.id)}
-              className={`px-6 py-4 text-sm font-medium transition-all border-b-2 ${activeTab === tab.id
-                ? 'border-indigo-600 text-indigo-600 bg-indigo-50'
-                : 'border-transparent text-gray-600 hover:text-gray-900 hover:bg-gray-50'
-                }`}
+              className={`w-full flex items-center justify-between px-3 py-2.5 mb-1 rounded-lg transition-all ${
+                activeTab === tab.id
+                  ? 'bg-blue-600 text-white shadow-md'
+                  : 'text-gray-700 hover:bg-gray-200'
+              }`}
             >
-              <span className="mr-2 text-base">{tab.icon}</span>
-              {tab.label}
+              <div className="flex items-center gap-3">
+                <span className="text-lg">{tab.icon}</span>
+                <span className="text-sm font-medium">{tab.label}</span>
+              </div>
+              <svg
+                className={`w-4 h-4 ${activeTab === tab.id ? 'text-white' : 'text-gray-400'}`}
+                fill="none"
+                stroke="currentColor"
+                viewBox="0 0 24 24"
+              >
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+              </svg>
             </button>
           ))}
         </div>
       </div>
-    </header>
+
+      {/* Bottom Actions */}
+      <div className="p-4 border-t border-gray-200 flex justify-center gap-4">
+        <button
+          className="w-10 h-10 rounded-lg bg-gray-200 hover:bg-gray-300 flex items-center justify-center transition-colors"
+          title="Cài đặt"
+        >
+          <svg className="w-5 h-5 text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" />
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+          </svg>
+        </button>
+        <button
+          className="w-10 h-10 rounded-lg bg-gray-200 hover:bg-gray-300 flex items-center justify-center transition-colors"
+          title="Hồ sơ"
+        >
+          <svg className="w-5 h-5 text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
+          </svg>
+        </button>
+        <button
+          onClick={handleLogout}
+          className="w-10 h-10 rounded-lg bg-gray-200 hover:bg-red-500 hover:text-white flex items-center justify-center transition-colors"
+          title="Đăng xuất"
+        >
+          <svg className="w-5 h-5 text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />
+          </svg>
+        </button>
+      </div>
+    </aside>
   )
 }
 

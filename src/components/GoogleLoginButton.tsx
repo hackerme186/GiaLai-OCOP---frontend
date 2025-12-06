@@ -31,7 +31,15 @@ export default function GoogleLoginButton({ onError }: GoogleLoginButtonProps) {
   const buttonRef = useRef<HTMLDivElement>(null)
   const GOOGLE_CLIENT_ID = process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID || ""
 
-  const handleGoogleSuccess = useCallback(async (credentialResponse: any) => {
+
+  if (!GOOGLE_CLIENT_ID) {
+    console.warn("⚠️ [GoogleLogin] NEXT_PUBLIC_GOOGLE_CLIENT_ID chưa được cấu hình")
+    return null
+  }
+
+
+  const handleGoogleSuccess = async (credentialResponse: any) => {
+ main
     if (!credentialResponse.credential) {
       console.error("❌ [GoogleLogin] Không nhận được credential từ Google")
       onError?.("Đăng nhập Google thất bại. Vui lòng thử lại.")
