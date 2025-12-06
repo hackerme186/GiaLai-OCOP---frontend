@@ -315,6 +315,7 @@ export default function OrderManagementTab({ user }: OrderManagementTabProps) {
         </div>
       )}
 
+
       {/* Header & Filters */}
       <div className="bg-gradient-to-r from-blue-600 via-indigo-600 to-purple-600 rounded-2xl shadow-xl p-8 text-white">
         <div className="mb-6 flex items-center justify-between">
@@ -325,6 +326,7 @@ export default function OrderManagementTab({ user }: OrderManagementTabProps) {
           <button
             onClick={exportOrdersToExcel}
             className="px-6 py-3 bg-white/20 backdrop-blur-sm text-white rounded-xl font-semibold hover:bg-white/30 transition-all shadow-lg hover:shadow-xl transform hover:-translate-y-0.5 flex items-center gap-2"
+
           >
             <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
@@ -332,6 +334,10 @@ export default function OrderManagementTab({ user }: OrderManagementTabProps) {
             Xuất Excel
           </button>
         </div>
+      </div>
+
+      {/* Filters Section */}
+      <div className="bg-white rounded-xl shadow-lg p-6">
 
         {/* Status Filters */}
         <div className="flex flex-wrap gap-2">
@@ -346,10 +352,12 @@ export default function OrderManagementTab({ user }: OrderManagementTabProps) {
             <button
               key={tab.id}
               onClick={() => setFilter(tab.id)}
+
               className={`px-5 py-2.5 rounded-lg font-medium text-sm transition-all ${
                 filter === tab.id
                   ? "bg-white text-blue-700 shadow-lg"
                   : "bg-white/10 text-white hover:bg-white/20"
+
               }`}
             >
               {tab.label}
@@ -385,7 +393,9 @@ export default function OrderManagementTab({ user }: OrderManagementTabProps) {
             const nextStatus = getNextStatus(order.status || "")
 
             return (
+
               <div key={order.id} className="bg-white rounded-2xl shadow-lg overflow-hidden hover:shadow-2xl transition-all duration-300 transform hover:-translate-y-1 border border-gray-100">
+
                 {/* Order Header */}
                 <div className="bg-gradient-to-r from-gray-50 to-gray-100 border-b border-gray-200 px-6 py-4 flex items-center justify-between">
                   <div className="flex items-center gap-4">

@@ -88,20 +88,32 @@ export function needsSpecialAttributes(url: string | null | undefined): boolean 
 
 /**
  * Lấy các thuộc tính cần thiết cho Image component để giảm tracking prevention warnings
+ * Luôn dùng unoptimized cho Cloudinary để tránh timeout
  */
 export function getImageAttributes(url: string | null | undefined): {
   unoptimized?: boolean
   crossOrigin?: 'anonymous' | 'use-credentials'
   referrerPolicy?: 'no-referrer' | 'no-referrer-when-downgrade' | 'origin' | 'origin-when-cross-origin' | 'same-origin' | 'strict-origin' | 'strict-origin-when-cross-origin' | 'unsafe-url'
+  loading?: 'lazy' | 'eager'
 } {
-  if (!needsSpecialAttributes(url)) {
-    return {}
+  // Luôn dùng unoptimized cho Cloudinary để tránh timeout
+  if (isCloudinaryUrl(url)) {
+    return {
+      unoptimized: true,
+      crossOrigin: 'anonymous',
+      referrerPolicy: 'no-referrer',
+      loading: 'lazy', // Lazy load để giảm tải
+    }
   }
 
-  return {
-    unoptimized: true,
-    crossOrigin: 'anonymous',
-    referrerPolicy: 'no-referrer',
+  if (isBackendUrl(url)) {
+    return {
+      unoptimized: true,
+      crossOrigin: 'anonymous',
+      referrerPolicy: 'no-referrer',
+    }
   }
+
+  return {}
 }
 

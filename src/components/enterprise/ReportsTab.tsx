@@ -108,33 +108,37 @@ export default function ReportsTab({ user }: ReportsTabProps) {
 
       {/* Key Metrics */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-        <div className="bg-gradient-to-br from-green-600 to-emerald-600 rounded-xl shadow-lg p-6 text-white">
+        <div className="bg-gradient-to-br from-green-600 to-emerald-600 rounded-2xl shadow-lg p-6 text-white hover:shadow-2xl transition-all duration-300 transform hover:-translate-y-2">
           <div className="flex items-center justify-between mb-4">
-            <div className="w-12 h-12 bg-white bg-opacity-20 rounded-lg flex items-center justify-center">
-              <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <div className="w-14 h-14 bg-white bg-opacity-20 rounded-xl flex items-center justify-center backdrop-blur-sm">
+              <svg className="w-7 h-7" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
               </svg>
             </div>
-            <span className="text-3xl font-bold">{stats.totalRevenue.toLocaleString("vi-VN")}₫</span>
           </div>
-          <h3 className="text-lg font-semibold">Tổng doanh thu</h3>
-          <p className="text-sm text-green-100 mt-1">Từ {stats.ordersByStatus.Completed} đơn hoàn thành</p>
+          <div className="space-y-2">
+            <p className="text-sm font-semibold text-white/90 uppercase tracking-wide">Tổng doanh thu</p>
+            <p className="text-4xl font-bold leading-tight">{stats.totalRevenue.toLocaleString("vi-VN")}₫</p>
+            <p className="text-sm text-green-100 mt-2 pt-2 border-t border-white/20">Từ {stats.ordersByStatus.Completed} đơn hoàn thành</p>
+          </div>
         </div>
 
-        <div className="bg-white rounded-xl shadow-lg p-6 border-l-4 border-blue-600">
+        <div className="bg-white rounded-2xl shadow-lg p-6 border-2 border-blue-200 hover:shadow-2xl transition-all duration-300 transform hover:-translate-y-2">
           <div className="flex items-center justify-between mb-4">
-            <div className="w-12 h-12 bg-blue-100 rounded-lg flex items-center justify-center">
-              <svg className="w-6 h-6 text-blue-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <div className="w-14 h-14 rounded-xl bg-gradient-to-br from-blue-50 to-blue-100 flex items-center justify-center shadow-md">
+              <svg className="w-7 h-7 text-blue-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" />
               </svg>
             </div>
-            <span className="text-4xl font-bold text-blue-600">{stats.totalOrders}</span>
           </div>
-          <h3 className="text-lg font-semibold text-gray-900">Tổng đơn hàng</h3>
-          <p className="text-sm text-gray-600 mt-1">Tất cả các đơn hàng</p>
+          <div className="space-y-2">
+            <p className="text-sm font-semibold text-blue-600 uppercase tracking-wide">Tổng đơn hàng</p>
+            <p className="text-4xl font-bold text-blue-900 leading-tight">{stats.totalOrders}</p>
+            <p className="text-sm text-gray-600 mt-2 pt-2 border-t border-gray-200">Tất cả các đơn hàng</p>
+          </div>
         </div>
 
-        <div className="bg-white rounded-xl shadow-lg p-6 border-l-4 border-purple-600">
+        <div className="bg-white rounded-2xl shadow-lg p-6 border-2 border-purple-200 hover:shadow-2xl transition-all duration-300 transform hover:-translate-y-2">
           <div className="flex items-center justify-between mb-4">
             <div className="w-12 h-12 bg-purple-100 rounded-lg flex items-center justify-center">
               <svg className="w-6 h-6 text-purple-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -149,16 +153,23 @@ export default function ReportsTab({ user }: ReportsTabProps) {
       </div>
 
       {/* Orders by Status */}
-      <div className="bg-white rounded-xl shadow-lg p-6">
-        <h3 className="text-xl font-bold text-gray-900 mb-4">Đơn hàng theo trạng thái</h3>
+      <div className="bg-white rounded-2xl shadow-lg p-8 border-2 border-gray-200 hover:shadow-2xl transition-all duration-300">
+        <div className="flex items-center gap-3 mb-6">
+          <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-green-500 to-green-600 flex items-center justify-center shadow-lg">
+            <svg className="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" />
+            </svg>
+          </div>
+          <h3 className="text-2xl font-bold text-gray-900">Đơn hàng theo trạng thái</h3>
+        </div>
         <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
           {Object.entries(stats.ordersByStatus).map(([status, count]) => {
-            const colors: Record<string, string> = {
-              Pending: "bg-orange-100 text-orange-700 border-orange-200",
-              Processing: "bg-blue-100 text-blue-700 border-blue-200",
-              Shipped: "bg-purple-100 text-purple-700 border-purple-200",
-              Completed: "bg-green-100 text-green-700 border-green-200",
-              Cancelled: "bg-gray-100 text-gray-700 border-gray-200",
+            const colors: Record<string, { bg: string; text: string; border: string; icon: string }> = {
+              Pending: { bg: "from-orange-50 to-amber-50", text: "text-orange-600", border: "border-orange-200", icon: "⏳" },
+              Processing: { bg: "from-blue-50 to-indigo-50", text: "text-blue-600", border: "border-blue-200", icon: "⚙️" },
+              Shipped: { bg: "from-purple-50 to-violet-50", text: "text-purple-600", border: "border-purple-200", icon: "🚚" },
+              Completed: { bg: "from-green-50 to-emerald-50", text: "text-green-600", border: "border-green-200", icon: "✅" },
+              Cancelled: { bg: "from-red-50 to-rose-50", text: "text-red-600", border: "border-red-200", icon: "❌" },
             }
             const labels: Record<string, string> = {
               Pending: "Chờ xác nhận",
@@ -169,9 +180,12 @@ export default function ReportsTab({ user }: ReportsTabProps) {
             }
             
             return (
-              <div key={status} className={`p-4 rounded-lg border-2 ${colors[status]}`}>
-                <div className="text-3xl font-bold mb-2">{count}</div>
-                <div className="text-sm font-semibold">{labels[status]}</div>
+              <div key={status} className={`p-5 rounded-xl border-2 ${colors[status].border} bg-gradient-to-br ${colors[status].bg} hover:shadow-lg transition-all duration-300 transform hover:-translate-y-1`}>
+                <div className="flex items-center gap-2 mb-3">
+                  <span className="text-2xl">{colors[status].icon}</span>
+                  <div className={`text-3xl font-bold ${colors[status].text}`}>{count}</div>
+                </div>
+                <div className={`text-sm font-semibold ${colors[status].text}`}>{labels[status]}</div>
               </div>
             )
           })}
@@ -180,28 +194,35 @@ export default function ReportsTab({ user }: ReportsTabProps) {
 
       {/* Top Selling Products */}
       {stats.topProducts.length > 0 && (
-        <div className="bg-white rounded-xl shadow-lg p-6">
-          <h3 className="text-xl font-bold text-gray-900 mb-4">Sản phẩm bán chạy</h3>
+        <div className="bg-white rounded-2xl shadow-lg p-8 border-2 border-gray-200 hover:shadow-2xl transition-all duration-300">
+          <div className="flex items-center gap-3 mb-6">
+            <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-yellow-500 to-orange-500 flex items-center justify-center shadow-lg">
+              <svg className="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 3v4M3 5h4M6 17v4m-2-2h4m5-16l2.286 6.857L21 12l-5.714 2.143L13 21l-2.286-6.857L5 12l5.714-2.143L13 3z" />
+              </svg>
+            </div>
+            <h3 className="text-2xl font-bold text-gray-900">Sản phẩm bán chạy</h3>
+          </div>
           <div className="space-y-3">
             {stats.topProducts.map((item, index) => (
-              <div key={item.product.id} className="flex items-center gap-4 p-4 bg-gray-50 rounded-lg hover:bg-gray-100 transition-colors">
-                <div className={`w-10 h-10 rounded-full flex items-center justify-center font-bold text-lg ${
-                  index === 0 ? "bg-yellow-100 text-yellow-700" :
-                  index === 1 ? "bg-gray-100 text-gray-700" :
-                  index === 2 ? "bg-orange-100 text-orange-700" :
-                  "bg-gray-50 text-gray-600"
+              <div key={item.product.id} className="flex items-center gap-4 p-5 bg-gradient-to-r from-gray-50 to-gray-100 rounded-xl hover:shadow-lg transition-all duration-300 transform hover:-translate-y-1 border-2 border-gray-200">
+                <div className={`w-12 h-12 rounded-xl flex items-center justify-center font-bold text-lg shadow-md ${
+                  index === 0 ? "bg-gradient-to-br from-yellow-400 to-yellow-500 text-white" :
+                  index === 1 ? "bg-gradient-to-br from-gray-300 to-gray-400 text-white" :
+                  index === 2 ? "bg-gradient-to-br from-orange-400 to-orange-500 text-white" :
+                  "bg-gradient-to-br from-gray-200 to-gray-300 text-gray-700"
                 }`}>
                   {index + 1}
                 </div>
                 <div className="flex-1">
-                  <h4 className="font-semibold text-gray-900">{item.product.name || `Sản phẩm #${item.product.id}`}</h4>
-                  <div className="flex items-center gap-4 mt-1 text-sm text-gray-600">
-                    <span>Đã bán: <strong>{item.totalSold}</strong></span>
-                    <span>Doanh thu: <strong className="text-green-600">{item.revenue.toLocaleString("vi-VN")}₫</strong></span>
+                  <h4 className="font-semibold text-gray-900 text-lg mb-1">{item.product.name || `Sản phẩm #${item.product.id}`}</h4>
+                  <div className="flex items-center gap-4 text-sm">
+                    <span className="text-gray-600">Đã bán: <strong className="text-blue-600">{item.totalSold}</strong></span>
+                    <span className="text-gray-600">Doanh thu: <strong className="text-green-600 font-bold">{item.revenue.toLocaleString("vi-VN")}₫</strong></span>
                   </div>
                 </div>
                 {index < 3 && (
-                  <div className="text-2xl">
+                  <div className="text-3xl">
                     {index === 0 ? "🥇" : index === 1 ? "🥈" : "🥉"}
                   </div>
                 )}
@@ -212,7 +233,7 @@ export default function ReportsTab({ user }: ReportsTabProps) {
       )}
 
       {/* Info */}
-      <div className="bg-blue-50 border-2 border-blue-200 rounded-xl p-6">
+      <div className="bg-gradient-to-r from-blue-50 to-indigo-50 border-2 border-blue-200 rounded-2xl p-6 hover:shadow-lg transition-all duration-300">
         <div className="flex items-start gap-4">
           <div className="w-10 h-10 bg-blue-100 rounded-lg flex items-center justify-center flex-shrink-0">
             <svg className="w-5 h-5 text-blue-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">

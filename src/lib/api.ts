@@ -644,6 +644,45 @@ export async function login(payload: LoginPayload): Promise<AuthResponse> {
   }
 }
 
+// Social Login
+export interface FacebookLoginPayload {
+  accessToken: string;
+}
+
+export interface GoogleLoginPayload {
+  idToken: string;
+}
+
+export async function loginWithFacebook(payload: FacebookLoginPayload): Promise<AuthResponse> {
+  console.log("🌐 [API] Facebook login request:", { url: `${API_BASE_URL}/auth/facebook` });
+  try {
+    const result = await request<AuthResponse>("/auth/facebook", {
+      method: "POST",
+      json: { accessToken: payload.accessToken },
+    });
+    console.log("🌐 [API] Facebook login response:", result);
+    return result;
+  } catch (error) {
+    console.error("🌐 [API] Facebook login error:", error);
+    throw error;
+  }
+}
+
+export async function loginWithGoogle(payload: GoogleLoginPayload): Promise<AuthResponse> {
+  console.log("🌐 [API] Google login request:", { url: `${API_BASE_URL}/auth/google` });
+  try {
+    const result = await request<AuthResponse>("/auth/google", {
+      method: "POST",
+      json: { idToken: payload.idToken },
+    });
+    console.log("🌐 [API] Google login response:", result);
+    return result;
+  } catch (error) {
+    console.error("🌐 [API] Google login error:", error);
+    throw error;
+  }
+}
+
 // OTP Login
 export interface SendOtpDto {
   email: string;
@@ -712,50 +751,6 @@ export async function verifyEmail(payload: VerifyOtpDto): Promise<{ message: str
     method: "POST",
     json: payload,
   });
-}
-
-// Social Login
-export interface GoogleLoginDto {
-  idToken: string;
-}
-
-export interface FacebookLoginDto {
-  accessToken: string;
-}
-
-export interface SocialLoginResponse extends AuthResponse {
-  user?: User;
-  expires?: string;
-}
-
-export async function loginWithGoogle(payload: GoogleLoginDto): Promise<SocialLoginResponse> {
-  console.log("🌐 [API] Google login request:", { url: `${API_BASE_URL}/auth/google` });
-  try {
-    const result = await request<SocialLoginResponse>("/auth/google", {
-      method: "POST",
-      json: payload,
-    });
-    console.log("🌐 [API] Google login response:", result);
-    return result;
-  } catch (error) {
-    console.error("🌐 [API] Google login error:", error);
-    throw error;
-  }
-}
-
-export async function loginWithFacebook(payload: FacebookLoginDto): Promise<SocialLoginResponse> {
-  console.log("🌐 [API] Facebook login request:", { url: `${API_BASE_URL}/auth/facebook` });
-  try {
-    const result = await request<SocialLoginResponse>("/auth/facebook", {
-      method: "POST",
-      json: payload,
-    });
-    console.log("🌐 [API] Facebook login response:", result);
-    return result;
-  } catch (error) {
-    console.error("🌐 [API] Facebook login error:", error);
-    throw error;
-  }
 }
 
 // ------ USERS ------
