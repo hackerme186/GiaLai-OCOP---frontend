@@ -79,12 +79,10 @@ export default function FacebookLoginButton({ onError }: FacebookLoginButtonProp
     return null
   }
 
-
-
-  const handleFacebookResponse = async (response: any) => {
-    if (!response.accessToken) {
-      console.log("❌ [FacebookLogin] User cancelled login or did not fully authorize")
-
+  const handleFacebookClick = () => {
+    if (!window.FB) {
+      console.error("❌ [FacebookLogin] Facebook SDK chưa được tải")
+      onError?.("Facebook SDK chưa sẵn sàng. Vui lòng thử lại sau.")
       return
     }
 

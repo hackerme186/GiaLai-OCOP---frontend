@@ -39,7 +39,6 @@ export default function GoogleLoginButton({ onError }: GoogleLoginButtonProps) {
 
 
   const handleGoogleSuccess = async (credentialResponse: any) => {
- main
     if (!credentialResponse.credential) {
       console.error("❌ [GoogleLogin] Không nhận được credential từ Google")
       onError?.("Đăng nhập Google thất bại. Vui lòng thử lại.")
@@ -151,7 +150,7 @@ export default function GoogleLoginButton({ onError }: GoogleLoginButtonProps) {
     } finally {
       setIsLoading(false)
     }
-  }, [router, onError])
+  }
 
   // Load Google Identity Services SDK
   useEffect(() => {

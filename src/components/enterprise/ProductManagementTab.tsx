@@ -373,10 +373,9 @@ export default function ProductManagementTab({ user }: ProductManagementTabProps
         </div>
       </div>
 
-
-        {/* Filter Tabs */}
+      {/* Filter Tabs */}
+      <div className="bg-white rounded-xl shadow-lg p-6">
         <div className="flex gap-2 flex-wrap">
-
           {[
             { id: "all" as const, label: "Tất cả" },
             { id: "Approved" as const, label: "Đã duyệt" },
@@ -388,8 +387,8 @@ export default function ProductManagementTab({ user }: ProductManagementTabProps
               onClick={() => setFilter(tab.id)}
               className={`px-5 py-2.5 font-medium text-sm rounded-lg transition-all ${
                 filter === tab.id
-                  ? "bg-white text-green-700 shadow-lg"
-                  : "bg-white/10 text-white hover:bg-white/20"
+                  ? "bg-green-600 text-white shadow-lg"
+                  : "bg-gray-100 text-gray-700 hover:bg-gray-200"
               }`}
             >
               {tab.label} ({tab.id === "all" ? products.length : products.filter(p => p.status === tab.id).length})
