@@ -20,6 +20,7 @@ export default function GoogleLoginButton({ onError }: GoogleLoginButtonProps) {
     return null
   }
 
+
   const handleGoogleSuccess = async (credentialResponse: any) => {
     if (!credentialResponse.credential) {
       console.error("❌ [GoogleLogin] Không nhận được credential từ Google")

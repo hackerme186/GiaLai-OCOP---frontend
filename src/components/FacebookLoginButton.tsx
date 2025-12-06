@@ -20,6 +20,7 @@ export default function FacebookLoginButton({ onError }: FacebookLoginButtonProp
     return null
   }
 
+
   const handleFacebookResponse = async (response: any) => {
     if (!response.accessToken) {
       console.log("❌ [FacebookLogin] User cancelled login or did not fully authorize")
@@ -86,11 +87,11 @@ export default function FacebookLoginButton({ onError }: FacebookLoginButtonProp
       // Check roles
       const isSystemAdmin = norm === 'systemadmin' || norm === 'sysadmin'
       const isEnterpriseAdmin = norm === 'enterpriseadmin'
-      const isAdmin = isSystemAdmin || 
-                     norm === 'admin' || 
-                     norm === 'administrator' || 
-                     norm === 'role_admin' || 
-                     norm === 'admin_role'
+      const isAdmin = isSystemAdmin ||
+        norm === 'admin' ||
+        norm === 'administrator' ||
+        norm === 'role_admin' ||
+        norm === 'admin_role'
 
       // Get user profile
       try {
