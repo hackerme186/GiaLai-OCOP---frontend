@@ -51,15 +51,19 @@ export default function OcopStatusTab({ user }: OcopStatusTabProps) {
 
   return (
     <div className="space-y-6">
+
       {/* Header */}
       <div className="bg-gradient-to-r from-yellow-500 via-amber-500 to-orange-500 rounded-2xl shadow-xl p-8 text-white">
         <h2 className="text-3xl font-bold mb-2 drop-shadow-lg">⭐ Trạng thái OCOP</h2>
         <p className="text-yellow-100 text-lg">Theo dõi trạng thái duyệt sản phẩm OCOP của doanh nghiệp</p>
+
       </div>
 
       {/* Status Cards */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+
         <div className="bg-gradient-to-br from-green-50 to-emerald-100 rounded-2xl shadow-lg p-6 border-2 border-green-200 hover:shadow-xl transition-all transform hover:-translate-y-1">
+
           <div className="flex items-center justify-between mb-4">
             <div className="w-14 h-14 bg-gradient-to-br from-green-500 to-emerald-600 rounded-xl flex items-center justify-center shadow-lg">
               <svg className="w-7 h-7 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -72,7 +76,9 @@ export default function OcopStatusTab({ user }: OcopStatusTabProps) {
           <p className="text-sm text-gray-600 font-medium">Sản phẩm đã được phê duyệt</p>
         </div>
 
+
         <div className="bg-gradient-to-br from-yellow-50 to-amber-100 rounded-2xl shadow-lg p-6 border-2 border-yellow-200 hover:shadow-xl transition-all transform hover:-translate-y-1">
+
           <div className="flex items-center justify-between mb-4">
             <div className="w-14 h-14 bg-gradient-to-br from-yellow-500 to-amber-600 rounded-xl flex items-center justify-center shadow-lg">
               <svg className="w-7 h-7 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -85,7 +91,9 @@ export default function OcopStatusTab({ user }: OcopStatusTabProps) {
           <p className="text-sm text-gray-600 font-medium">Đang chờ quản trị viên xét duyệt</p>
         </div>
 
+
         <div className="bg-gradient-to-br from-red-50 to-rose-100 rounded-2xl shadow-lg p-6 border-2 border-red-200 hover:shadow-xl transition-all transform hover:-translate-y-1">
+
           <div className="flex items-center justify-between mb-4">
             <div className="w-14 h-14 bg-gradient-to-br from-red-500 to-rose-600 rounded-xl flex items-center justify-center shadow-lg">
               <svg className="w-7 h-7 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">

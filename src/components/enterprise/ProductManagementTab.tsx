@@ -352,6 +352,7 @@ export default function ProductManagementTab({ user }: ProductManagementTabProps
         </div>
       )}
 
+
       {/* Header */}
       <div className="bg-gradient-to-r from-green-600 via-emerald-600 to-teal-600 rounded-2xl shadow-xl p-8 text-white">
         <div className="flex items-center justify-between mb-6">
@@ -362,6 +363,7 @@ export default function ProductManagementTab({ user }: ProductManagementTabProps
           <button
             onClick={handleCreate}
             className="px-6 py-3 bg-white/20 backdrop-blur-sm text-white rounded-xl font-semibold hover:bg-white/30 transition-all shadow-lg hover:shadow-xl transform hover:-translate-y-0.5 flex items-center gap-2"
+
           >
             <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
@@ -369,9 +371,12 @@ export default function ProductManagementTab({ user }: ProductManagementTabProps
             Tạo sản phẩm mới
           </button>
         </div>
+      </div>
+
 
         {/* Filter Tabs */}
         <div className="flex gap-2 flex-wrap">
+
           {[
             { id: "all" as const, label: "Tất cả" },
             { id: "Approved" as const, label: "Đã duyệt" },
@@ -420,7 +425,9 @@ export default function ProductManagementTab({ user }: ProductManagementTabProps
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
           {filteredProducts.map((product) => (
+
             <div key={product.id} className="bg-white rounded-2xl shadow-lg overflow-hidden hover:shadow-2xl transition-all duration-300 transform hover:-translate-y-2 border border-gray-100 group">
+
               {/* Product Image */}
               <div className="relative h-48 bg-gradient-to-br from-gray-100 to-gray-200 overflow-hidden">
                 <Image

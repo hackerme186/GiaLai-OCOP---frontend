@@ -126,6 +126,7 @@ export default function InventoryTab({ user }: InventoryTabProps) {
 
   return (
     <div className="space-y-6">
+
       {/* Header */}
       <div className="bg-gradient-to-r from-purple-600 via-pink-600 to-rose-600 rounded-2xl shadow-xl p-8 text-white">
         <h2 className="text-3xl font-bold mb-2 drop-shadow-lg">📚 Quản lý kho</h2>
@@ -138,10 +139,12 @@ export default function InventoryTab({ user }: InventoryTabProps) {
           <div className="flex items-center justify-between mb-3">
             <div className="w-12 h-12 bg-blue-500 rounded-xl flex items-center justify-center shadow-md">
               <svg className="w-6 h-6 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4" />
               </svg>
             </div>
           </div>
+
           <div className="text-4xl font-bold text-blue-700 mb-2">
             {products.filter(p => p.stockStatus === "InStock").length}
           </div>
@@ -166,10 +169,12 @@ export default function InventoryTab({ user }: InventoryTabProps) {
           <div className="flex items-center justify-between mb-3">
             <div className="w-12 h-12 bg-yellow-500 rounded-xl flex items-center justify-center shadow-md">
               <svg className="w-6 h-6 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L3.732 16.5c-.77.833.192 2.5 1.732 2.5z" />
               </svg>
             </div>
           </div>
+
           <div className="text-4xl font-bold text-yellow-700 mb-2">
             {lowStockProducts.length}
           </div>
@@ -180,14 +185,17 @@ export default function InventoryTab({ user }: InventoryTabProps) {
           <div className="flex items-center justify-between mb-3">
             <div className="w-12 h-12 bg-red-500 rounded-xl flex items-center justify-center shadow-md">
               <svg className="w-6 h-6 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
               </svg>
             </div>
           </div>
+
           <div className="text-4xl font-bold text-red-700 mb-2">
             {outOfStockProducts.length}
           </div>
           <div className="text-sm font-semibold text-red-600">Hết hàng</div>
+
         </div>
       </div>
 
@@ -222,7 +230,7 @@ export default function InventoryTab({ user }: InventoryTabProps) {
       )}
 
       {/* Products Table */}
-      <div className="bg-white rounded-xl shadow-lg overflow-hidden">
+      <div className="bg-white rounded-2xl shadow-lg overflow-hidden border-2 border-gray-200">
         <div className="p-6 border-b border-gray-200">
           <div className="flex items-center justify-between">
             <h3 className="text-xl font-bold text-gray-900">Danh sách sản phẩm</h3>
@@ -316,7 +324,7 @@ export default function InventoryTab({ user }: InventoryTabProps) {
       </div>
 
       {/* Inventory History */}
-      <div className="bg-white rounded-xl shadow-lg p-6">
+      <div className="bg-white rounded-2xl shadow-lg p-6 border-2 border-gray-200">
         <h3 className="text-xl font-bold text-gray-900 mb-4">Lịch sử thay đổi tồn kho</h3>
         {loadingHistory ? (
           <div className="text-center py-8">
