@@ -3,8 +3,15 @@
 import { useEffect, useState, useMemo } from "react"
 import { useRouter } from "next/navigation"
 
-import { getCurrentUser, getReportSummary, type ReportSummary } from "@/lib/api"
-import { getAuthToken, getRoleFromToken } from "@/lib/auth"
+import {
+  getCurrentUser,
+  getReportSummary,
+  getNotifications,
+  type ReportSummary,
+  type User,
+  type Notification
+} from "@/lib/api"
+import { getAuthToken, getRoleFromToken, logout } from "@/lib/auth"
 import AdminHeader, { type TabType } from "@/components/admin/AdminHeader"
 import { PieChart as RechartsPieChart, Pie, Cell, ResponsiveContainer, Legend } from "recharts"
 
@@ -57,7 +64,7 @@ export default function AdminPage() {
   }), [])
 
   const roleNormalized = (user?.role || "").toLowerCase()
-  
+
   // For SystemAdmin, show all tabs. For others, filter based on role
   const visibleTabs = useMemo(() => {
     // If user is not loaded yet, show all tabs (will be filtered after user loads)

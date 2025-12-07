@@ -86,20 +86,43 @@ export default function FacebookLoginButton({ onError }: FacebookLoginButtonProp
       return
     }
 
+    // Check if running on HTTPS (Facebook requires HTTPS except for localhost)
+    if (typeof window !== "undefined") {
+      const isLocalhost = window.location.hostname === "localhost" || 
+                         window.location.hostname === "127.0.0.1" ||
+                         window.location.hostname.startsWith("192.168.") ||
+                         window.location.hostname.startsWith("10.")
+      
+      if (window.location.protocol !== "https:" && !isLocalhost) {
+        onError?.("Facebook login yêu cầu HTTPS. Vui lòng truy cập qua HTTPS hoặc sử dụng localhost.")
+        return
+      }
+    }
+
     setIsLoading(true)
     console.log("🔐 [FacebookLogin] Bắt đầu đăng nhập với Facebook...")
 
-    window.FB.login(
-      async (response: any) => {
-        if (response.authResponse && response.authResponse.accessToken) {
-          await handleFacebookResponse(response.authResponse.accessToken)
-        } else {
-          console.log("❌ [FacebookLogin] User cancelled login or did not fully authorize")
-          setIsLoading(false)
-        }
-      },
-      { scope: "email,public_profile" }
-    )
+    try {
+      window.FB.login(
+        (response: any) => {
+          if (response.authResponse && response.authResponse.accessToken) {
+            // Call async function without await (it will handle its own errors)
+            handleFacebookResponse(response.authResponse.accessToken).catch((err) => {
+              console.error("❌ [FacebookLogin] Error in handleFacebookResponse:", err)
+              setIsLoading(false)
+            })
+          } else {
+            console.log("❌ [FacebookLogin] User cancelled login or did not fully authorize")
+            setIsLoading(false)
+          }
+        },
+        { scope: "email,public_profile" }
+      )
+    } catch (error) {
+      console.error("❌ [FacebookLogin] Error calling FB.login:", error)
+      onError?.("Không thể khởi động Facebook login. Vui lòng đảm bảo bạn đang sử dụng HTTPS.")
+      setIsLoading(false)
+    }
   }
 
   const handleFacebookResponse = async (accessToken: string) => {
@@ -214,7 +237,7 @@ export default function FacebookLoginButton({ onError }: FacebookLoginButtonProp
         type="button"
         onClick={handleFacebookClick}
         disabled={isLoading || !isSDKLoaded}
-        className="facebook-login-button"
+        className="w-full flex items-center justify-center gap-3 px-4 py-3 bg-blue-600 text-white rounded-lg font-semibold hover:bg-blue-700 transition-colors disabled:opacity-60 disabled:cursor-not-allowed border border-blue-700 shadow-sm hover:shadow-md"
       >
         <svg
           width="20"
@@ -228,55 +251,8 @@ export default function FacebookLoginButton({ onError }: FacebookLoginButtonProp
         <span>Facebook</span>
       </button>
       {isLoading && (
-        <p className="text-center text-sm text-white/90 mt-2">Đang xử lý...</p>
+        <p className="text-center text-sm text-white/80 mt-2 animate-pulse">Đang xử lý...</p>
       )}
-      <style jsx global>{`
-        .facebook-login-button {
-          width: 100% !important;
-          min-width: 0 !important;
-          max-width: 100% !important;
-          display: flex !important;
-          align-items: center !important;
-          justify-content: flex-start !important;
-          gap: 10px !important;
-          padding: 14px 16px !important;
-          min-height: 48px !important;
-          height: 48px !important;
-          max-height: 48px !important;
-          border-radius: 0.5rem !important;
-          border: none !important;
-          background: #1877f2 !important;
-          color: white !important;
-          font-weight: 600 !important;
-          font-size: 15px !important;
-          cursor: pointer !important;
-          box-shadow: 0 4px 12px rgba(24, 119, 242, 0.3) !important;
-          transition: all 0.2s ease !important;
-          box-sizing: border-box !important;
-        }
-        .facebook-login-button:hover:not(:disabled) {
-          background-color: #166fe5 !important;
-          box-shadow: 0 6px 16px rgba(24, 119, 242, 0.4) !important;
-          transform: translateY(-1px) !important;
-        }
-        .facebook-login-button:active:not(:disabled) {
-          transform: translateY(0) !important;
-        }
-        .facebook-login-button:disabled {
-          opacity: 0.6 !important;
-          cursor: not-allowed !important;
-        }
-        .facebook-login-button:focus {
-          outline: none !important;
-          box-shadow: 0 0 0 3px rgba(24, 119, 242, 0.3) !important;
-        }
-        .facebook-login-button svg,
-        .facebook-login-button .fa-facebook {
-          flex-shrink: 0 !important;
-          width: 20px !important;
-          height: 20px !important;
-        }
-      `}</style>
     </div>
   )
 }

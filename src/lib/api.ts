@@ -1,10 +1,13 @@
 // Backend API Integration for GiaLai OCOP
-// Backend API runs at: https://gialai-ocop-be.onrender.com/api (production)
-// Or https://localhost:5001/api (local development)
+// API URL được lấy từ environment variable:
+// - Local: .env.local → NEXT_PUBLIC_API_BASE=http://localhost:5003/api
+// - Production: .env.production → NEXT_PUBLIC_API_BASE=https://gialai-ocop-be.onrender.com/api
+// Hoặc set trực tiếp trên hosting platform (Render, Vercel, etc.)
 import { getAuthToken, getClaimsFromJwt } from "@/lib/auth"
 
-// API Base URL - có thể override qua environment variable
-// Default to production backend on Render
+// API Base URL - lấy từ environment variable
+// Next.js tự động load .env.local (development) hoặc .env.production (production)
+// Fallback: production URL nếu không có env var
 export const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE || "https://gialai-ocop-be.onrender.com/api";
 
 type Json = unknown;
@@ -13,11 +16,16 @@ type Json = unknown;
 let lastErrorLogTime = 0;
 const ERROR_LOG_COOLDOWN = 30000; // 30 seconds
 
+// Retry configuration for cold start
+const MAX_RETRIES = 3;
+const RETRY_DELAYS = [1000, 2000, 3000]; // 1s, 2s, 3s delays
+
 async function request<TResponse>(
   path: string,
-  options: RequestInit & { json?: Json; silent?: boolean } = {}
+  options: RequestInit & { json?: Json; silent?: boolean; retries?: number } = {}
 ): Promise<TResponse> {
   const url = `${API_BASE_URL}${path}`;
+  const retries = options.retries ?? 0;
 
   const headers: HeadersInit = {
     "Content-Type": "application/json",
@@ -42,7 +50,7 @@ async function request<TResponse>(
       console.log("🌐 [API] Method:", options.method || "GET");
       console.log("🌐 [API] Headers:", headers);
     }
-    
+
     response = await fetch(url, {
       method: options.method || "GET",
       headers,
@@ -51,7 +59,7 @@ async function request<TResponse>(
       credentials: "omit", // Don't send cookies - fixes CORS with wildcard origin
       cache: "no-store",
     });
-    
+
     if (path.includes("/auth/login")) {
       console.log("🌐 [API] Response status:", response.status, response.statusText);
       console.log("🌐 [API] Response headers:", Object.fromEntries(response.headers.entries()));
@@ -60,16 +68,61 @@ async function request<TResponse>(
     // Network error - backend không available
     const errorMsg = fetchError instanceof Error ? fetchError.message : 'Network error';
 
+    // Retry logic for cold start (only for GET requests and if retries not exhausted)
+    const isGetRequest = !options.method || options.method === "GET";
+    const shouldRetry = isGetRequest && retries < MAX_RETRIES && !options.silent;
+
+    if (shouldRetry) {
+      const delay = RETRY_DELAYS[retries] || 3000;
+      console.info(`🔄 [API] Retry ${retries + 1}/${MAX_RETRIES} sau ${delay}ms (cold start?)...`);
+
+      await new Promise(resolve => setTimeout(resolve, delay));
+
+      // Retry with incremented retry count
+      return request<TResponse>(path, {
+        ...options,
+        retries: retries + 1
+      });
+    }
+
     // Only log error if not in silent mode and cooldown has passed
     const now = Date.now();
     if (!options.silent && (now - lastErrorLogTime) > ERROR_LOG_COOLDOWN) {
-      console.error(`❌ Backend API không khả dụng (${API_BASE_URL}):`, errorMsg);
+      // Use console.warn instead of console.error for network errors (less alarming)
+      console.warn(`⚠️ Backend API không khả dụng (${API_BASE_URL}):`, errorMsg);
       console.info('💡 Backend có thể đang cold start. Render free tier sleep sau 15 phút không hoạt động.');
       console.info('💡 Đợi 30-60 giây để backend khởi động, hoặc chạy local backend với: dotnet run');
       lastErrorLogTime = now;
     }
 
-    throw new Error(`Backend API không khả dụng. Vui lòng khởi động backend server. (${errorMsg})`);
+    // Create a custom error with more context
+    const apiError = new Error(`Backend API không khả dụng. Vui lòng khởi động backend server hoặc đợi backend khởi động.`) as any;
+    apiError.status = 0; // Network error
+    apiError.isNetworkError = true;
+    apiError.originalError = errorMsg;
+    apiError.silent = options.silent; // Mark error as silent
+
+    // Suppress stack trace in console for silent errors
+    if (options.silent) {
+      // Create a minimal error object without stack trace to reduce console noise
+      const silentError: any = {
+        message: apiError.message,
+        status: apiError.status,
+        isNetworkError: apiError.isNetworkError,
+        originalError: apiError.originalError,
+        silent: true,
+        name: 'NetworkError',
+        // Override toString to prevent stack trace display
+        toString: () => apiError.message,
+      };
+      // Prevent stack trace from being captured
+      if (Error.captureStackTrace) {
+        Error.captureStackTrace(silentError, () => { });
+      }
+      throw silentError;
+    }
+
+    throw apiError;
   }
 
   const contentType = response.headers.get("content-type") || "";
@@ -556,6 +609,7 @@ export interface EnterpriseMapDto {
 }
 
 export interface MapSearchParams {
+  silent?: boolean; // Silent mode to reduce console errors
   keyword?: string;
   latitude?: number;
   longitude?: number;
@@ -656,6 +710,7 @@ export interface GoogleLoginPayload {
 export async function loginWithFacebook(payload: FacebookLoginPayload): Promise<AuthResponse> {
   console.log("🌐 [API] Facebook login request:", { url: `${API_BASE_URL}/auth/facebook` });
   try {
+    // Backend expects AccessToken (PascalCase) - ASP.NET Core automatically maps camelCase to PascalCase
     const result = await request<AuthResponse>("/auth/facebook", {
       method: "POST",
       json: { accessToken: payload.accessToken },
@@ -671,6 +726,7 @@ export async function loginWithFacebook(payload: FacebookLoginPayload): Promise<
 export async function loginWithGoogle(payload: GoogleLoginPayload): Promise<AuthResponse> {
   console.log("🌐 [API] Google login request:", { url: `${API_BASE_URL}/auth/google` });
   try {
+    // Backend expects IdToken (PascalCase) - ASP.NET Core automatically maps camelCase to PascalCase
     const result = await request<AuthResponse>("/auth/google", {
       method: "POST",
       json: { idToken: payload.idToken },
@@ -939,6 +995,7 @@ export async function getProducts(params?: {
   search?: string;
   q?: string; // Alternative search parameter
   enterpriseId?: number;
+  silent?: boolean; // Silent mode to reduce console errors
 }): Promise<Product[]> {
   const searchParams = new URLSearchParams();
   if (params?.page) searchParams.append('page', String(params.page));
@@ -973,44 +1030,53 @@ export async function getProducts(params?: {
     });
   }
 
-  const response = await request<Product[] | { products?: Product[]; items?: Product[]; data?: Product[] }>(url, {
-    method: "GET",
-  });
-
-  // Debug: Log the response
-  if (params?.search || params?.q) {
-    const resultCount = Array.isArray(response) ? response.length :
-      (response && typeof response === 'object' ?
-        ((response as any).products?.length || (response as any).items?.length || (response as any).data?.length || 0) : 0);
-    console.log('✅ API Response:', {
-      searchTerm: params?.search || params?.q,
-      count: resultCount,
-      responseType: Array.isArray(response) ? 'array' : typeof response,
-      responseKeys: response && typeof response === 'object' ? Object.keys(response) : []
+  try {
+    const response = await request<Product[] | { products?: Product[]; items?: Product[]; data?: Product[] }>(url, {
+      method: "GET",
+      silent: params?.silent, // Pass silent mode to request
     });
-  }
 
-  // Normalize response: handle both array and object formats
-  if (Array.isArray(response)) {
-    return response;
-  }
+    // Debug: Log the response
+    if (params?.search || params?.q) {
+      const resultCount = Array.isArray(response) ? response.length :
+        (response && typeof response === 'object' ?
+          ((response as any).products?.length || (response as any).items?.length || (response as any).data?.length || 0) : 0);
+      console.log('✅ API Response:', {
+        searchTerm: params?.search || params?.q,
+        count: resultCount,
+        responseType: Array.isArray(response) ? 'array' : typeof response,
+        responseKeys: response && typeof response === 'object' ? Object.keys(response) : []
+      });
+    }
 
-  if (response && typeof response === 'object') {
-    const obj = response as any;
-    if (Array.isArray(obj.products)) {
-      return obj.products;
+    // Normalize response: handle both array and object formats
+    if (Array.isArray(response)) {
+      return response;
     }
-    if (Array.isArray(obj.items)) {
-      return obj.items;
-    }
-    if (Array.isArray(obj.data)) {
-      return obj.data;
-    }
-  }
 
-  // Fallback: return empty array if response format is unexpected
-  console.warn('⚠️ Unexpected products response format:', response);
-  return [];
+    if (response && typeof response === 'object') {
+      const obj = response as any;
+      if (Array.isArray(obj.products)) {
+        return obj.products;
+      }
+      if (Array.isArray(obj.items)) {
+        return obj.items;
+      }
+      if (Array.isArray(obj.data)) {
+        return obj.data;
+      }
+    }
+
+    // Fallback: return empty array if response format is unexpected
+    console.warn('⚠️ Unexpected products response format:', response);
+    return [];
+  } catch (error) {
+    // If silent mode and network error, return empty array instead of throwing
+    if (params?.silent && ((error as any)?.isNetworkError || (error as any)?.status === 0)) {
+      return [];
+    }
+    throw error;
+  }
 }
 
 export async function getProduct(id: number, options?: { silent?: boolean }): Promise<Product> {
@@ -1236,9 +1302,18 @@ export async function searchMap(params: MapSearchParams): Promise<EnterpriseMapD
   const queryString = searchParams.toString();
   const url = queryString ? `/map/search?${queryString}` : '/map/search';
 
-  return request<EnterpriseMapDto[]>(url, {
-    method: "GET",
-  });
+  try {
+    return await request<EnterpriseMapDto[]>(url, {
+      method: "GET",
+      silent: params?.silent, // Pass silent mode to request
+    });
+  } catch (error) {
+    // If silent mode and network error, return empty array instead of throwing
+    if (params?.silent && ((error as any)?.isNetworkError || (error as any)?.status === 0)) {
+      return [];
+    }
+    throw error;
+  }
 }
 
 export async function getMapBoundingBox(params: {
@@ -1821,6 +1896,20 @@ export async function changePassword(payload: ChangePasswordDto): Promise<AuthRe
       currentPassword: payload.currentPassword,
       newPassword: payload.newPassword,
       confirmNewPassword: payload.confirmNewPassword,
+    },
+  });
+}
+
+// ------ FORGOT PASSWORD (Auth) ------
+export interface ForgotPasswordDto {
+  email: string;
+}
+
+export async function forgotPassword(payload: ForgotPasswordDto): Promise<void> {
+  return request<void>("/auth/forgot-password", {
+    method: "POST",
+    json: {
+      email: payload.email,
     },
   });
 }

@@ -6,7 +6,8 @@
     "dev": "next dev",
     "prebuild": "rimraf src/lib/api.js src/lib/api.js.map",
     "build": "next build",
-    "start": "next start"
+    "start": "next start",
+    "setup:env": "node -e \"console.log('📋 Vui lòng chạy: \\n  Windows: .\\\\setup-env.ps1\\n  Linux/Mac: chmod +x setup-env.sh && ./setup-env.sh')\""
   },
   "dependencies": {
     "@tanstack/react-query": "^5.90.11",

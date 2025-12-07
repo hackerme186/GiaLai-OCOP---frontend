@@ -235,22 +235,14 @@ export default function EnterpriseAdminPage() {
 
         {/* TAB CONTENT */}
         <main className="p-6 flex-1">
-          {activeTab === "products" && <ProductManagementTab />}
-          {activeTab === "orders" && <OrderManagementTab />}
-          {activeTab === "inventory" && <InventoryTab />}
-          {activeTab === "profile" && <EnterpriseProfileTab />}
-          {activeTab === "ocop-status" && <OcopStatusTab />}
-          {activeTab === "reports" && <ReportsTab />}
-          {activeTab === "notifications" && (
-            <NotificationsTab
-              notifications={notifications}
-              onRead={async id => {
-                await markNotificationAsRead(id)
-                loadNotifications()
-              }}
-            />
-          )}
-          {activeTab === "settings" && <SettingsTab />}
+          {activeTab === "products" && <ProductManagementTab user={user} />}
+          {activeTab === "orders" && <OrderManagementTab user={user} />}
+          {activeTab === "inventory" && <InventoryTab user={user} />}
+          {activeTab === "profile" && <EnterpriseProfileTab user={user} />}
+          {activeTab === "ocop-status" && <OcopStatusTab user={user} />}
+          {activeTab === "reports" && <ReportsTab user={user} />}
+          {activeTab === "notifications" && <NotificationsTab user={user} />}
+          {activeTab === "settings" && <SettingsTab user={user} />}
         </main>
       </div>
     </div>
