@@ -167,10 +167,15 @@ export default function GoogleLoginButton({ onError }: GoogleLoginButtonProps) {
 
     // Listen for Google SDK errors (GSI_LOGGER)
     const handleGSIError = (event: ErrorEvent) => {
-      const errorMessage = event.message || event.error?.message || ""
-      if (errorMessage.includes("origin is not allowed") ||
-        errorMessage.includes("GSI_LOGGER") ||
-        errorMessage.includes("The given origin is not allowed")) {
+      const errorMessage = event.message || event.error?.message || event.error?.toString() || ""
+      const errorString = errorMessage.toString().toLowerCase()
+      
+      // Check for various forms of origin errors
+      if (errorString.includes("origin is not allowed") ||
+        errorString.includes("gsi_logger") ||
+        errorString.includes("the given origin is not allowed") ||
+        errorString.includes("invalid origin") ||
+        errorString.includes("unauthorized origin")) {
         const currentOrigin = window.location.origin
         showOriginError(currentOrigin)
       }
@@ -179,20 +184,41 @@ export default function GoogleLoginButton({ onError }: GoogleLoginButtonProps) {
     // Listen for unhandled promise rejections (GSI errors can also come as promise rejections)
     const handleUnhandledRejection = (event: PromiseRejectionEvent) => {
       const errorMessage = event.reason?.message || event.reason?.toString() || ""
-      if (errorMessage.includes("origin is not allowed") ||
-        errorMessage.includes("GSI_LOGGER") ||
-        errorMessage.includes("The given origin is not allowed")) {
+      const errorString = errorMessage.toString().toLowerCase()
+      
+      // Check for various forms of origin errors
+      if (errorString.includes("origin is not allowed") ||
+        errorString.includes("gsi_logger") ||
+        errorString.includes("the given origin is not allowed") ||
+        errorString.includes("invalid origin") ||
+        errorString.includes("unauthorized origin")) {
         const currentOrigin = window.location.origin
         showOriginError(currentOrigin)
       }
     }
 
+    // Also listen for console.error messages (GSI_LOGGER logs to console as "[GSI_LOGGER]: ...")
+    const originalConsoleError = console.error
+    const handleConsoleError = (...args: any[]) => {
+      const errorString = args.map(arg => String(arg)).join(" ").toLowerCase()
+      // Only intercept GSI_LOGGER messages to avoid interfering with other errors
+      if (errorString.includes("[gsi_logger]") || 
+          (errorString.includes("gsi_logger") && errorString.includes("origin is not allowed"))) {
+        const currentOrigin = window.location.origin
+        showOriginError(currentOrigin)
+      }
+      // Always call original console.error to preserve normal error logging
+      originalConsoleError.apply(console, args)
+    }
+
     window.addEventListener("error", handleGSIError)
     window.addEventListener("unhandledrejection", handleUnhandledRejection)
+    console.error = handleConsoleError
 
     return () => {
       window.removeEventListener("error", handleGSIError)
       window.removeEventListener("unhandledrejection", handleUnhandledRejection)
+      console.error = originalConsoleError
     }
   }, [GOOGLE_CLIENT_ID, onError])
 

@@ -25,7 +25,26 @@ export default function FacebookLoginButton({ onError }: FacebookLoginButtonProp
   const router = useRouter()
   const [isLoading, setIsLoading] = useState(false)
   const [isSDKLoaded, setIsSDKLoaded] = useState(false)
+  const [isHttps, setIsHttps] = useState(true)
   const FACEBOOK_APP_ID = process.env.NEXT_PUBLIC_FACEBOOK_APP_ID || ""
+
+  // Check HTTPS on mount
+  useEffect(() => {
+    if (typeof window !== "undefined") {
+      const isLocalhost = window.location.hostname === "localhost" || 
+                         window.location.hostname === "127.0.0.1" ||
+                         window.location.hostname.startsWith("192.168.") ||
+                         window.location.hostname.startsWith("10.")
+      
+      const requiresHttps = window.location.protocol !== "https:" && !isLocalhost
+      setIsHttps(!requiresHttps)
+
+      if (requiresHttps) {
+        console.warn("⚠️ [FacebookLogin] Facebook login yêu cầu HTTPS. Trang hiện tại đang sử dụng HTTP.")
+        onError?.("Facebook login yêu cầu HTTPS. Vui lòng truy cập qua HTTPS hoặc sử dụng localhost.")
+      }
+    }
+  }, [onError])
 
   // Load Facebook SDK
   useEffect(() => {
@@ -86,7 +105,7 @@ export default function FacebookLoginButton({ onError }: FacebookLoginButtonProp
       return
     }
 
-    // Check if running on HTTPS (Facebook requires HTTPS except for localhost)
+    // Double-check HTTPS (Facebook requires HTTPS except for localhost)
     if (typeof window !== "undefined") {
       const isLocalhost = window.location.hostname === "localhost" || 
                          window.location.hostname === "127.0.0.1" ||
@@ -94,7 +113,13 @@ export default function FacebookLoginButton({ onError }: FacebookLoginButtonProp
                          window.location.hostname.startsWith("10.")
       
       if (window.location.protocol !== "https:" && !isLocalhost) {
-        onError?.("Facebook login yêu cầu HTTPS. Vui lòng truy cập qua HTTPS hoặc sử dụng localhost.")
+        const errorMsg = "Facebook login yêu cầu HTTPS. Vui lòng truy cập qua HTTPS hoặc sử dụng localhost."
+        console.error(`❌ [FacebookLogin] ${errorMsg}`)
+        console.info("💡 Hướng dẫn:")
+        console.info("1. Sử dụng localhost để test (http://localhost:3000)")
+        console.info("2. Hoặc deploy lên hosting hỗ trợ HTTPS (Vercel, Netlify, etc.)")
+        console.info("3. Hoặc sử dụng ngrok hoặc Cloudflare Tunnel để tạo HTTPS tunnel")
+        onError?.(errorMsg)
         return
       }
     }
@@ -118,9 +143,22 @@ export default function FacebookLoginButton({ onError }: FacebookLoginButtonProp
         },
         { scope: "email,public_profile" }
       )
-    } catch (error) {
+    } catch (error: any) {
       console.error("❌ [FacebookLogin] Error calling FB.login:", error)
-      onError?.("Không thể khởi động Facebook login. Vui lòng đảm bảo bạn đang sử dụng HTTPS.")
+      const errorMsg = error?.message || "Không thể khởi động Facebook login"
+      
+      // Check for HTTPS error
+      if (errorMsg.includes("http pages") || errorMsg.includes("HTTPS")) {
+        const detailedMsg = "Facebook login yêu cầu HTTPS. Vui lòng truy cập qua HTTPS hoặc sử dụng localhost."
+        console.error(`❌ [FacebookLogin] ${detailedMsg}`)
+        console.info("💡 Hướng dẫn:")
+        console.info("1. Sử dụng localhost để test (http://localhost:3000)")
+        console.info("2. Hoặc deploy lên hosting hỗ trợ HTTPS (Vercel, Netlify, etc.)")
+        console.info("3. Hoặc sử dụng ngrok hoặc Cloudflare Tunnel để tạo HTTPS tunnel")
+        onError?.(detailedMsg)
+      } else {
+        onError?.(errorMsg)
+      }
       setIsLoading(false)
     }
   }
@@ -236,8 +274,9 @@ export default function FacebookLoginButton({ onError }: FacebookLoginButtonProp
       <button
         type="button"
         onClick={handleFacebookClick}
-        disabled={isLoading || !isSDKLoaded}
+        disabled={isLoading || !isSDKLoaded || !isHttps}
         className="w-full flex items-center justify-center gap-3 px-4 py-3 bg-blue-600 text-white rounded-lg font-semibold hover:bg-blue-700 transition-colors disabled:opacity-60 disabled:cursor-not-allowed border border-blue-700 shadow-sm hover:shadow-md"
+        title={!isHttps ? "Facebook login yêu cầu HTTPS. Vui lòng truy cập qua HTTPS hoặc sử dụng localhost." : undefined}
       >
         <svg
           width="20"

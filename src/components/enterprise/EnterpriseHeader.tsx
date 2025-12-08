@@ -115,3 +115,4 @@ export default function EnterpriseHeader({ activeTab, onTabChange }: EnterpriseH
   )
 }
 
+
