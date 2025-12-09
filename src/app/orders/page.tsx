@@ -32,7 +32,7 @@ export default function OrdersPage() {
                 const list = Array.isArray(data)
                     ? data
                     : (data as any)?.items || (data as any)?.data || []
-                setOrders(list)
+                setOrders(list as Order[])
             } catch (err) {
                 console.error("Failed to load orders:", err)
                 const errorMessage = err instanceof Error ? err.message : "Không thể tải danh sách đơn hàng"

@@ -4,9 +4,9 @@ import Image from "next/image"
 import { useRouter } from "next/navigation"
 import { useState, useEffect, useMemo } from "react"
 import { logout } from "@/lib/auth"
-import { getCurrentUser } from "@/lib/api"
+import { getCurrentUser, getPendingWalletRequestsCount } from "@/lib/api"
 
-export type TabType = 'dashboard' | 'enterprise-approval' | 'enterprise-management' | 'ocop-approval' | 'product-management' | 'categories' | 'images' | 'news-management' | 'home-management' | 'reports' | 'locations' | 'producers' | 'transactions' | 'user-management'
+export type TabType = 'dashboard' | 'enterprise-approval' | 'enterprise-management' | 'ocop-approval' | 'product-management' | 'categories' | 'images' | 'news-management' | 'home-management' | 'reports' | 'locations' | 'producers' | 'transactions' | 'user-management' | 'wallet-management' | 'order-management'
 
 interface AdminHeaderProps {
   activeTab: TabType
@@ -18,20 +18,66 @@ export default function AdminHeader({ activeTab, onTabChange }: AdminHeaderProps
   const [userName, setUserName] = useState<string>("Admin")
   const [userEmail, setUserEmail] = useState<string>("")
   const [userRole, setUserRole] = useState<string>("")
+  const [pendingWalletRequestsCount, setPendingWalletRequestsCount] = useState(0)
 
   useEffect(() => {
+    let interval: NodeJS.Timeout | null = null
+    
     const loadUserInfo = async () => {
       try {
         const me = await getCurrentUser()
+        const role = (me.role || "").toLowerCase()
         setUserName((me.name || me.fullName || me.username || "Admin").toString())
         setUserEmail((me.email || "").toString())
         setUserRole((me.role || "").toString())
-      } catch {
-        // Ignore errors
+        
+        console.log("AdminHeader - User role:", role)
+        
+        // Load pending wallet requests count if SystemAdmin
+        if (role === "systemadmin" || role === "admin" || role === "sysadmin") {
+          console.log("AdminHeader - Loading pending requests count...")
+          await loadPendingRequestsCount()
+          // Auto refresh every 30 seconds
+          interval = setInterval(() => {
+            console.log("AdminHeader - Auto-refreshing pending requests count...")
+            loadPendingRequestsCount()
+          }, 30000)
+        } else {
+          console.log("AdminHeader - Not SystemAdmin, skipping pending requests count")
+        }
+      } catch (err) {
+        console.error("Failed to load user info:", err)
       }
     }
+    
     loadUserInfo()
+    
+    return () => {
+      if (interval) {
+        clearInterval(interval)
+      }
+    }
   }, [])
+
+  const loadPendingRequestsCount = async () => {
+    try {
+      console.log("AdminHeader - Calling getPendingWalletRequestsCount...")
+      const result = await getPendingWalletRequestsCount()
+      console.log("AdminHeader - Pending wallet requests count result:", result)
+      const count = result?.count || 0
+      console.log("AdminHeader - Setting pending count to:", count)
+      setPendingWalletRequestsCount(count)
+    } catch (err: any) {
+      console.error("AdminHeader - Failed to load pending wallet requests count:", err)
+      console.error("AdminHeader - Error details:", {
+        message: err.message,
+        status: err.status,
+        response: err.response
+      })
+      // Set to 0 on error to avoid showing stale data
+      setPendingWalletRequestsCount(0)
+    }
+  }
 
   const handleLogout = () => {
     if (confirm('Bạn có chắc chắn muốn đăng xuất?')) {
@@ -55,12 +101,14 @@ export default function AdminHeader({ activeTab, onTabChange }: AdminHeaderProps
     { id: 'producers', label: 'Quản lý nhà sản xuất', icon: '🏭' },
     { id: 'transactions', label: 'Giao dịch', icon: '💳' },
     { id: 'user-management', label: 'Quản lý người dùng', icon: '👥' },
+    { id: 'wallet-management', label: 'Quản lý ví', icon: '💰' },
+    { id: 'order-management', label: 'Quản lý đơn hàng', icon: '📋' },
   ]
 
   const roleNormalized = (userRole || "").toLowerCase()
 
   const roleTabMap: Record<string, TabType[]> = {
-    systemadmin: ['dashboard', 'enterprise-approval', 'enterprise-management', 'ocop-approval', 'product-management', 'categories', 'images', 'news-management', 'home-management', 'reports', 'locations', 'producers', 'transactions', 'user-management'],
+    systemadmin: ['dashboard', 'enterprise-approval', 'enterprise-management', 'ocop-approval', 'product-management', 'categories', 'images', 'news-management', 'home-management', 'reports', 'locations', 'producers', 'transactions', 'user-management', 'wallet-management', 'order-management'],
     enterpriseadmin: ['dashboard', 'ocop-approval'],
     customer: ['dashboard'],
   }
@@ -120,7 +168,7 @@ export default function AdminHeader({ activeTab, onTabChange }: AdminHeaderProps
             <button
               key={tab.id}
               onClick={() => onTabChange(tab.id)}
-              className={`w-full flex items-center justify-between px-3 py-2.5 mb-1 rounded-lg transition-all ${
+              className={`w-full flex items-center justify-between px-3 py-2.5 mb-1 rounded-lg transition-all relative ${
                 activeTab === tab.id
                   ? 'bg-blue-600 text-white shadow-md'
                   : 'text-gray-700 hover:bg-gray-200'
@@ -130,14 +178,25 @@ export default function AdminHeader({ activeTab, onTabChange }: AdminHeaderProps
                 <span className="text-lg">{tab.icon}</span>
                 <span className="text-sm font-medium">{tab.label}</span>
               </div>
-              <svg
-                className={`w-4 h-4 ${activeTab === tab.id ? 'text-white' : 'text-gray-400'}`}
-                fill="none"
-                stroke="currentColor"
-                viewBox="0 0 24 24"
-              >
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
-              </svg>
+              <div className="flex items-center gap-2">
+                {tab.id === 'wallet-management' && pendingWalletRequestsCount > 0 && (
+                  <span className={`px-2 py-0.5 rounded-full text-xs font-bold ${
+                    activeTab === tab.id 
+                      ? 'bg-white text-red-600' 
+                      : 'bg-red-600 text-white'
+                  }`}>
+                    {pendingWalletRequestsCount}
+                  </span>
+                )}
+                <svg
+                  className={`w-4 h-4 ${activeTab === tab.id ? 'text-white' : 'text-gray-400'}`}
+                  fill="none"
+                  stroke="currentColor"
+                  viewBox="0 0 24 24"
+                >
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+                </svg>
+              </div>
             </button>
           ))}
         </div>

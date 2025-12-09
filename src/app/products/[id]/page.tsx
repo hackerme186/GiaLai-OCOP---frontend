@@ -164,7 +164,12 @@ export default function ProductDetailPage() {
                 height={600}
                 className="w-full h-full object-cover"
                 priority
-                {...getImageAttributes(productImages[selectedImage])}
+                {...(() => {
+                  const attrs = getImageAttributes(productImages[selectedImage])
+                  // Remove loading property if priority is set
+                  const { loading, ...rest } = attrs
+                  return rest
+                })()}
                 onError={(e) => {
                   const target = e.target as HTMLImageElement
                   if (!target.src.includes('hero.jpg')) {

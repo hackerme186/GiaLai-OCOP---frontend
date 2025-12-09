@@ -7,6 +7,10 @@ import {
   getCurrentUser,
   getReportSummary,
   getNotifications,
+  getPendingWalletRequestsCount,
+  markNotificationAsRead,
+  markAllNotificationsAsRead,
+  deleteNotification,
   type ReportSummary,
   type User,
   type Notification
@@ -28,6 +32,8 @@ import UserManagementTab from "@/components/admin/UserManagementTab"
 import NewsManagementTab from "@/components/admin/NewsManagementTab"
 import HomeManagementTab from "@/components/admin/HomeManagementTab"
 import ProductManagementTab from "@/components/admin/ProductManagementTab"
+import WalletManagementTab from "@/components/admin/WalletManagementTab"
+import AdminOrderManagementTab from "@/components/admin/AdminOrderManagementTab"
 
 export default function AdminPage() {
   const router = useRouter()
@@ -38,6 +44,7 @@ export default function AdminPage() {
   const [unreadCount, setUnreadCount] = useState(0)
   const [notifications, setNotifications] = useState<Notification[]>([])
   const [showNotificationDropdown, setShowNotificationDropdown] = useState(false)
+  const [pendingWalletRequestsCount, setPendingWalletRequestsCount] = useState(0)
 
   // Define constants with useMemo to avoid recreation on each render
   const allTabs = useMemo<Array<{ id: TabType; label: string; icon: string }>>(() => [
@@ -55,10 +62,12 @@ export default function AdminPage() {
     { id: 'producers', label: 'Quản lý nhà sản xuất', icon: '🏭' },
     { id: 'transactions', label: 'Giao dịch', icon: '💳' },
     { id: 'user-management', label: 'Quản lý người dùng', icon: '👥' },
+    { id: 'wallet-management', label: 'Quản lý ví', icon: '💰' },
+    { id: 'order-management', label: 'Quản lý đơn hàng', icon: '📋' },
   ], [])
 
   const roleTabMap = useMemo<Record<string, TabType[]>>(() => ({
-    systemadmin: ['dashboard', 'enterprise-approval', 'enterprise-management', 'ocop-approval', 'product-management', 'categories', 'images', 'news-management', 'home-management', 'reports', 'locations', 'producers', 'transactions', 'user-management'],
+    systemadmin: ['dashboard', 'enterprise-approval', 'enterprise-management', 'ocop-approval', 'product-management', 'categories', 'images', 'news-management', 'home-management', 'reports', 'locations', 'producers', 'transactions', 'user-management', 'wallet-management', 'order-management'],
     enterpriseadmin: ['dashboard', 'ocop-approval'],
     customer: ['dashboard'],
   }), [])
@@ -117,6 +126,53 @@ export default function AdminPage() {
       setUnreadCount(0)
     }
   }
+
+  // Load pending wallet requests count for SystemAdmin
+  useEffect(() => {
+    const loadPendingCount = async () => {
+      try {
+        const role = getRoleFromToken()
+        const roleLower = role?.toLowerCase()
+        console.log("Admin page - Checking role for pending requests:", roleLower)
+
+        if (roleLower === "systemadmin" || roleLower === "admin" || roleLower === "sysadmin") {
+          console.log("Admin page - Loading pending wallet requests count...")
+          const result = await getPendingWalletRequestsCount()
+          console.log("Admin page - Pending wallet requests count result:", result)
+          const count = result?.count || 0
+          console.log("Admin page - Setting pending count to:", count)
+          setPendingWalletRequestsCount(count)
+
+          // Auto refresh every 30 seconds
+          const interval = setInterval(async () => {
+            try {
+              const refreshResult = await getPendingWalletRequestsCount()
+              const refreshCount = refreshResult?.count || 0
+              console.log("Admin page - Refreshed pending count:", refreshCount)
+              setPendingWalletRequestsCount(refreshCount)
+            } catch (err) {
+              console.error("Failed to refresh pending count:", err)
+            }
+          }, 30000)
+
+          return () => clearInterval(interval)
+        } else {
+          console.log("Admin page - Not SystemAdmin, skipping pending requests count")
+        }
+      } catch (err: any) {
+        console.error("Admin page - Failed to load pending wallet requests count:", err)
+        console.error("Admin page - Error details:", {
+          message: err.message,
+          status: err.status,
+          response: err.response
+        })
+      }
+    }
+
+    if (authorized) {
+      loadPendingCount()
+    }
+  }, [authorized])
 
   // Ensure activeTab is valid when visibleTabs change
   useEffect(() => {
@@ -185,6 +241,22 @@ export default function AdminPage() {
     check()
   }, [router])
 
+  // Handle click outside to close notification dropdown
+  useEffect(() => {
+    if (!authorized) return
+    
+    const handleClickOutside = (event: MouseEvent) => {
+      const target = event.target as HTMLElement
+      if (showNotificationDropdown && !target.closest('.notification-dropdown')) {
+        setShowNotificationDropdown(false)
+      }
+    }
+    document.addEventListener('mousedown', handleClickOutside)
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside)
+    }
+  }, [showNotificationDropdown, authorized])
+
   if (authorized === null) {
     return (
       <div className="min-h-screen bg-white flex items-center justify-center">
@@ -201,14 +273,45 @@ export default function AdminPage() {
   }
 
   return (
-
     <div className="min-h-screen bg-white" suppressHydrationWarning>
       <AdminHeader activeTab={activeTab} onTabChange={setActiveTab} />
       <main className="ml-64">
+        {/* Notification Banner for Pending Wallet Requests */}
+        {pendingWalletRequestsCount > 0 && (
+          <div className="bg-yellow-50 border-l-4 border-yellow-500 p-4 mx-6 mt-6 rounded-lg shadow-sm">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-3">
+                <svg className="w-6 h-6 text-yellow-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+                </svg>
+                <div>
+                  <p className="font-semibold text-yellow-900">
+                    Có {pendingWalletRequestsCount} yêu cầu nạp/rút tiền đang chờ xử lý
+                  </p>
+                  <p className="text-sm text-yellow-700 mt-1">
+                    Vui lòng kiểm tra và xử lý các yêu cầu này trong trang "Quản lý ví" hoặc "Wallet Requests"
+                  </p>
+                </div>
+              </div>
+              <a
+                href="/admin/wallet-requests"
+                className="px-4 py-2 bg-yellow-600 text-white rounded-lg hover:bg-yellow-700 transition-colors text-sm font-medium whitespace-nowrap"
+              >
+                Xem ngay →
+              </a>
+            </div>
+          </div>
+        )}
         <div className="p-6">
           {/* Tab Content */}
           {activeTab === 'dashboard' && (
-            <DashboardTab />
+            <DashboardTab 
+              notifications={notifications}
+              unreadCount={unreadCount}
+              showNotificationDropdown={showNotificationDropdown}
+              setShowNotificationDropdown={setShowNotificationDropdown}
+              loadNotifications={loadNotifications}
+            />
           )}
           {activeTab === 'enterprise-approval' && (
             <EnterpriseApprovalTab />
@@ -248,6 +351,12 @@ export default function AdminPage() {
           )}
           {activeTab === 'user-management' && (
             <UserManagementTab />
+          )}
+          {activeTab === 'wallet-management' && (
+            <WalletManagementTab />
+          )}
+          {activeTab === 'order-management' && (
+            <AdminOrderManagementTab />
           )}
         </div>
       </main>
@@ -304,7 +413,21 @@ function PieChart({ data }: { data: Array<{ name: string; value: number; color: 
 }
 
 // Dashboard Tab Component
-function DashboardTab() {
+interface DashboardTabProps {
+  notifications: Notification[]
+  unreadCount: number
+  showNotificationDropdown: boolean
+  setShowNotificationDropdown: (show: boolean) => void
+  loadNotifications: () => Promise<void>
+}
+
+function DashboardTab({ 
+  notifications, 
+  unreadCount, 
+  showNotificationDropdown, 
+  setShowNotificationDropdown,
+  loadNotifications 
+}: DashboardTabProps) {
   const [loading, setLoading] = useState(true)
   const [summary, setSummary] = useState<ReportSummary | null>(null)
   const [error, setError] = useState<string | null>(null)
@@ -384,17 +507,143 @@ function DashboardTab() {
   return (
     <div className="space-y-6">
       {/* Welcome Header */}
-      <div className="relative bg-gradient-to-r from-blue-600 via-blue-700 to-indigo-700 text-white p-8 rounded-2xl shadow-xl overflow-hidden">
+      <div className="relative bg-gradient-to-r from-blue-600 via-blue-700 to-indigo-700 text-white p-8 rounded-2xl shadow-xl overflow-visible">
         <div className="absolute inset-0 bg-gradient-to-br from-blue-500/20 to-transparent"></div>
         <div className="absolute top-0 right-0 w-64 h-64 bg-white/10 rounded-full -mr-32 -mt-32 blur-3xl"></div>
-        <div className="relative z-10">
-          <h1 className="text-3xl font-bold mb-2 drop-shadow-lg">Chào mừng trở lại, {userName}!</h1>
-          <p className="text-blue-100 text-lg flex items-center gap-2">
-            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
-            </svg>
-            Hôm nay là {getCurrentDate()}
-          </p>
+        <div className="relative z-10 flex items-start justify-between">
+          <div className="flex-1">
+            <h1 className="text-3xl font-bold mb-2 drop-shadow-lg">Chào mừng trở lại, {userName}!</h1>
+            <p className="text-blue-100 text-lg flex items-center gap-2">
+              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
+              </svg>
+              Hôm nay là {getCurrentDate()}
+            </p>
+          </div>
+          
+          {/* Notification Bell Icon */}
+          <div className="relative notification-dropdown z-50">
+            <button
+              onClick={() => setShowNotificationDropdown(!showNotificationDropdown)}
+              className="relative p-3 rounded-full bg-white/20 hover:bg-white/30 transition-all backdrop-blur-sm z-50"
+            >
+              <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9" />
+              </svg>
+              {unreadCount > 0 && (
+                <span className="absolute top-1 right-1 bg-red-500 text-white text-xs font-bold rounded-full w-5 h-5 flex items-center justify-center">
+                  {unreadCount > 9 ? '9+' : unreadCount}
+                </span>
+              )}
+            </button>
+
+            {/* Notification Dropdown */}
+            {showNotificationDropdown && (
+              <div className="absolute right-0 mt-2 w-96 bg-white rounded-lg shadow-2xl border border-gray-200 z-[9999] max-h-96 overflow-hidden flex flex-col">
+                {/* Header */}
+                <div className="p-4 border-b border-gray-200 bg-gray-50 flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <h3 className="font-bold text-gray-900">Thông báo chưa đọc</h3>
+                    {unreadCount > 0 && (
+                      <span className="bg-blue-500 text-white text-xs font-bold px-2 py-1 rounded-full">
+                        {unreadCount} mới
+                      </span>
+                    )}
+                  </div>
+                  {unreadCount > 0 && (
+                    <button
+                      onClick={async () => {
+                        try {
+                          await markAllNotificationsAsRead()
+                          await loadNotifications()
+                          setShowNotificationDropdown(false)
+                        } catch (err) {
+                          console.error("Failed to mark all as read:", err)
+                        }
+                      }}
+                      className="text-sm text-blue-600 hover:text-blue-800 font-medium"
+                    >
+                      Đánh dấu tất cả đã đọc
+                    </button>
+                  )}
+                </div>
+
+                {/* Notifications List */}
+                <div className="overflow-y-auto flex-1">
+                  {(() => {
+                    const unreadNotifications = notifications.filter(n => !n.read)
+                    return unreadNotifications.length === 0 ? (
+                      <div className="p-8 text-center text-gray-500">
+                        <svg className="w-12 h-12 mx-auto mb-3 text-gray-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9" />
+                        </svg>
+                        <p>Không có thông báo chưa đọc</p>
+                      </div>
+                    ) : (
+                      <div className="divide-y divide-gray-100">
+                        {unreadNotifications.map((notification) => (
+                        <div
+                          key={notification.id}
+                          className={`p-4 hover:bg-gray-50 transition-colors cursor-pointer ${
+                            !notification.read ? 'bg-blue-50' : ''
+                          }`}
+                          onClick={async () => {
+                            if (!notification.read) {
+                              try {
+                                await markNotificationAsRead(notification.id)
+                                await loadNotifications()
+                              } catch (err) {
+                                console.error("Failed to mark as read:", err)
+                              }
+                            }
+                            if (notification.link) {
+                              window.location.href = notification.link
+                            }
+                          }}
+                        >
+                          <div className="flex items-start gap-3">
+                            <div className={`flex-shrink-0 w-2 h-2 rounded-full mt-2 ${
+                              !notification.read ? 'bg-blue-500' : 'bg-gray-300'
+                            }`}></div>
+                            <div className="flex-1 min-w-0">
+                              <p className={`text-sm font-semibold ${
+                                !notification.read ? 'text-gray-900' : 'text-gray-700'
+                              }`}>
+                                {notification.title}
+                              </p>
+                              <p className="text-sm text-gray-600 mt-1 line-clamp-2">
+                                {notification.message}
+                              </p>
+                              <p className="text-xs text-gray-400 mt-2">
+                                {new Date(notification.createdAt).toLocaleString('vi-VN')}
+                              </p>
+                            </div>
+                            <button
+                              onClick={async (e) => {
+                                e.stopPropagation()
+                                try {
+                                  await deleteNotification(notification.id)
+                                  await loadNotifications()
+                                } catch (err) {
+                                  console.error("Failed to delete notification:", err)
+                                }
+                              }}
+                              className="flex-shrink-0 text-gray-400 hover:text-red-500 transition-colors p-1"
+                            >
+                              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                              </svg>
+                            </button>
+                          </div>
+                        </div>
+                      ))}
+                      </div>
+                    )
+                  })()}
+                </div>
+              </div>
+            )}
+          </div>
         </div>
       </div>
 
