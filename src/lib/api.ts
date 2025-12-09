@@ -455,13 +455,27 @@ export interface OrderItem {
   enterpriseName?: string;
 }
 
+export interface CustomerInfo {
+  id: number;
+  name: string;
+  email: string;
+  phoneNumber?: string;
+  avatarUrl?: string;
+  address?: string;
+}
+
 export interface Order {
   id: number;
   userId: number;
   orderDate: string;
   shippingAddress?: string;
+  shippingAddressId?: number;
   totalAmount: number;
-  status: string; // "Pending" | "Processing" | "Shipped" | "Completed" | "Cancelled"
+  status: string; // "Pending" | "Processing" | "Shipped" | "Completed" | "Cancelled" | "PendingCompletion"
+  completionRequestedAt?: string; // Thời gian EnterpriseAdmin yêu cầu xác nhận hoàn thành
+  completionApprovedAt?: string; // Thời gian SystemAdmin xác nhận hoàn thành
+  completionRejectedAt?: string; // Thời gian SystemAdmin từ chối
+  completionRejectionReason?: string; // Lý do từ chối
   paymentMethod: string;
   paymentStatus: string;
   paymentReference?: string;
@@ -469,6 +483,10 @@ export interface Order {
   payments?: Payment[];
   enterpriseApprovalStatus?: string;
   shipperId?: number;
+  shippedAt?: string;
+  deliveredAt?: string;
+  deliveryNotes?: string;
+  customer?: CustomerInfo; // Customer info for EnterpriseAdmin
 }
 
 export interface CreateOrderDto {
@@ -482,8 +500,19 @@ export interface CreateOrderDto {
 }
 
 export interface UpdateOrderStatusDto {
-  status: "Pending" | "Processing" | "Shipped" | "Completed" | "Cancelled";
+  status: "Pending" | "Processing" | "Shipped" | "Completed" | "Cancelled" | "PendingCompletion";
   shippingAddress?: string;
+}
+
+export interface RequestOrderCompletionDto {
+  orderId: number;
+  notes?: string;
+}
+
+export interface ApproveOrderCompletionDto {
+  orderId: number;
+  approved: boolean;
+  rejectionReason?: string;
 }
 
 // Payment
@@ -1203,18 +1232,30 @@ export async function deleteEnterprise(id: number): Promise<void> {
 }
 
 // ------ ORDERS ------
+export interface OrdersResponse {
+  items: Order[];
+  page: number;
+  pageSize: number;
+  totalItems: number;
+  totalPages: number;
+}
+
 export async function getOrders(params?: {
   status?: string;
+  startDate?: string;
+  endDate?: string;
   page?: number;
   pageSize?: number;
-}): Promise<Order[]> {
+}): Promise<OrdersResponse> {
   const searchParams = new URLSearchParams();
   if (params?.status) searchParams.append('status', params.status);
+  if (params?.startDate) searchParams.append('startDate', params.startDate);
+  if (params?.endDate) searchParams.append('endDate', params.endDate);
   if (params?.page) searchParams.append('page', String(params.page));
   if (params?.pageSize) searchParams.append('pageSize', String(params.pageSize));
 
   const query = searchParams.toString();
-  return request<Order[]>(`/orders${query ? '?' + query : ''}`, {
+  return request<OrdersResponse>(`/orders${query ? '?' + query : ''}`, {
     method: "GET",
   });
 }
@@ -1236,6 +1277,25 @@ export async function updateOrderStatus(id: number, payload: UpdateOrderStatusDt
   return request<Order>(`/orders/${id}/status`, {
     method: "PUT",
     json: payload,
+  });
+}
+
+// Request order completion approval (EnterpriseAdmin)
+export async function requestOrderCompletion(payload: RequestOrderCompletionDto): Promise<Order> {
+  return request<Order>(`/orders/${payload.orderId}/request-completion`, {
+    method: "POST",
+    json: { notes: payload.notes },
+  });
+}
+
+// Approve/Reject order completion (SystemAdmin)
+export async function approveOrderCompletion(payload: ApproveOrderCompletionDto): Promise<Order> {
+  return request<Order>(`/orders/${payload.orderId}/approve-completion`, {
+    method: "POST",
+    json: { 
+      approved: payload.approved,
+      rejectionReason: payload.rejectionReason 
+    },
   });
 }
 
@@ -2274,6 +2334,339 @@ function extractUserIdFromToken(): number | null {
   } catch {
     return null;
   }
+}
+
+// ------ WALLET ------
+export interface Wallet {
+  id: number;
+  userId: number;
+  balance: number;
+  currency: string;
+  createdAt: string;
+}
+
+export interface WalletTransaction {
+  id: number;
+  walletId: number;
+  type: "deposit" | "withdraw" | "payment" | "refund";
+  amount: number;
+  balanceAfter: number;
+  description: string;
+  status: "pending" | "success" | "failed";
+  createdAt: string;
+  orderId?: number;
+  paymentGatewayTransactionId?: string;
+  paymentGateway?: string;
+}
+
+export interface DepositRequest {
+  amount: number;
+  description?: string;
+}
+
+export interface DepositResponse {
+  paymentUrl: string;
+  transactionId: string;
+  amount: number;
+  paymentGateway: string;
+  description: string;
+  reference: string;
+}
+
+export interface PayOrderRequest {
+  orderId: number;
+  description?: string;
+}
+
+export interface RefundRequest {
+  orderId: number;
+  amount: number;
+  description?: string;
+}
+
+export interface WithdrawRequest {
+  amount: number;
+  description?: string;
+}
+
+export async function getWallet(): Promise<Wallet> {
+  return request<Wallet>("/wallet", {
+    method: "GET",
+  });
+}
+
+export async function getWalletTransactions(params?: {
+  page?: number;
+  pageSize?: number;
+}): Promise<WalletTransaction[]> {
+  const searchParams = new URLSearchParams();
+  if (params?.page) searchParams.append('page', String(params.page));
+  if (params?.pageSize) searchParams.append('pageSize', String(params.pageSize));
+
+  const query = searchParams.toString();
+  return request<WalletTransaction[]>(`/wallet/transactions${query ? '?' + query : ''}`, {
+    method: "GET",
+  });
+}
+
+export async function depositToWallet(payload: DepositRequest): Promise<DepositResponse> {
+  return request<DepositResponse>("/wallet/deposit", {
+    method: "POST",
+    json: payload,
+  });
+}
+
+export async function payOrderWithWallet(payload: PayOrderRequest): Promise<WalletTransaction> {
+  return request<WalletTransaction>("/wallet/pay", {
+    method: "POST",
+    json: payload,
+  });
+}
+
+export async function refundOrder(payload: RefundRequest): Promise<WalletTransaction> {
+  return request<WalletTransaction>("/wallet/refund", {
+    method: "POST",
+    json: payload,
+  });
+}
+
+export async function withdrawFromWallet(payload: WithdrawRequest): Promise<WalletTransaction> {
+  return request<WalletTransaction>("/wallet/withdraw", {
+    method: "POST",
+    json: payload,
+  });
+}
+
+// ------ WALLET REQUEST ------
+export interface WalletRequest {
+  id: number;
+  userId: number;
+  userName?: string;
+  userEmail?: string;
+  userRole?: string;
+  walletId: number;
+  currentBalance: number;
+  type: "deposit" | "withdraw";
+  amount: number;
+  description: string;
+  status: "pending" | "approved" | "rejected" | "completed";
+  rejectionReason?: string;
+  processedBy?: number;
+  processedByName?: string;
+  processedAt?: string;
+  createdAt: string;
+  updatedAt?: string;
+  bankAccountId?: number;
+  bankAccount?: BankAccount;
+}
+
+export interface CreateWalletRequestDto {
+  type: "deposit" | "withdraw";
+  amount: number;
+  description?: string;
+  bankAccountId?: number; // Required when type = "withdraw"
+}
+
+export interface ProcessWalletRequestDto {
+  action: "approve" | "reject";
+  rejectionReason?: string;
+}
+
+export interface WalletRequestResponse {
+  message: string;
+  request: WalletRequest;
+}
+
+export async function createWalletRequest(payload: CreateWalletRequestDto): Promise<WalletRequest> {
+  return request<WalletRequest>("/walletrequest", {
+    method: "POST",
+    json: payload,
+  });
+}
+
+export async function getWalletRequests(params?: {
+  type?: "deposit" | "withdraw";
+  status?: "pending" | "approved" | "rejected" | "completed";
+  page?: number;
+  pageSize?: number;
+}): Promise<WalletRequest[]> {
+  const searchParams = new URLSearchParams();
+  if (params?.type) searchParams.append('type', params.type);
+  if (params?.status) searchParams.append('status', params.status);
+  if (params?.page) searchParams.append('page', String(params.page));
+  if (params?.pageSize) searchParams.append('pageSize', String(params.pageSize));
+
+  const query = searchParams.toString();
+  return request<WalletRequest[]>(`/walletrequest${query ? '?' + query : ''}`, {
+    method: "GET",
+  });
+}
+
+export async function getWalletRequest(id: number): Promise<WalletRequest> {
+  return request<WalletRequest>(`/walletrequest/${id}`, {
+    method: "GET",
+  });
+}
+
+export async function getPendingWalletRequestsCount(): Promise<{ count: number }> {
+  return request<{ count: number }>("/walletrequest/pending/count", {
+    method: "GET",
+  });
+}
+
+export async function processWalletRequest(id: number, payload: ProcessWalletRequestDto): Promise<WalletRequestResponse> {
+  return request<WalletRequestResponse>(`/walletrequest/${id}/process`, {
+    method: "POST",
+    json: payload,
+  });
+}
+
+// ------ BANK ACCOUNT ------
+export interface BankAccount {
+  id: number;
+  userId: number;
+  bankCode: string;
+  bankName: string;
+  accountNumber: string;
+  accountName: string;
+  branch?: string;
+  isDefault: boolean;
+  isActive: boolean;
+  createdAt: string;
+  updatedAt?: string;
+  qrCodeUrl?: string;
+}
+
+export interface CreateBankAccountDto {
+  bankCode: string;
+  bankName: string;
+  accountNumber: string;
+  accountName: string;
+  branch?: string;
+  isDefault?: boolean;
+}
+
+export interface UpdateBankAccountDto {
+  bankCode?: string;
+  bankName?: string;
+  accountNumber?: string;
+  accountName?: string;
+  branch?: string;
+  isDefault?: boolean;
+  isActive?: boolean;
+}
+
+export async function getBankAccounts(): Promise<BankAccount[]> {
+  return request<BankAccount[]>("/bankaccount", {
+    method: "GET",
+  });
+}
+
+export async function getBankAccount(id: number): Promise<BankAccount> {
+  return request<BankAccount>(`/bankaccount/${id}`, {
+    method: "GET",
+  });
+}
+
+export async function getDefaultBankAccount(): Promise<BankAccount> {
+  return request<BankAccount>("/bankaccount/default", {
+    method: "GET",
+  });
+}
+
+export async function createBankAccount(payload: CreateBankAccountDto): Promise<BankAccount> {
+  return request<BankAccount>("/bankaccount", {
+    method: "POST",
+    json: payload,
+  });
+}
+
+export async function updateBankAccount(id: number, payload: UpdateBankAccountDto): Promise<BankAccount> {
+  return request<BankAccount>(`/bankaccount/${id}`, {
+    method: "PUT",
+    json: payload,
+  });
+}
+
+export async function deleteBankAccount(id: number): Promise<void> {
+  return request<void>(`/bankaccount/${id}`, {
+    method: "DELETE",
+  });
+}
+
+export async function setDefaultBankAccount(id: number): Promise<BankAccount> {
+  return request<BankAccount>(`/bankaccount/${id}/set-default`, {
+    method: "POST",
+  });
+}
+
+// ------ SYSTEM ADMIN WALLET MANAGEMENT ------
+export interface SystemWalletSummary {
+  totalSystemBalance: number;
+  systemAdminBalance: number;
+  allUsersBalance: number;
+  totalUsers: number;
+  totalCustomers: number;
+  totalEnterpriseAdmins: number;
+  breakdown: {
+    customersBalance: number;
+    enterpriseAdminsBalance: number;
+  };
+}
+
+export interface UserWalletInfo {
+  userId: number;
+  userName: string;
+  userEmail: string;
+  userRole: string;
+  walletId: number;
+  balance: number;
+  currency: string;
+  walletCreatedAt: string;
+  totalTransactions: number;
+}
+
+export interface UpdateUserBalanceDto {
+  amount: number; // Positive = add, Negative = subtract
+  description: string;
+}
+
+export interface UpdateUserBalanceResponse {
+  message: string;
+  transaction: WalletTransaction;
+}
+
+export async function getSystemWalletSummary(): Promise<SystemWalletSummary> {
+  return request<SystemWalletSummary>("/wallet/system/summary", {
+    method: "GET",
+  });
+}
+
+export async function getAllUserWallets(params?: {
+  page?: number;
+  pageSize?: number;
+}): Promise<UserWalletInfo[]> {
+  const searchParams = new URLSearchParams();
+  if (params?.page) searchParams.append('page', String(params.page));
+  if (params?.pageSize) searchParams.append('pageSize', String(params.pageSize));
+
+  const query = searchParams.toString();
+  return request<UserWalletInfo[]>(`/wallet/system/users${query ? '?' + query : ''}`, {
+    method: "GET",
+  });
+}
+
+export async function getUserWallet(userId: number): Promise<Wallet> {
+  return request<Wallet>(`/wallet/user/${userId}`, {
+    method: "GET",
+  });
+}
+
+export async function updateUserBalance(userId: number, payload: UpdateUserBalanceDto): Promise<UpdateUserBalanceResponse> {
+  return request<UpdateUserBalanceResponse>(`/wallet/user/${userId}/balance`, {
+    method: "PUT",
+    json: payload,
+  });
 }
 
 // Legacy compatibility exports

@@ -10,7 +10,6 @@ import {
 import {
   getCurrentUser,
   getNotifications,
-  markNotificationAsRead,
   type User,
   type Notification,
 } from "@/lib/api"
@@ -23,6 +22,7 @@ import EnterpriseProfileTab from "@/components/enterprise/EnterpriseProfileTab"
 import InventoryTab from "@/components/enterprise/InventoryTab"
 import SettingsTab from "@/components/enterprise/SettingsTab"
 import NotificationsTab from "@/components/enterprise/NotificationsTab"
+import WalletTab from "@/components/enterprise/WalletTab"
 
 export default function EnterpriseAdminPage() {
   const router = useRouter()
@@ -36,17 +36,25 @@ export default function EnterpriseAdminPage() {
   const [notifications, setNotifications] = useState<Notification[]>([])
   const [unreadCount, setUnreadCount] = useState(0)
   const [showNotificationDropdown, setShowNotificationDropdown] = useState(false)
+  const [avatarUrl, setAvatarUrl] = useState<string | null>(null)
 
   // Tải thông báo
   const loadNotifications = async () => {
     try {
       const data = await getNotifications()
       setNotifications(data)
-      setUnreadCount(data.filter(n => !n.read).length)
-    } catch {
+      const unread = data.filter(n => !n.read).length
+      setUnreadCount(unread)
+    } catch (err) {
+      console.error("Failed to load notifications:", err)
       setNotifications([])
       setUnreadCount(0)
     }
+  }
+
+  // Callback để NotificationsTab có thể update unreadCount
+  const handleNotificationUpdate = () => {
+    loadNotifications()
   }
 
   // Kiểm tra quyền đăng nhập
@@ -61,6 +69,16 @@ export default function EnterpriseAdminPage() {
       try {
         const currentUser = await getCurrentUser()
         setUser(currentUser)
+
+        // Load avatar
+        if (currentUser.avatarUrl) {
+          setAvatarUrl(currentUser.avatarUrl)
+        } else if (typeof window !== "undefined" && currentUser.id) {
+          const savedAvatar = localStorage.getItem(`user_avatar_${currentUser.id}`)
+          if (savedAvatar) {
+            setAvatarUrl(savedAvatar)
+          }
+        }
 
         const role = currentUser.role?.toLowerCase().trim()
 
@@ -89,10 +107,30 @@ export default function EnterpriseAdminPage() {
   useEffect(() => {
     if (authorized) {
       loadNotifications()
-      const interval = setInterval(loadNotifications, 30000)
+      const interval = setInterval(() => {
+        loadNotifications()
+      }, 30000) // Refresh every 30 seconds
       return () => clearInterval(interval)
     }
   }, [authorized])
+
+  // Close dropdown when clicking outside
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      const target = event.target as HTMLElement
+      if (showNotificationDropdown && !target.closest('.notification-dropdown')) {
+        setShowNotificationDropdown(false)
+      }
+    }
+
+    if (showNotificationDropdown) {
+      document.addEventListener('mousedown', handleClickOutside)
+    }
+
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside)
+    }
+  }, [showNotificationDropdown])
 
   const handleLogout = () => {
     if (confirm("Bạn chắc chắn muốn đăng xuất?")) {
@@ -121,6 +159,7 @@ export default function EnterpriseAdminPage() {
     { id: "profile", label: "Hồ sơ doanh nghiệp", icon: "🏢" },
     { id: "ocop-status", label: "Trạng thái OCOP", icon: "⭐" },
     { id: "reports", label: "Báo cáo", icon: "📊" },
+    { id: "wallet", label: "Ví của tôi", icon: "💰" },
     { id: "notifications", label: "Thông báo", icon: "🔔" },
     { id: "settings", label: "Cài đặt", icon: "⚙️" },
   ]
@@ -191,43 +230,159 @@ export default function EnterpriseAdminPage() {
           </h1>
 
           {/* Avatar + Dropdown */}
-          <div className="relative">
+          <div className="relative notification-dropdown">
             <button
-              className="flex items-center"
+              className="flex items-center relative"
               onClick={() => setShowNotificationDropdown(!showNotificationDropdown)}
             >
-              <Image
-                src="/avatar-placeholder.png"
-                alt="Avatar"
-                width={40}
-                height={40}
-                className="rounded-full border"
-              />
+              {avatarUrl ? (
+                <Image
+                  src={avatarUrl}
+                  alt="Avatar"
+                  width={40}
+                  height={40}
+                  className="rounded-full border-2 border-green-600 object-cover"
+                  onError={() => setAvatarUrl(null)}
+                />
+              ) : (
+                <div className="w-10 h-10 rounded-full bg-green-100 flex items-center justify-center border-2 border-green-600">
+                  <span className="text-green-600 text-lg font-semibold">
+                    {userName.charAt(0).toUpperCase()}
+                  </span>
+                </div>
+              )}
+              {/* Badge thông báo */}
+              {unreadCount > 0 && (
+                <span className="absolute -top-1 -right-1 bg-red-500 text-white text-xs font-bold rounded-full w-5 h-5 flex items-center justify-center">
+                  {unreadCount > 9 ? '9+' : unreadCount}
+                </span>
+              )}
             </button>
 
             {showNotificationDropdown && (
-              <div className="absolute right-0 mt-3 w-56 bg-white rounded-xl shadow-lg border p-3 z-50">
-                <p className="font-medium text-gray-700 pb-2 border-b">
-                  {userName}
-                </p>
+              <div className="absolute right-0 mt-3 w-80 bg-white rounded-xl shadow-lg border z-50 max-h-[600px] overflow-hidden flex flex-col">
+                {/* Header */}
+                <div className="p-4 border-b bg-gradient-to-r from-green-500 to-green-600">
+                  <div className="flex items-center justify-between">
+                    <h3 className="font-semibold text-white">Thông báo</h3>
+                    {unreadCount > 0 && (
+                      <span className="bg-white text-green-600 text-xs font-bold px-2 py-1 rounded-full">
+                        {unreadCount} mới
+                      </span>
+                    )}
+                  </div>
+                </div>
 
-                {/* Xem thông báo */}
-                <button
-                  onClick={() => {
-                    setActiveTab("notifications")
-                    setShowNotificationDropdown(false)
-                  }}
-                  className="block w-full text-left py-2 hover:bg-gray-100 rounded"
-                >
-                  🔔 Thông báo ({unreadCount})
-                </button>
+                {/* Danh sách thông báo */}
+                <div className="overflow-y-auto max-h-[400px]">
+                  {notifications.length === 0 ? (
+                    <div className="p-6 text-center text-gray-500">
+                      <p>Không có thông báo</p>
+                    </div>
+                  ) : (
+                    <div className="divide-y">
+                      {notifications.slice(0, 5).map((notification) => {
+                        // Xác định tab cần chuyển đến dựa trên notification type và link
+                        const getTargetTab = (): TabType => {
+                          // Nếu là wallet-related notification và link là /enterprise-admin, chuyển đến tab wallet
+                          if ((notification.type?.startsWith("wallet_") || notification.link === "/enterprise-admin") && 
+                              (notification.type?.includes("wallet") || notification.link === "/enterprise-admin")) {
+                            return "wallet"
+                          }
+                          // Mặc định chuyển đến tab notifications
+                          return "notifications"
+                        }
 
-                <button
-                  onClick={handleLogout}
-                  className="block w-full text-left py-2 text-red-600 hover:bg-gray-100 rounded"
-                >
-                  🚪 Đăng xuất
-                </button>
+                        return (
+                          <button
+                            key={notification.id}
+                            onClick={async () => {
+                              // Đánh dấu đã đọc nếu chưa đọc
+                              if (!notification.read) {
+                                try {
+                                  const { markNotificationAsRead } = await import("@/lib/api")
+                                  await markNotificationAsRead(notification.id)
+                                  loadNotifications()
+                                } catch (err) {
+                                  console.error("Failed to mark notification as read:", err)
+                                }
+                              }
+                              
+                              const targetTab = getTargetTab()
+                              setActiveTab(targetTab)
+                              setShowNotificationDropdown(false)
+                              
+                              // Nếu có link và không phải là /enterprise-admin, điều hướng
+                              if (notification.link && notification.link !== "/enterprise-admin") {
+                                router.push(notification.link)
+                              }
+                            }}
+                            className={`w-full text-left p-3 hover:bg-gray-50 transition ${
+                              !notification.read ? "bg-green-50" : ""
+                            }`}
+                          >
+                          <div className="flex items-start gap-2">
+                            <span className="text-lg">
+                              {notification.type === "product_approved" ? "✅" :
+                               notification.type === "product_rejected" ? "❌" :
+                               notification.type === "new_order" ? "📦" :
+                               notification.type === "low_stock" ? "⚠️" :
+                               notification.type?.startsWith("wallet_") ? "💰" : "🔔"}
+                            </span>
+                            <div className="flex-1 min-w-0">
+                              <p className={`text-sm font-medium truncate ${
+                                !notification.read ? "text-gray-900" : "text-gray-600"
+                              }`}>
+                                {notification.title}
+                              </p>
+                              <p className="text-xs text-gray-500 truncate mt-1">
+                                {notification.message}
+                              </p>
+                              <p className="text-xs text-gray-400 mt-1">
+                                {new Date(notification.createdAt).toLocaleString("vi-VN", {
+                                  day: "2-digit",
+                                  month: "2-digit",
+                                  hour: "2-digit",
+                                  minute: "2-digit"
+                                })}
+                              </p>
+                            </div>
+                            {!notification.read && (
+                              <span className="w-2 h-2 bg-green-600 rounded-full flex-shrink-0 mt-1"></span>
+                            )}
+                          </div>
+                        </button>
+                        )
+                      })}
+                    </div>
+                  )}
+                </div>
+
+                {/* Footer */}
+                <div className="p-3 border-t bg-gray-50">
+                  <button
+                    onClick={() => {
+                      setActiveTab("notifications")
+                      setShowNotificationDropdown(false)
+                    }}
+                    className="w-full text-center text-sm text-green-600 hover:text-green-700 font-medium py-2"
+                  >
+                    Xem tất cả thông báo
+                  </button>
+                </div>
+
+                {/* User info và logout */}
+                <div className="p-3 border-t">
+                  <p className="text-sm font-medium text-gray-700 mb-2">
+                    {userName}
+                  </p>
+                  <button
+                    onClick={handleLogout}
+                    className="w-full text-left text-sm text-red-600 hover:text-red-700 font-medium py-2"
+                  >
+                    🚪 Đăng xuất
+                  </button>
+                </div>
               </div>
             )}
           </div>
@@ -241,7 +396,14 @@ export default function EnterpriseAdminPage() {
           {activeTab === "profile" && <EnterpriseProfileTab user={user} />}
           {activeTab === "ocop-status" && <OcopStatusTab user={user} />}
           {activeTab === "reports" && <ReportsTab user={user} />}
-          {activeTab === "notifications" && <NotificationsTab user={user} />}
+          {activeTab === "wallet" && <WalletTab user={user} />}
+          {activeTab === "notifications" && (
+            <NotificationsTab 
+              user={user} 
+              onNotificationUpdate={handleNotificationUpdate}
+              unreadCount={unreadCount}
+            />
+          )}
           {activeTab === "settings" && <SettingsTab user={user} />}
         </main>
       </div>
@@ -256,5 +418,6 @@ type TabType =
   | "profile"
   | "ocop-status"
   | "reports"
+  | "wallet"
   | "notifications"
   | "settings"
