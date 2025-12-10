@@ -15,7 +15,7 @@ interface AdminHeaderProps {
 
 export default function AdminHeader({ activeTab, onTabChange }: AdminHeaderProps) {
   const router = useRouter()
-  const [userName, setUserName] = useState<string>("Admin")
+  const [userName, setUserName] = useState<string>("Quản trị viên")
   const [userEmail, setUserEmail] = useState<string>("")
   const [userRole, setUserRole] = useState<string>("")
   const [pendingWalletRequestsCount, setPendingWalletRequestsCount] = useState(0)
@@ -27,7 +27,7 @@ export default function AdminHeader({ activeTab, onTabChange }: AdminHeaderProps
       try {
         const me = await getCurrentUser()
         const role = (me.role || "").toLowerCase()
-        setUserName((me.name || me.fullName || me.username || "Admin").toString())
+        setUserName((me.name || me.fullName || me.username || "Quản trị viên").toString())
         setUserEmail((me.email || "").toString())
         setUserRole((me.role || "").toString())
         

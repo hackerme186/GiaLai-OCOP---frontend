@@ -84,7 +84,7 @@ export default function AdminPage() {
     return allTabs.filter(tab => allowed.includes(tab.id))
   }, [allTabs, roleTabMap, roleNormalized, user])
 
-  const userName = user?.name || user?.fullName || user?.username || "Admin"
+  const userName = user?.name || user?.fullName || user?.username || "Quản trị viên"
   const userEmail = user?.email || ""
   const roleLabel = useMemo(() => {
     switch (roleNormalized) {
@@ -431,7 +431,7 @@ function DashboardTab({
   const [loading, setLoading] = useState(true)
   const [summary, setSummary] = useState<ReportSummary | null>(null)
   const [error, setError] = useState<string | null>(null)
-  const [userName, setUserName] = useState<string>("Admin")
+  const [userName, setUserName] = useState<string>("Quản trị viên")
 
   useEffect(() => {
     loadDashboard()
@@ -441,7 +441,7 @@ function DashboardTab({
   const loadUserInfo = async () => {
     try {
       const me = await getCurrentUser()
-      setUserName((me.name || me.fullName || me.username || "Admin").toString())
+      setUserName((me.name || me.fullName || me.username || "Quản trị viên").toString())
     } catch {
       // Ignore errors
     }

@@ -125,7 +125,7 @@ export default function ForgotPasswordForm() {
 
       {/* Copyright */}
       <p className="text-center text-xs text-white/70 mt-8">
-        © 2024 OCOP-GiaLai. All rights reserved
+        © 2024 OCOP-GiaLai. Bảo lưu mọi quyền
       </p>
     </div>
   )

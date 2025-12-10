@@ -165,7 +165,7 @@ export default function EnterpriseAdminPage() {
   ]
 
   const userName =
-    user?.name || user?.fullName || user?.username || "Enterprise Admin"
+    user?.name || user?.fullName || user?.username || "Quản trị doanh nghiệp"
 
   return (
     <div className="flex min-h-screen bg-gray-100">

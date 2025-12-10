@@ -15,7 +15,7 @@ interface EnterpriseHeaderProps {
 
 export default function EnterpriseHeader({ activeTab, onTabChange }: EnterpriseHeaderProps) {
   const router = useRouter()
-  const [userName, setUserName] = useState<string>("Enterprise Admin")
+  const [userName, setUserName] = useState<string>("Quản trị doanh nghiệp")
   const [userEmail, setUserEmail] = useState<string>("")
   const [userRole, setUserRole] = useState<string>("")
 
@@ -23,7 +23,7 @@ export default function EnterpriseHeader({ activeTab, onTabChange }: EnterpriseH
     const loadUserInfo = async () => {
       try {
         const me = await getCurrentUser()
-        setUserName((me.name || me.fullName || me.username || "Enterprise Admin").toString())
+        setUserName((me.name || me.fullName || me.username || "Quản trị doanh nghiệp").toString())
         setUserEmail((me.email || "").toString())
         setUserRole((me.role || "").toString())
       } catch {
@@ -114,6 +114,7 @@ export default function EnterpriseHeader({ activeTab, onTabChange }: EnterpriseH
     </header>
   )
 }
+
 
 
 
