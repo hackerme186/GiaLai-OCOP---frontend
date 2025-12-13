@@ -11,7 +11,11 @@ declare global {
     google?: {
       accounts: {
         id: {
-          initialize: (config: { client_id: string; callback: (response: any) => void }) => void
+          initialize: (config: { 
+            client_id: string
+            callback: (response: any) => void
+            use_fedcm_for_prompt?: boolean
+          }) => void
           prompt: () => void
           renderButton: (element: HTMLElement, config: { theme?: string; size?: string; text?: string; width?: string; type?: string }) => void
         }
@@ -28,6 +32,7 @@ export default function GoogleLoginButton({ onError }: GoogleLoginButtonProps) {
   const router = useRouter()
   const [isLoading, setIsLoading] = useState(false)
   const [isSDKLoaded, setIsSDKLoaded] = useState(false)
+  const buttonRef = useRef<HTMLDivElement>(null)
   const GOOGLE_CLIENT_ID = process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID || ""
 
   const handleGoogleSuccess = async (credentialResponse: any) => {
@@ -262,6 +267,8 @@ export default function GoogleLoginButton({ onError }: GoogleLoginButtonProps) {
         window.google.accounts.id.initialize({
           client_id: GOOGLE_CLIENT_ID,
           callback: handleGoogleSuccess,
+          // 🔧 Disable FedCM để tránh lỗi NetworkError
+          use_fedcm_for_prompt: false,
         })
         setIsSDKLoaded(true)
       } catch (error: any) {
@@ -300,6 +307,8 @@ export default function GoogleLoginButton({ onError }: GoogleLoginButtonProps) {
           window.google.accounts.id.initialize({
             client_id: GOOGLE_CLIENT_ID,
             callback: handleGoogleSuccess,
+            // 🔧 Disable FedCM để tránh lỗi NetworkError
+            use_fedcm_for_prompt: false,
           })
           setIsSDKLoaded(true)
         } catch (error: any) {
@@ -343,70 +352,57 @@ export default function GoogleLoginButton({ onError }: GoogleLoginButtonProps) {
     }
   }, [GOOGLE_CLIENT_ID])
 
-  const handleGoogleClick = () => {
-    if (!GOOGLE_CLIENT_ID) {
-      onError?.("Google Client ID chưa được cấu hình. Vui lòng liên hệ quản trị viên.")
-      return
+  // Render Google button vào div ref
+  useEffect(() => {
+    if (!GOOGLE_CLIENT_ID || !isSDKLoaded || !buttonRef.current) return
+
+    // Clear previous button if exists
+    if (buttonRef.current.firstChild) {
+      buttonRef.current.innerHTML = ''
     }
 
-    if (!window.google?.accounts?.id) {
-      onError?.("Google SDK chưa sẵn sàng. Vui lòng thử lại sau.")
-      return
-    }
-
-    setIsLoading(true)
-
-    // Try to show One Tap prompt
     try {
-      window.google.accounts.id.prompt()
-
-      // One Tap will automatically call handleGoogleSuccess via callback
-      // If user doesn't interact with One Tap, they can click the button again
-      // For now, we'll rely on One Tap or user can manually trigger
+      window.google?.accounts.id.renderButton(buttonRef.current, {
+        theme: 'outline',
+        size: 'large',
+        text: 'signin_with',
+        width: '100%',
+        type: 'standard',
+      })
+      console.log("✅ [GoogleLogin] Button đã được render")
     } catch (error: any) {
-      console.error("❌ [GoogleLogin] Error triggering Google sign-in:", error)
-
-      // Check for origin error
-      const errorMessage = error?.message || error?.toString() || ""
-      if (errorMessage.includes("origin is not allowed") ||
-        errorMessage.includes("GSI_LOGGER") ||
-        errorMessage.includes("The given origin is not allowed")) {
-        const currentOrigin = window.location.origin
-        const errorMsg = `Origin "${currentOrigin}" chưa được cấu hình trong Google Cloud Console.`
-        console.error(`❌ [GoogleLogin] ${errorMsg}`)
-        console.info("💡 Hướng dẫn fix:")
-        console.info("1. Vào https://console.cloud.google.com/apis/credentials")
-        console.info("2. Chọn OAuth 2.0 Client ID của bạn")
-        console.info(`3. Thêm "${currentOrigin}" vào "Authorized JavaScript origins"`)
-        console.info(`4. Thêm "${currentOrigin}" vào "Authorized redirect URIs"`)
-        console.info("5. Đợi vài phút để Google cập nhật cấu hình")
-        console.info("6. Refresh trang và thử lại")
-        onError?.(errorMsg + " Vui lòng xem console để biết hướng dẫn chi tiết.")
-      } else {
-        onError?.("Không thể khởi động Google login. Vui lòng thử lại.")
-      }
-      setIsLoading(false)
+      console.error("❌ [GoogleLogin] Lỗi render button:", error)
     }
-  }
+  }, [GOOGLE_CLIENT_ID, isSDKLoaded])
+
+  // Button sẽ tự động trigger khi user click vào button được render bởi Google SDK
+  // Không cần handleGoogleClick function vì Google SDK đã handle click event
 
   return (
     <div className="w-full">
-      <button
-        type="button"
-        onClick={handleGoogleClick}
-        disabled={isLoading || !isSDKLoaded}
-        className="w-full flex items-center justify-center gap-3 px-4 py-3 bg-white text-gray-700 rounded-lg font-semibold hover:bg-gray-50 transition-colors disabled:opacity-60 disabled:cursor-not-allowed border border-gray-300 shadow-sm hover:shadow-md"
-      >
-        <svg className="w-5 h-5" viewBox="0 0 24 24">
-          <path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z" />
-          <path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z" />
-          <path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z" />
-          <path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z" />
-        </svg>
-        <span>Đăng nhập bằng Google</span>
-      </button>
+      {/* 🔧 Render Google button trực tiếp để tránh FedCM issues */}
+      <div 
+        ref={buttonRef}
+        className="w-full"
+        style={{ minHeight: '40px' }}
+      />
+      {!isSDKLoaded && (
+        <button
+          type="button"
+          disabled
+          className="w-full flex items-center justify-center gap-3 px-4 py-3 bg-white text-gray-700 rounded-lg font-semibold opacity-60 cursor-not-allowed border border-gray-300 shadow-sm"
+        >
+          <svg className="w-5 h-5" viewBox="0 0 24 24">
+            <path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z" />
+            <path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z" />
+            <path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z" />
+            <path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z" />
+          </svg>
+          <span>Đang tải Google...</span>
+        </button>
+      )}
       {isLoading && (
-        <p className="text-center text-sm text-white/80 mt-2 animate-pulse">Đang xử lý...</p>
+        <p className="text-center text-sm text-gray-600 mt-2 animate-pulse">Đang xử lý...</p>
       )}
     </div>
   )
