@@ -29,19 +29,6 @@ export default function GoogleLoginButton({ onError }: GoogleLoginButtonProps) {
   const [isLoading, setIsLoading] = useState(false)
   const [isSDKLoaded, setIsSDKLoaded] = useState(false)
   const GOOGLE_CLIENT_ID = process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID || ""
-  
-  // Debug: Log Client ID để kiểm tra
-  useEffect(() => {
-    if (GOOGLE_CLIENT_ID) {
-      console.log("🔍 [GoogleLogin] Client ID loaded:", `${GOOGLE_CLIENT_ID.substring(0, 20)}...`)
-      console.log("🔍 [GoogleLogin] Full Client ID:", GOOGLE_CLIENT_ID)
-      console.log("🔍 [GoogleLogin] Client ID length:", GOOGLE_CLIENT_ID.length)
-    } else {
-      console.warn("⚠️ [GoogleLogin] NEXT_PUBLIC_GOOGLE_CLIENT_ID is empty!")
-      console.info("💡 Kiểm tra file .env.local có biến NEXT_PUBLIC_GOOGLE_CLIENT_ID không")
-      console.info("💡 Sau khi thêm, cần restart Next.js server (npm run dev)")
-    }
-  }, [GOOGLE_CLIENT_ID])
 
   const handleGoogleSuccess = async (credentialResponse: any) => {
     if (!credentialResponse.credential) {

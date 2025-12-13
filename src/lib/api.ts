@@ -8,15 +8,7 @@ import { getAuthToken, getClaimsFromJwt } from "@/lib/auth"
 // API Base URL - lấy từ environment variable
 // Next.js tự động load .env.local (development) hoặc .env.production (production)
 // Fallback: production URL nếu không có env var
-// 
-// IMPORTANT: Use Next.js proxy route for client-side requests to avoid CORS issues
-// The proxy route is at /api/proxy/[...path] and forwards requests to the backend
-const BACKEND_API_URL = process.env.NEXT_PUBLIC_API_BASE || "https://gialai-ocop-be.onrender.com/api";
-
-// Use proxy route for client-side requests, direct URL for server-side
-export const API_BASE_URL = typeof window !== 'undefined' 
-  ? '/api/proxy/api'  // Client-side: use Next.js proxy route
-  : BACKEND_API_URL;  // Server-side: use direct backend URL
+export const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE || "https://gialai-ocop-be.onrender.com/api";
 
 type Json = unknown;
 
