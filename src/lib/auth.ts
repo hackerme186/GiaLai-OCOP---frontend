@@ -16,28 +16,42 @@ export function getAuthToken(): string | null {
 export async function isLoggedIn(): Promise<boolean> {
   if (typeof window === "undefined") return false;
   
-  // Check NextAuth session first
+  // Check NextAuth session first (but don't fail if NextAuth is not available)
   try {
     const session = await getSession();
     if (session) return true;
-  } catch {
-    // Ignore session errors
+  } catch (err) {
+    // Ignore NextAuth errors (e.g., if API route is not available)
+    // This allows the app to work with custom auth even if NextAuth fails
+    console.debug("NextAuth session check failed (using fallback):", err);
   }
   
   // Fallback to local storage token
   return !!getAuthToken();
 }
 
-export function logout() {
+export function logout(redirectToLogin = false) {
   if (typeof window === "undefined") return;
   localStorage.removeItem(AUTH_KEY);
   localStorage.removeItem(PROFILE_KEY);
+  
+  // Optional: Redirect to login page
+  if (redirectToLogin && typeof window !== "undefined") {
+    // Use setTimeout to avoid navigation during render
+    setTimeout(() => {
+      window.location.href = '/login';
+    }, 0);
+  }
 }
 
 export type UserProfile = {
+  id?: number;
   name?: string;
   email?: string;
+  role?: string;
+  enterpriseId?: number | null;
   avatarUrl?: string;
+  createdAt?: string;
 }
 
 export function setUserProfile(profile: UserProfile) {
@@ -81,9 +95,47 @@ export function getClaimsFromJwt(token?: string | null): Record<string, unknown>
 export function getRoleFromToken(token?: string | null): string | null {
   const claims = getClaimsFromJwt(token);
   if (!claims) return null;
-  const roleKey = Object.keys(claims).find(k => k.toLowerCase().includes("/role") || k.toLowerCase() === 'role');
-  const raw = (roleKey ? (claims as any)[roleKey] : (claims as any).role) as unknown;
-  if (!raw) return null;
-  if (Array.isArray(raw)) return (raw[0] || '').toString();
-  return String(raw);
+  
+  // Try multiple possible role key names
+  const possibleKeys = [
+    'role',
+    'roles',
+    'userRole',
+    'user_role',
+    'authority',
+    'authorities',
+    'permission',
+    'permissions',
+    'http://schemas.microsoft.com/ws/2008/06/identity/claims/role',
+    'http://schemas.xmlsoap.org/ws/2005/05/identity/claims/role'
+  ];
+  
+  // First try exact matches
+  for (const key of possibleKeys) {
+    const value = (claims as any)[key];
+    if (value) {
+      if (Array.isArray(value)) {
+        const firstRole = value[0];
+        if (firstRole) return String(firstRole);
+      } else if (typeof value === 'string' || typeof value === 'number') {
+        return String(value);
+      }
+    }
+  }
+  
+  // Then try case-insensitive partial matches
+  const roleKey = Object.keys(claims).find(k => {
+    const lower = k.toLowerCase();
+    return lower.includes('role') || lower.includes('authority') || lower.includes('permission');
+  });
+  
+  if (roleKey) {
+    const raw = (claims as any)[roleKey];
+    if (raw) {
+      if (Array.isArray(raw)) return (raw[0] || '').toString();
+      return String(raw);
+    }
+  }
+  
+  return null;
 }

@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useEffect } from "react"
+import { useState, useEffect, useCallback, useMemo } from "react"
 
 interface ToastProps {
   message: string
@@ -21,6 +21,11 @@ export function Toast({ message, type = "success", duration = 3000, onClose }: T
 
     return () => clearTimeout(timer)
   }, [duration, onClose])
+
+  const handleClose = useCallback(() => {
+    setIsVisible(false)
+    setTimeout(onClose, 300)
+  }, [onClose])
 
   const getToastStyles = () => {
     switch (type) {
@@ -67,10 +72,7 @@ export function Toast({ message, type = "success", duration = 3000, onClose }: T
       {getIcon()}
       <span className="font-medium">{message}</span>
       <button
-        onClick={() => {
-          setIsVisible(false)
-          setTimeout(onClose, 300)
-        }}
+        onClick={handleClose}
         className="ml-2 hover:bg-black hover:bg-opacity-20 rounded-full p-1"
       >
         <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -85,27 +87,30 @@ export function Toast({ message, type = "success", duration = 3000, onClose }: T
 export function useToast() {
   const [toasts, setToasts] = useState<Array<{ id: string; message: string; type: "success" | "error" | "info" }>>([])
 
-  const showToast = (message: string, type: "success" | "error" | "info" = "success") => {
+  const showToast = useCallback((message: string, type: "success" | "error" | "info" = "success") => {
     const id = Math.random().toString(36).substr(2, 9)
-    setToasts(prev => [...prev, { id, message, type }])
-  }
+    // Only show 1 toast at a time - replace existing toast
+    setToasts([{ id, message, type }])
+  }, [])
 
-  const removeToast = (id: string) => {
+  const removeToast = useCallback((id: string) => {
     setToasts(prev => prev.filter(toast => toast.id !== id))
-  }
+  }, [])
 
-  const ToastContainer = () => (
-    <div className="fixed top-4 right-4 z-50 space-y-2">
-      {toasts.map(toast => (
-        <Toast
-          key={toast.id}
-          message={toast.message}
-          type={toast.type}
-          onClose={() => removeToast(toast.id)}
-        />
-      ))}
-    </div>
-  )
+  const ToastContainer = useCallback(() => {
+    return (
+      <div className="fixed top-4 right-4 z-50 space-y-2">
+        {toasts.map(toast => (
+          <Toast
+            key={toast.id}
+            message={toast.message}
+            type={toast.type}
+            onClose={() => removeToast(toast.id)}
+          />
+        ))}
+      </div>
+    )
+  }, [toasts, removeToast])
 
   return { showToast, ToastContainer }
 }
