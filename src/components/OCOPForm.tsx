@@ -525,8 +525,18 @@ export default function OCOPForm({ onSubmit }: OCOPFormProps) {
           <button
             type="button"
             onClick={() => {
-              const ok = step === 1 ? validateStep1() : step === 2 ? validateStep2() : true
-              if (ok) setStep(Math.min(totalSteps, step + 1))
+              // Validate step hiện tại trước khi chuyển
+              const isValid = step === 1 ? validateStep1() : step === 2 ? validateStep2() : true
+              
+              // Chỉ chuyển bước khi validation thành công và user click nút "Tiếp theo"
+              // Không tự động chuyển bước sau khi validate
+              if (isValid) {
+                // Chỉ chuyển sang bước tiếp theo khi click nút
+                const nextStep = step + 1
+                if (nextStep <= totalSteps) {
+                  setStep(nextStep)
+                }
+              }
             }}
             className="px-6 py-2 bg-indigo-600 text-white rounded-lg font-medium hover:bg-indigo-700"
           >

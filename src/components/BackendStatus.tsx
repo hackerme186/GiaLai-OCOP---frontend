@@ -11,8 +11,7 @@ export default function BackendStatus() {
     const checkBackend = async () => {
       try {
         // Use health check endpoint instead of products endpoint (lighter, faster)
-        // Use proxy route to avoid CORS issues
-        const healthCheckUrl = '/api/proxy/health'
+        const healthCheckUrl = API_BASE_URL.replace('/api', '') + '/health'
         
         // Try to fetch from backend with longer timeout for Render cold start
         const controller = new AbortController()
@@ -66,8 +65,8 @@ export default function BackendStatus() {
               Render free tier sleep sau 15 phút không hoạt động. Đợi 30-60 giây để backend wake up.
             </p>
             <div className="mt-2 text-xs text-yellow-600">
-              <p>💡 Backend URL: {API_BASE_URL.replace('/api/proxy/api', 'https://gialai-ocop-be.onrender.com')}</p>
-              <p className="mt-1">💡 Health check: /api/proxy/health</p>
+              <p>💡 Backend URL: {API_BASE_URL.replace('/api', '')}</p>
+              <p className="mt-1">💡 Health check: {API_BASE_URL.replace('/api', '')}/health</p>
             </div>
           </div>
           <div className="ml-3 flex-shrink-0">
