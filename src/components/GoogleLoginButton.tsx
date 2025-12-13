@@ -352,6 +352,43 @@ export default function GoogleLoginButton({ onError }: GoogleLoginButtonProps) {
     }
   }, [GOOGLE_CLIENT_ID])
 
+  // Inject CSS để đảm bảo Google button có full width
+  useEffect(() => {
+    const styleId = 'google-button-full-width-style'
+    if (document.getElementById(styleId)) return
+
+    const style = document.createElement('style')
+    style.id = styleId
+    style.textContent = `
+      /* Force Google Sign-In button to full width */
+      div[id*="google-signin"] {
+        width: 100% !important;
+        min-width: 100% !important;
+        max-width: 100% !important;
+      }
+      div[role="button"][id*="google-signin"],
+      div[role="button"][aria-label*="Sign in with Google"] {
+        width: 100% !important;
+        min-width: 100% !important;
+        max-width: 100% !important;
+      }
+      /* Target Google button container */
+      iframe[id*="google-signin"] {
+        width: 100% !important;
+        min-width: 100% !important;
+        max-width: 100% !important;
+      }
+    `
+    document.head.appendChild(style)
+
+    return () => {
+      const existingStyle = document.getElementById(styleId)
+      if (existingStyle) {
+        existingStyle.remove()
+      }
+    }
+  }, [])
+
   // Render Google button vào div ref
   useEffect(() => {
     if (!GOOGLE_CLIENT_ID || !isSDKLoaded || !buttonRef.current) return
@@ -369,6 +406,30 @@ export default function GoogleLoginButton({ onError }: GoogleLoginButtonProps) {
         width: '100%',
         type: 'standard',
       })
+      
+      // Force full width bằng cách override CSS của Google button
+      setTimeout(() => {
+        if (buttonRef.current) {
+          // Tìm tất cả các element có thể là Google button
+          const allDivs = buttonRef.current.querySelectorAll('div')
+          allDivs.forEach((div) => {
+            const divElement = div as HTMLElement
+            divElement.style.width = '100%'
+            divElement.style.minWidth = '100%'
+            divElement.style.maxWidth = '100%'
+          })
+          
+          // Tìm iframe (Google button có thể được render trong iframe)
+          const iframes = buttonRef.current.querySelectorAll('iframe')
+          iframes.forEach((iframe) => {
+            const iframeElement = iframe as HTMLElement
+            iframeElement.style.width = '100%'
+            iframeElement.style.minWidth = '100%'
+            iframeElement.style.maxWidth = '100%'
+          })
+        }
+      }, 200)
+      
       console.log("✅ [GoogleLogin] Button đã được render")
     } catch (error: any) {
       console.error("❌ [GoogleLogin] Lỗi render button:", error)
@@ -384,7 +445,10 @@ export default function GoogleLoginButton({ onError }: GoogleLoginButtonProps) {
       <div 
         ref={buttonRef}
         className="w-full"
-        style={{ minHeight: '40px' }}
+        style={{ 
+          minHeight: '40px',
+          width: '100%'
+        }}
       />
       {!isSDKLoaded && (
         <button
