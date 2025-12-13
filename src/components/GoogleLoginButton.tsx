@@ -48,22 +48,42 @@ export default function GoogleLoginButton({ onError }: GoogleLoginButtonProps) {
     try {
       const idToken = credentialResponse.credential || credentialResponse
       console.log("📤 [GoogleLogin] Gửi idToken lên backend...")
+      console.log("📤 [GoogleLogin] ID Token length:", idToken.length)
+      console.log("📤 [GoogleLogin] ID Token preview:", idToken.substring(0, 50) + "...")
 
       const res = await loginWithGoogle({ idToken }) as any
       console.log("📥 [GoogleLogin] Response từ API:", res)
+      console.log("📥 [GoogleLogin] Full response (JSON):", JSON.stringify(res, null, 2))
 
-      // Extract token
+      // Extract token với nhiều format khác nhau
       const token = res?.token || res?.Token || res?.data?.token || res?.data?.Token
       console.log("🔑 [GoogleLogin] Token extracted:", token ? `${token.substring(0, 20)}...` : "NULL")
+      console.log("🔑 [GoogleLogin] Response keys:", Object.keys(res || {}))
 
       if (!token) {
         console.error("❌ [GoogleLogin] Không tìm thấy token trong response")
+        console.error("❌ [GoogleLogin] Response structure:", {
+          hasToken: !!res?.token,
+          hasTokenCapital: !!res?.Token,
+          hasDataToken: !!res?.data?.token,
+          hasDataTokenCapital: !!res?.data?.Token,
+          responseKeys: Object.keys(res || {}),
+          responseType: typeof res,
+          responseIsArray: Array.isArray(res)
+        })
         throw new Error("Không nhận được token từ server. Vui lòng thử lại.")
       }
 
       // Save token
       console.log("💾 [GoogleLogin] Lưu token vào localStorage...")
       setAuthToken(token)
+
+      // Verify token đã được lưu
+      const savedToken = typeof window !== "undefined" ? localStorage.getItem("auth_token") : null
+      console.log("✅ [GoogleLogin] Token đã được lưu:", savedToken ? "YES" : "NO")
+      if (savedToken) {
+        console.log("✅ [GoogleLogin] Saved token preview:", savedToken.substring(0, 20) + "...")
+      }
 
       // Wait a bit to ensure token is saved
       await new Promise(resolve => setTimeout(resolve, 100))
@@ -142,6 +162,36 @@ export default function GoogleLoginButton({ onError }: GoogleLoginButtonProps) {
       console.log("✅ [GoogleLogin] Đăng nhập thành công!")
     } catch (err) {
       console.error("❌ [GoogleLogin] Lỗi đăng nhập:", err)
+      
+      // Log chi tiết error
+      if (err instanceof Error) {
+        console.error("❌ [GoogleLogin] Error details:", {
+          message: err.message,
+          stack: err.stack,
+          name: err.name,
+          cause: (err as any).cause
+        })
+      } else {
+        console.error("❌ [GoogleLogin] Error object:", err)
+      }
+      
+      // Log thêm thông tin về error nếu có
+      if (err && typeof err === 'object') {
+        const errorObj = err as any
+        if (errorObj.status) {
+          console.error("❌ [GoogleLogin] Error status:", errorObj.status)
+        }
+        if (errorObj.response) {
+          console.error("❌ [GoogleLogin] Error response:", errorObj.response)
+        }
+        if (errorObj.isAuthError) {
+          console.error("❌ [GoogleLogin] Authentication error detected")
+        }
+        if (errorObj.isNetworkError) {
+          console.error("❌ [GoogleLogin] Network error detected:", errorObj.originalError)
+        }
+      }
+      
       const errorMessage = err instanceof Error ? err.message : "Đăng nhập Google thất bại. Vui lòng thử lại."
       onError?.(errorMessage)
     } finally {
