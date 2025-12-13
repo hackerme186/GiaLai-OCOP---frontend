@@ -77,6 +77,7 @@ npm run dev
 | [**QUICK_START.md**](QUICK_START.md) | Getting started guide |
 | [**API_INTEGRATION_COMPLETE.md**](API_INTEGRATION_COMPLETE.md) | Complete API documentation |
 | [**ENV_CONFIGURATION.md**](ENV_CONFIGURATION.md) | Environment variables setup |
+| [**HUONG_DAN_GOOGLE_LOGIN.md**](HUONG_DAN_GOOGLE_LOGIN.md) | 🔐 Hướng dẫn thiết lập đăng nhập Google |
 | [**TROUBLESHOOTING.md**](TROUBLESHOOTING.md) | Common issues & solutions |
 | [**PRODUCTION_DEPLOYMENT.md**](PRODUCTION_DEPLOYMENT.md) | Deploy to production |
 
