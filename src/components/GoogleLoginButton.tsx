@@ -11,7 +11,11 @@ declare global {
     google?: {
       accounts: {
         id: {
-          initialize: (config: { client_id: string; callback: (response: any) => void }) => void
+          initialize: (config: { 
+            client_id: string
+            callback: (response: any) => void
+            use_fedcm_for_prompt?: boolean
+          }) => void
           prompt: () => void
           renderButton: (element: HTMLElement, config: { theme?: string; size?: string; text?: string; width?: string; type?: string }) => void
         }
@@ -371,36 +375,8 @@ export default function GoogleLoginButton({ onError }: GoogleLoginButtonProps) {
     }
   }, [GOOGLE_CLIENT_ID, isSDKLoaded])
 
-  const handleGoogleClick = () => {
-    // Button sẽ tự động trigger khi user click
-    // Không cần xử lý gì ở đây vì Google SDK đã handle
-    setIsLoading(true)
-    console.log("🔐 [GoogleLogin] User clicked Google button")
-  }
-      console.error("❌ [GoogleLogin] Error triggering Google sign-in:", error)
-
-      // Check for origin error
-      const errorMessage = error?.message || error?.toString() || ""
-      if (errorMessage.includes("origin is not allowed") ||
-        errorMessage.includes("GSI_LOGGER") ||
-        errorMessage.includes("The given origin is not allowed")) {
-        const currentOrigin = window.location.origin
-        const errorMsg = `Origin "${currentOrigin}" chưa được cấu hình trong Google Cloud Console.`
-        console.error(`❌ [GoogleLogin] ${errorMsg}`)
-        console.info("💡 Hướng dẫn fix:")
-        console.info("1. Vào https://console.cloud.google.com/apis/credentials")
-        console.info("2. Chọn OAuth 2.0 Client ID của bạn")
-        console.info(`3. Thêm "${currentOrigin}" vào "Authorized JavaScript origins"`)
-        console.info(`4. Thêm "${currentOrigin}" vào "Authorized redirect URIs"`)
-        console.info("5. Đợi vài phút để Google cập nhật cấu hình")
-        console.info("6. Refresh trang và thử lại")
-        onError?.(errorMsg + " Vui lòng xem console để biết hướng dẫn chi tiết.")
-      } else {
-        onError?.("Không thể khởi động Google login. Vui lòng thử lại.")
-      }
-      setIsLoading(false)
-    }
-  }
+  // Button sẽ tự động trigger khi user click vào button được render bởi Google SDK
+  // Không cần handleGoogleClick function vì Google SDK đã handle click event
 
   return (
     <div className="w-full">
