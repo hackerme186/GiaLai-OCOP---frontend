@@ -337,6 +337,7 @@ export interface CreateProductDto {
   ocopRating?: number;
   stockStatus?: string;
   categoryId?: number;
+  enterpriseId?: number; // Optional: để SystemAdmin có thể tạo product cho enterprise khác
 }
 
 export interface UpdateProductStatusDto {

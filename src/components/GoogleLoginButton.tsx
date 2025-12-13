@@ -146,6 +146,21 @@ export default function GoogleLoginButton({ onError }: GoogleLoginButtonProps) {
 
   // Load Google Identity Services SDK
   useEffect(() => {
+    // 🔍 Debug: Log thông tin để kiểm tra
+    console.log("🔍 [GoogleLogin Debug] ========================================")
+    console.log("🔍 [GoogleLogin Debug] Client ID:", GOOGLE_CLIENT_ID)
+    console.log("🔍 [GoogleLogin Debug] Client ID Length:", GOOGLE_CLIENT_ID.length)
+    console.log("🔍 [GoogleLogin Debug] Current Origin:", window.location.origin)
+    console.log("🔍 [GoogleLogin Debug] Expected Origins:", [
+      "http://localhost:3000",
+      "https://gialai-ocop-frontend-2.onrender.com"
+    ])
+    console.log("🔍 [GoogleLogin Debug] Origin Match:", [
+      "http://localhost:3000",
+      "https://gialai-ocop-frontend-2.onrender.com"
+    ].includes(window.location.origin))
+    console.log("🔍 [GoogleLogin Debug] ========================================")
+    
     if (!GOOGLE_CLIENT_ID) {
       console.warn("⚠️ [GoogleLogin] NEXT_PUBLIC_GOOGLE_CLIENT_ID chưa được cấu hình")
       return
@@ -155,13 +170,26 @@ export default function GoogleLoginButton({ onError }: GoogleLoginButtonProps) {
     const showOriginError = (origin: string) => {
       const errorMsg = `Origin "${origin}" chưa được cấu hình trong Google Cloud Console.`
       console.error(`❌ [GoogleLogin] ${errorMsg}`)
+      console.error("🔍 [GoogleLogin Debug] Thông tin hiện tại:")
+      console.error(`   - Origin hiện tại: ${origin}`)
+      console.error(`   - Client ID: ${GOOGLE_CLIENT_ID}`)
+      console.error(`   - Expected Origins: http://localhost:3000, https://gialai-ocop-frontend-2.onrender.com`)
       console.info("💡 Hướng dẫn fix:")
       console.info("1. Vào https://console.cloud.google.com/apis/credentials")
-      console.info("2. Chọn OAuth 2.0 Client ID của bạn")
-      console.info(`3. Thêm "${origin}" vào "Authorized JavaScript origins"`)
-      console.info(`4. Thêm "${origin}" vào "Authorized redirect URIs"`)
-      console.info("5. Đợi vài phút để Google cập nhật cấu hình")
-      console.info("6. Refresh trang và thử lại")
+      console.info("2. Chọn OAuth 2.0 Client ID: 658763607878-8bcd3e17rnbv0jd925skma8904nhfutt")
+      console.info(`3. Kiểm tra "Authorized JavaScript origins" có "${origin}" chưa`)
+      console.info(`4. Kiểm tra "Authorized redirect URIs" có "${origin}" chưa`)
+      console.info("5. ⚠️ QUAN TRỌNG: Đảm bảo KHÔNG có trailing slash '/' ở cuối URI")
+      console.info("6. ⚠️ QUAN TRỌNG: Đảm bảo KHÔNG có wildcard '*' ở cuối URI")
+      console.info("7. Click 'SAVE' và đợi 10-15 phút để Google cập nhật")
+      console.info("8. Hard refresh trình duyệt: Ctrl + Shift + R")
+      console.info("9. Xóa cache và cookies cho domain này")
+      console.info("10. Thử lại")
+      console.info("")
+      console.info("🔧 Nếu vẫn lỗi sau 15 phút:")
+      console.info("   - Thử Incognito mode (Ctrl + Shift + N)")
+      console.info("   - Kiểm tra FedCM: chrome://settings/content/federatedIdentityApi")
+      console.info("   - Thử trình duyệt khác")
       onError?.(errorMsg + " Vui lòng xem console để biết hướng dẫn chi tiết.")
     }
 
