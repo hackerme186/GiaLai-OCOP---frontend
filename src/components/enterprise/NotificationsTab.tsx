@@ -5,9 +5,11 @@ import { getNotifications, markNotificationAsRead, markAllNotificationsAsRead, d
 
 interface NotificationsTabProps {
   user: User | null
+  onNotificationUpdate?: () => void
+  unreadCount?: number
 }
 
-export default function NotificationsTab({ user }: NotificationsTabProps) {
+export default function NotificationsTab({ user, onNotificationUpdate, unreadCount: parentUnreadCount }: NotificationsTabProps) {
   const [notifications, setNotifications] = useState<Notification[]>([])
   const [loading, setLoading] = useState(true)
   const [filter, setFilter] = useState<"all" | "unread" | "read">("all")
@@ -26,6 +28,10 @@ export default function NotificationsTab({ user }: NotificationsTabProps) {
       if (filter === "unread") params.unreadOnly = true
       const data = await getNotifications(params)
       setNotifications(data)
+      // Notify parent component về thay đổi
+      if (onNotificationUpdate) {
+        onNotificationUpdate()
+      }
     } catch (err) {
       console.error("Failed to load notifications:", err)
       setNotifications([])
@@ -38,6 +44,10 @@ export default function NotificationsTab({ user }: NotificationsTabProps) {
     try {
       await markNotificationAsRead(id)
       setNotifications(prev => prev.map(n => n.id === id ? { ...n, read: true } : n))
+      // Notify parent component về thay đổi
+      if (onNotificationUpdate) {
+        onNotificationUpdate()
+      }
     } catch (err) {
       console.error("Failed to mark as read:", err)
     }
@@ -47,6 +57,10 @@ export default function NotificationsTab({ user }: NotificationsTabProps) {
     try {
       await markAllNotificationsAsRead()
       setNotifications(prev => prev.map(n => ({ ...n, read: true })))
+      // Notify parent component về thay đổi
+      if (onNotificationUpdate) {
+        onNotificationUpdate()
+      }
     } catch (err) {
       console.error("Failed to mark all as read:", err)
     }
@@ -58,6 +72,10 @@ export default function NotificationsTab({ user }: NotificationsTabProps) {
     try {
       await deleteNotification(id)
       setNotifications(prev => prev.filter(n => n.id !== id))
+      // Notify parent component về thay đổi
+      if (onNotificationUpdate) {
+        onNotificationUpdate()
+      }
     } catch (err) {
       console.error("Failed to delete notification:", err)
       alert("Không thể xóa thông báo")
@@ -71,6 +89,14 @@ export default function NotificationsTab({ user }: NotificationsTabProps) {
       new_order: "📦",
       low_stock: "⚠️",
       system: "🔔",
+      wallet_deposit: "💰",
+      wallet_withdraw: "💰",
+      wallet_deposit_rejected: "❌",
+      wallet_withdraw_rejected: "❌",
+    }
+    // Nếu type bắt đầu bằng "wallet_", trả về icon wallet
+    if (type?.startsWith("wallet_")) {
+      return icons[type] || "💰"
     }
     return icons[type] || "🔔"
   }
@@ -82,6 +108,23 @@ export default function NotificationsTab({ user }: NotificationsTabProps) {
       new_order: "bg-blue-50 border-blue-200",
       low_stock: "bg-yellow-50 border-yellow-200",
       system: "bg-gray-50 border-gray-200",
+      wallet_deposit: "bg-green-50 border-green-200",
+      wallet_withdraw: "bg-blue-50 border-blue-200",
+      wallet_deposit_rejected: "bg-red-50 border-red-200",
+      wallet_withdraw_rejected: "bg-red-50 border-red-200",
+    }
+    // Nếu type bắt đầu bằng "wallet_", trả về màu tương ứng
+    if (type?.startsWith("wallet_")) {
+      if (type.includes("rejected")) {
+        return "bg-red-50 border-red-200"
+      }
+      if (type.includes("deposit")) {
+        return "bg-green-50 border-green-200"
+      }
+      if (type.includes("withdraw")) {
+        return "bg-blue-50 border-blue-200"
+      }
+      return colors[type] || "bg-gray-50 border-gray-200"
     }
     return colors[type] || "bg-gray-50 border-gray-200"
   }
@@ -105,22 +148,30 @@ export default function NotificationsTab({ user }: NotificationsTabProps) {
 
   return (
     <div className="space-y-6">
+
       {/* Header */}
-      <div className="bg-white rounded-xl shadow-lg p-6">
+      <div className="bg-gradient-to-r from-amber-500 via-orange-500 to-red-500 rounded-2xl shadow-xl p-8 text-white">
         <div className="flex items-center justify-between mb-4">
           <div>
-            <h2 className="text-2xl font-bold text-gray-900">Thông báo</h2>
-            <p className="text-sm text-gray-500 mt-1">Quản lý thông báo và cập nhật từ hệ thống</p>
+            <h2 className="text-3xl font-bold mb-2 drop-shadow-lg">🔔 Thông báo</h2>
+            <p className="text-amber-100 text-lg">Quản lý thông báo và cập nhật từ hệ thống</p>
+
           </div>
           {unreadCount > 0 && (
             <button
               onClick={handleMarkAllAsRead}
-              className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 text-sm font-medium"
+
+              className="px-6 py-3 bg-white/20 backdrop-blur-sm text-white rounded-xl font-semibold hover:bg-white/30 transition-all shadow-lg hover:shadow-xl transform hover:-translate-y-0.5"
+
             >
               Đánh dấu tất cả đã đọc
             </button>
           )}
         </div>
+      </div>
+
+      {/* Filters Section */}
+      <div className="bg-white rounded-xl shadow-lg p-6">
 
         {/* Filters */}
         <div className="flex gap-2">

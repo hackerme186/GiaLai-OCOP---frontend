@@ -3,6 +3,7 @@
 import { useState, useRef, useEffect } from "react"
 import { uploadImage, uploadImages, checkUploadPermission, type UploadFolder } from "@/lib/upload"
 import Image from "next/image"
+import { isValidImageUrl, getImageAttributes } from "@/lib/imageUtils"
 
 interface ImageUploaderProps {
   /**
@@ -85,14 +86,26 @@ export default function ImageUploader({
 
   // Set preview from currentImageUrl when it changes
   useEffect(() => {
-    if (currentImageUrl && !preview) {
+    if (currentImageUrl && isValidImageUrl(currentImageUrl)) {
+      // Luôn cập nhật preview khi currentImageUrl thay đổi và hợp lệ
       setPreview(currentImageUrl)
+    } else if (!currentImageUrl && !preview) {
+      // Chỉ clear preview nếu chưa có preview (tránh clear khi đang upload)
+      setPreview(null)
     }
   }, [currentImageUrl])
 
   const handleFileChange = async (event: React.ChangeEvent<HTMLInputElement>) => {
     const files = event.target.files
     if (!files || files.length === 0) return
+
+    // Save file info for error logging
+    const fileInfo = {
+      count: files.length,
+      firstFileName: files[0]?.name || "unknown",
+      firstFileSize: files[0]?.size || 0,
+      firstFileType: files[0]?.type || "unknown"
+    }
 
     // Check permission before proceeding
     const permission = checkUploadPermission(folder || "GiaLaiOCOP/Images")
@@ -133,7 +146,50 @@ export default function ImageUploader({
         setPreview(imageUrl)
       }
     } catch (err) {
-      const errorMessage = err instanceof Error ? err.message : "Upload thất bại"
+      let errorMessage = "Upload thất bại"
+      
+      // Extract error message safely
+      if (err instanceof Error) {
+        errorMessage = err.message || "Upload thất bại"
+      } else if (typeof err === 'string') {
+        errorMessage = err
+      } else if (err && typeof err === 'object' && 'message' in err) {
+        errorMessage = String(err.message) || "Upload thất bại"
+      }
+      
+      // Log detailed error for debugging (only in development)
+      if (process.env.NODE_ENV === 'development' && typeof console !== 'undefined') {
+        try {
+          console.group("[Upload Error]")
+          console.log("Message:", errorMessage)
+          console.log("Type:", err?.constructor?.name || typeof err)
+          console.log("Folder:", folder || "GiaLaiOCOP/Images")
+          console.log("File count:", multiple ? fileInfo.count : 1)
+          console.log("File name:", fileInfo.firstFileName)
+          console.log("File size:", fileInfo.firstFileSize, "bytes")
+          console.log("File type:", fileInfo.firstFileType)
+          
+          // Log error message and stack separately if available
+          if (err instanceof Error) {
+            console.log("Error.message:", err.message)
+            if (err.stack) {
+              console.log("Error.stack:", err.stack)
+            }
+          } else if (err && typeof err === 'object') {
+            try {
+              console.log("Error string:", String(err))
+            } catch {
+              console.log("Unable to stringify error")
+            }
+          } else {
+            console.log("Error value:", err)
+          }
+          console.groupEnd()
+        } catch (logErr) {
+          // Silently fail if logging causes issues
+        }
+      }
+      
       setError(errorMessage)
       // Clear preview on error
       setPreview(null)
@@ -208,11 +264,31 @@ export default function ImageUploader({
                     width={maxPreviewSize}
                     height={maxPreviewSize}
                     className="object-cover"
+                    {...getImageAttributes(preview as string)}
                     unoptimized={
                       (preview as string).startsWith("blob:") ||
                       (preview as string).includes("gialai-ocop-be.onrender.com") ||
                       (preview as string).includes("res.cloudinary.com")
                     }
+                    onError={(e) => {
+                      // Ẩn ảnh nếu lỗi và hiển thị placeholder
+                      const target = e.target as HTMLImageElement
+                      target.style.display = 'none'
+                      // Tạo placeholder element
+                      const parent = target.parentElement
+                      if (parent && !parent.querySelector('.image-error-placeholder')) {
+                        const placeholder = document.createElement('div')
+                        placeholder.className = 'image-error-placeholder flex items-center justify-center bg-gray-200 text-gray-400'
+                        placeholder.style.width = '100%'
+                        placeholder.style.height = '100%'
+                        placeholder.innerHTML = `
+                          <svg class="w-12 h-12" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                          </svg>
+                        `
+                        parent.appendChild(placeholder)
+                      }
+                    }}
                   />
                 </div>
                 {showRemoveButton && (
@@ -276,7 +352,18 @@ export default function ImageUploader({
         {/* Error Message */}
         {error && (
           <div className="rounded-lg border border-red-200 bg-red-50 px-4 py-3">
-            <p className="text-sm font-medium text-red-700">{error}</p>
+            <div className="flex items-start gap-2">
+              <svg className="w-5 h-5 text-red-600 mt-0.5 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+              </svg>
+              <div className="flex-1">
+                {error.split('\n').map((line, index) => (
+                  <p key={index} className={`text-sm font-medium text-red-700 ${index > 0 ? 'mt-1' : ''}`}>
+                    {line}
+                  </p>
+                ))}
+              </div>
+            </div>
           </div>
         )}
 

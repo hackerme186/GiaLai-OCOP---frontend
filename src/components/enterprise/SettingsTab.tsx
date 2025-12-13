@@ -158,14 +158,21 @@ export default function SettingsTab({ user }: SettingsTabProps) {
       )}
 
       {/* Header */}
-      <div className="bg-white rounded-xl shadow-lg p-6">
-        <h2 className="text-2xl font-bold text-gray-900 mb-2">Cài đặt doanh nghiệp</h2>
-        <p className="text-sm text-gray-500">Cấu hình thông tin và phương thức giao hàng</p>
+      <div className="bg-gradient-to-r from-slate-600 via-gray-600 to-zinc-600 rounded-2xl shadow-xl p-8 text-white">
+        <h2 className="text-3xl font-bold mb-2 drop-shadow-lg">⚙️ Cài đặt doanh nghiệp</h2>
+        <p className="text-slate-100 text-lg">Cấu hình thông tin và phương thức giao hàng</p>
       </div>
 
       {/* Contact Information */}
-      <div className="bg-white rounded-xl shadow-lg p-6">
-        <h3 className="text-lg font-semibold text-gray-900 mb-4">Thông tin liên hệ</h3>
+      <div className="bg-white rounded-2xl shadow-lg p-8 border-2 border-gray-200 hover:shadow-2xl transition-all duration-300">
+        <div className="flex items-center gap-3 mb-6">
+          <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-blue-500 to-blue-600 flex items-center justify-center shadow-lg">
+            <svg className="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
+            </svg>
+          </div>
+          <h3 className="text-2xl font-bold text-gray-900">Thông tin liên hệ</h3>
+        </div>
         <div className="space-y-4">
           <div>
             <label className="block text-sm font-semibold text-gray-900 mb-2">
@@ -222,11 +229,18 @@ export default function SettingsTab({ user }: SettingsTabProps) {
       </div>
 
       {/* Shipping Methods */}
-      <div className="bg-white rounded-xl shadow-lg p-6">
-        <h3 className="text-lg font-semibold text-gray-900 mb-4">Phương thức giao hàng</h3>
+      <div className="bg-white rounded-2xl shadow-lg p-8 border-2 border-gray-200 hover:shadow-2xl transition-all duration-300">
+        <div className="flex items-center gap-3 mb-6">
+          <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-purple-500 to-purple-600 flex items-center justify-center shadow-lg">
+            <svg className="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7h12m0 0l-4-4m4 4l-4 4m0 6H4m0 0l4 4m-4-4l4-4" />
+            </svg>
+          </div>
+          <h3 className="text-2xl font-bold text-gray-900">Phương thức giao hàng</h3>
+        </div>
         <div className="space-y-4">
           {shippingMethods.map(method => (
-            <div key={method.id} className="border-2 border-gray-200 rounded-lg p-4">
+            <div key={method.id} className="border-2 border-gray-200 rounded-xl p-5 hover:shadow-md transition-all duration-300 bg-gradient-to-r from-white to-gray-50">
               <div className="flex items-center justify-between mb-3">
                 <div className="flex items-center gap-3">
                   <input
@@ -264,8 +278,15 @@ export default function SettingsTab({ user }: SettingsTabProps) {
       </div>
 
       {/* Policies */}
-      <div className="bg-white rounded-xl shadow-lg p-6">
-        <h3 className="text-lg font-semibold text-gray-900 mb-4">Chính sách</h3>
+      <div className="bg-white rounded-2xl shadow-lg p-8 border-2 border-gray-200 hover:shadow-2xl transition-all duration-300">
+        <div className="flex items-center gap-3 mb-6">
+          <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-indigo-500 to-indigo-600 flex items-center justify-center shadow-lg">
+            <svg className="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+            </svg>
+          </div>
+          <h3 className="text-2xl font-bold text-gray-900">Chính sách</h3>
+        </div>
         <div className="space-y-4">
           <div>
             <label className="block text-sm font-semibold text-gray-900 mb-2">
@@ -300,9 +321,21 @@ export default function SettingsTab({ user }: SettingsTabProps) {
         <button
           onClick={handleSaveSettings}
           disabled={saving}
-          className="px-8 py-3 bg-gradient-to-r from-green-600 to-emerald-600 text-white rounded-lg font-semibold hover:from-green-700 hover:to-emerald-700 transition-all shadow-lg hover:shadow-xl disabled:opacity-60"
+          className="inline-flex items-center gap-2 px-8 py-4 bg-gradient-to-r from-green-600 to-emerald-600 text-white rounded-xl font-semibold hover:from-green-700 hover:to-emerald-700 transition-all shadow-lg hover:shadow-xl transform hover:-translate-y-0.5 disabled:opacity-60 disabled:cursor-not-allowed disabled:transform-none"
         >
-          {saving ? "Đang lưu..." : "Lưu cài đặt"}
+          {saving ? (
+            <>
+              <div className="animate-spin rounded-full h-5 w-5 border-2 border-white border-t-transparent"></div>
+              <span>Đang lưu...</span>
+            </>
+          ) : (
+            <>
+              <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+              </svg>
+              <span>Lưu cài đặt</span>
+            </>
+          )}
         </button>
       </div>
     </div>

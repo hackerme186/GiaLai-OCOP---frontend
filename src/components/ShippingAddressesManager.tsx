@@ -217,6 +217,7 @@ export default function ShippingAddressesManager({ onSelect, showSelectButton = 
     }
   }
 
+
   if (loading) {
     return (
       <div className="text-center py-8">

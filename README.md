@@ -36,18 +36,36 @@ cd frontend
 # Install dependencies
 npm install
 
+# Setup environment variables (QUAN TRỌNG!)
+# Windows:
+.\setup-env.ps1
+# Linux/Mac:
+chmod +x setup-env.sh && ./setup-env.sh
+
 # Run development server
 npm run dev
 ```
 
 **That's it!** 🎉 Open [http://localhost:3000](http://localhost:3000)
 
-Frontend automatically connects to production backend at:
-```
-https://gialai-ocop-be.onrender.com
-```
+### Environment Variables Setup
 
-> ⚠️ **Note:** Backend trên Render free tier có thể sleep sau 15 phút không hoạt động. Lần đầu truy cập sẽ mất 30-60 giây để wake up. Xem [QUICK_START.md](QUICK_START.md) để biết thêm chi tiết.
+**⚠️ QUAN TRỌNG:** Bạn cần setup environment variables trước khi chạy!
+
+**Cách nhanh nhất:**
+- Windows: `.\setup-env.ps1`
+- Linux/Mac: `chmod +x setup-env.sh && ./setup-env.sh`
+
+**Hoặc tạo thủ công:**
+- Xem [README_ENV.md](./README_ENV.md) để biết cách setup
+- Xem [SETUP_ENV.md](./SETUP_ENV.md) để biết chi tiết đầy đủ
+
+**Logic hoạt động:**
+- **Local Development**: Tự động dùng `.env.local` → API: `http://localhost:5003/api`
+- **Production**: Tự động dùng `.env.production` → API: `https://gialai-ocop-be.onrender.com/api`
+- **Không cần chỉnh code**: Chỉ cần tạo file `.env` tương ứng
+
+> ⚠️ **Note:** Backend trên Render free tier có thể sleep sau 15 phút không hoạt động. Lần đầu truy cập sẽ mất 30-60 giây để wake up.
 
 ---
 
@@ -59,6 +77,7 @@ https://gialai-ocop-be.onrender.com
 | [**QUICK_START.md**](QUICK_START.md) | Getting started guide |
 | [**API_INTEGRATION_COMPLETE.md**](API_INTEGRATION_COMPLETE.md) | Complete API documentation |
 | [**ENV_CONFIGURATION.md**](ENV_CONFIGURATION.md) | Environment variables setup |
+| [**HUONG_DAN_GOOGLE_LOGIN.md**](HUONG_DAN_GOOGLE_LOGIN.md) | 🔐 Hướng dẫn thiết lập đăng nhập Google |
 | [**TROUBLESHOOTING.md**](TROUBLESHOOTING.md) | Common issues & solutions |
 | [**PRODUCTION_DEPLOYMENT.md**](PRODUCTION_DEPLOYMENT.md) | Deploy to production |
 

@@ -6,6 +6,7 @@ import { useQuery } from "@tanstack/react-query"
 import Image from "next/image"
 import Link from "next/link"
 import { Product, getProduct } from "@/lib/api"
+import { getImageAttributes, isValidImageUrl, getImageUrl } from "@/lib/imageUtils"
 import { useCart } from "@/lib/cart-context"
 import { useToast } from "@/components/Toast"
 import Navbar from "@/components/layout/Navbar"
@@ -157,12 +158,24 @@ export default function ProductDetailPage() {
             {/* Main Image */}
             <div className="aspect-square bg-white rounded-lg overflow-hidden shadow-lg">
               <Image
-                src={productImages[selectedImage]}
+                src={isValidImageUrl(productImages[selectedImage]) ? getImageUrl(productImages[selectedImage], "/hero.jpg") : "/hero.jpg"}
                 alt={product.name}
                 width={600}
                 height={600}
                 className="w-full h-full object-cover"
                 priority
+                {...(() => {
+                  const attrs = getImageAttributes(productImages[selectedImage])
+                  // Remove loading property if priority is set
+                  const { loading, ...rest } = attrs
+                  return rest
+                })()}
+                onError={(e) => {
+                  const target = e.target as HTMLImageElement
+                  if (!target.src.includes('hero.jpg')) {
+                    target.src = '/hero.jpg'
+                  }
+                }}
               />
             </div>
 
@@ -179,11 +192,18 @@ export default function ProductDetailPage() {
                   }`}
                 >
                   <Image
-                    src={image}
+                    src={isValidImageUrl(image) ? getImageUrl(image, "/hero.jpg") : "/hero.jpg"}
                     alt={`${product.name} ${index + 1}`}
                     width={150}
                     height={150}
                     className="w-full h-full object-cover"
+                    {...getImageAttributes(image)}
+                    onError={(e) => {
+                      const target = e.target as HTMLImageElement
+                      if (!target.src.includes('hero.jpg')) {
+                        target.src = '/hero.jpg'
+                      }
+                    }}
                   />
                 </button>
               ))}

@@ -10,13 +10,18 @@ export default function BackendStatus() {
   useEffect(() => {
     const checkBackend = async () => {
       try {
+        // Use health check endpoint instead of products endpoint (lighter, faster)
+        // Use proxy route to avoid CORS issues
+        const healthCheckUrl = '/api/proxy/health'
+        
         // Try to fetch from backend with longer timeout for Render cold start
         const controller = new AbortController()
         const timeoutId = setTimeout(() => controller.abort(), 10000) // 10s timeout for cold start
         
-        const response = await fetch(`${API_BASE_URL}/products?pageSize=1`, {
+        const response = await fetch(healthCheckUrl, {
           signal: controller.signal,
-          cache: 'no-store'
+          cache: 'no-store',
+          method: 'GET'
         })
         
         clearTimeout(timeoutId)
@@ -61,10 +66,8 @@ export default function BackendStatus() {
               Render free tier sleep sau 15 phút không hoạt động. Đợi 30-60 giây để backend wake up.
             </p>
             <div className="mt-2 text-xs text-yellow-600">
-              <p>💡 Hoặc chạy local backend:</p>
-              <code className="block mt-1 bg-yellow-100 px-2 py-1 rounded">
-                cd E:\SE18\SEP\GiaLai-OCOP-BE && dotnet run
-              </code>
+              <p>💡 Backend URL: {API_BASE_URL.replace('/api/proxy/api', 'https://gialai-ocop-be.onrender.com')}</p>
+              <p className="mt-1">💡 Health check: /api/proxy/health</p>
             </div>
           </div>
           <div className="ml-3 flex-shrink-0">
