@@ -26,6 +26,8 @@ export default function FacebookLoginButton({ onError }: FacebookLoginButtonProp
   const [isLoading, setIsLoading] = useState(false)
   const [isSDKLoaded, setIsSDKLoaded] = useState(false)
   const [isHttps, setIsHttps] = useState(true)
+  const [loadingMessage, setLoadingMessage] = useState<string>("")
+  const [isRedirecting, setIsRedirecting] = useState(false)
   const FACEBOOK_APP_ID = process.env.NEXT_PUBLIC_FACEBOOK_APP_ID || ""
 
   // Check HTTPS on mount
@@ -125,6 +127,7 @@ export default function FacebookLoginButton({ onError }: FacebookLoginButtonProp
     }
 
     setIsLoading(true)
+    setLoadingMessage("Đang kết nối với Facebook...")
     console.log("🔐 [FacebookLogin] Bắt đầu đăng nhập với Facebook...")
 
     try {
@@ -135,10 +138,15 @@ export default function FacebookLoginButton({ onError }: FacebookLoginButtonProp
             handleFacebookResponse(response.authResponse.accessToken).catch((err) => {
               console.error("❌ [FacebookLogin] Error in handleFacebookResponse:", err)
               setIsLoading(false)
+              setLoadingMessage("")
+              setIsRedirecting(false)
             })
           } else {
             console.log("❌ [FacebookLogin] User cancelled login or did not fully authorize")
             setIsLoading(false)
+            setLoadingMessage("")
+            // User-friendly message for cancelled login
+            onError?.("Đăng nhập Facebook đã bị hủy. Vui lòng thử lại nếu muốn tiếp tục.")
           }
         },
         { scope: "email,public_profile" }
@@ -160,30 +168,52 @@ export default function FacebookLoginButton({ onError }: FacebookLoginButtonProp
         onError?.(errorMsg)
       }
       setIsLoading(false)
+      setLoadingMessage("")
     }
   }
 
   const handleFacebookResponse = async (accessToken: string) => {
     console.log("🔐 [FacebookLogin] Nhận được accessToken từ Facebook")
+    console.log("📤 [FacebookLogin] AccessToken length:", accessToken.length)
+    console.log("📤 [FacebookLogin] AccessToken preview:", accessToken.substring(0, 20) + "...")
 
     try {
+      setLoadingMessage("Đang xác thực với server...")
       console.log("📤 [FacebookLogin] Gửi accessToken lên backend...")
 
       const res = await loginWithFacebook({ accessToken }) as any
       console.log("📥 [FacebookLogin] Response từ API:", res)
+      console.log("📥 [FacebookLogin] Full response (JSON):", JSON.stringify(res, null, 2))
 
-      // Extract token
+      // Extract token với nhiều format khác nhau
       const token = res?.token || res?.Token || res?.data?.token || res?.data?.Token
       console.log("🔑 [FacebookLogin] Token extracted:", token ? `${token.substring(0, 20)}...` : "NULL")
+      console.log("🔑 [FacebookLogin] Response keys:", Object.keys(res || {}))
 
       if (!token) {
         console.error("❌ [FacebookLogin] Không tìm thấy token trong response")
+        console.error("❌ [FacebookLogin] Response structure:", {
+          hasToken: !!res?.token,
+          hasTokenCapital: !!res?.Token,
+          hasDataToken: !!res?.data?.token,
+          hasDataTokenCapital: !!res?.data?.Token,
+          responseKeys: Object.keys(res || {}),
+          responseType: typeof res,
+          responseIsArray: Array.isArray(res)
+        })
         throw new Error("Không nhận được token từ server. Vui lòng thử lại.")
       }
 
       // Save token
       console.log("💾 [FacebookLogin] Lưu token vào localStorage...")
       setAuthToken(token)
+
+      // Verify token đã được lưu
+      const savedToken = typeof window !== "undefined" ? localStorage.getItem("auth_token") : null
+      console.log("✅ [FacebookLogin] Token đã được lưu:", savedToken ? "YES" : "NO")
+      if (savedToken) {
+        console.log("✅ [FacebookLogin] Saved token preview:", savedToken.substring(0, 20) + "...")
+      }
 
       // Wait a bit to ensure token is saved
       await new Promise(resolve => setTimeout(resolve, 100))
@@ -247,7 +277,13 @@ export default function FacebookLoginButton({ onError }: FacebookLoginButtonProp
       }
 
       // Redirect based on role
+      setIsRedirecting(true)
+      setLoadingMessage("Đăng nhập thành công! Đang chuyển hướng...")
       console.log("🔀 [FacebookLogin] Đang redirect...")
+      
+      // Small delay to show success message
+      await new Promise(resolve => setTimeout(resolve, 500))
+      
       if (isSystemAdmin || isAdmin) {
         console.log("🔀 [FacebookLogin] Redirecting to /admin")
         router.replace("/admin")
@@ -262,10 +298,93 @@ export default function FacebookLoginButton({ onError }: FacebookLoginButtonProp
       console.log("✅ [FacebookLogin] Đăng nhập thành công!")
     } catch (err) {
       console.error("❌ [FacebookLogin] Lỗi đăng nhập:", err)
-      const errorMessage = err instanceof Error ? err.message : "Đăng nhập Facebook thất bại. Vui lòng thử lại."
+      
+      // Log chi tiết error
+      if (err instanceof Error) {
+        console.error("❌ [FacebookLogin] Error details:", {
+          message: err.message,
+          stack: err.stack,
+          name: err.name,
+          cause: (err as any).cause
+        })
+      } else {
+        console.error("❌ [FacebookLogin] Error object:", err)
+      }
+      
+      // Log thêm thông tin về error nếu có
+      let errorMessage = "Đã xảy ra lỗi khi đăng nhập. Vui lòng thử lại."
+      let isNetworkError = false
+      let isAuthError = false
+      
+      if (err && typeof err === 'object') {
+        const errorObj = err as any
+        
+        // Check for network errors
+        if (errorObj.isNetworkError || 
+            errorObj.message?.includes("network") || 
+            errorObj.message?.includes("fetch") ||
+            errorObj.message?.includes("Failed to fetch") ||
+            errorObj.message?.includes("NetworkError")) {
+          isNetworkError = true
+          errorMessage = "Lỗi kết nối. Vui lòng kiểm tra internet và thử lại."
+        }
+        
+        // Check for authentication errors
+        if (errorObj.isAuthError || 
+            errorObj.status === 401 || 
+            errorObj.message?.includes("401") ||
+            errorObj.message?.includes("Unauthorized") ||
+            errorObj.message?.includes("token không hợp lệ") ||
+            errorObj.message?.includes("token đã hết hạn")) {
+          isAuthError = true
+          errorMessage = "Token không hợp lệ hoặc đã hết hạn. Vui lòng thử lại."
+        }
+        
+        // Check for server errors
+        if (errorObj.status === 500 || errorObj.status >= 500) {
+          errorMessage = "Lỗi server. Vui lòng thử lại sau."
+        }
+        
+        // Check for timeout errors
+        if (errorObj.message?.includes("timeout") || errorObj.message?.includes("Timeout")) {
+          errorMessage = "Kết nối quá lâu. Vui lòng thử lại."
+        }
+        
+        // Log error details
+        if (errorObj.status) {
+          console.error("❌ [FacebookLogin] Error status:", errorObj.status)
+        }
+        if (errorObj.response) {
+          console.error("❌ [FacebookLogin] Error response:", errorObj.response)
+        }
+        if (isAuthError) {
+          console.error("❌ [FacebookLogin] Authentication error detected")
+        }
+        if (isNetworkError) {
+          console.error("❌ [FacebookLogin] Network error detected:", errorObj.originalError)
+        }
+      } else if (err instanceof Error) {
+        // Handle Error instances
+        if (err.message.includes("network") || err.message.includes("fetch") || err.message.includes("Failed to fetch")) {
+          isNetworkError = true
+          errorMessage = "Lỗi kết nối. Vui lòng kiểm tra internet và thử lại."
+        } else if (err.message.includes("401") || err.message.includes("Unauthorized") || err.message.includes("token")) {
+          isAuthError = true
+          errorMessage = "Token không hợp lệ hoặc đã hết hạn. Vui lòng thử lại."
+        } else if (err.message) {
+          // Use the error message if it's user-friendly
+          errorMessage = err.message
+        }
+      }
+      
+      setLoadingMessage("")
+      setIsRedirecting(false)
       onError?.(errorMessage)
     } finally {
       setIsLoading(false)
+      if (!isRedirecting) {
+        setLoadingMessage("")
+      }
     }
   }
 
@@ -275,22 +394,53 @@ export default function FacebookLoginButton({ onError }: FacebookLoginButtonProp
         type="button"
         onClick={handleFacebookClick}
         disabled={isLoading || !isSDKLoaded || !isHttps}
-        className="w-full flex items-center justify-center gap-3 px-4 py-3 bg-blue-600 text-white rounded-lg font-semibold hover:bg-blue-700 transition-colors disabled:opacity-60 disabled:cursor-not-allowed border border-blue-700 shadow-sm hover:shadow-md"
+        className="w-full flex items-center justify-center gap-3 px-4 py-3 bg-blue-600 text-white rounded-lg font-semibold hover:bg-blue-700 transition-colors disabled:opacity-60 disabled:cursor-not-allowed border border-blue-700 shadow-sm hover:shadow-md relative"
         title={!isHttps ? "Facebook login yêu cầu HTTPS. Vui lòng truy cập qua HTTPS hoặc sử dụng localhost." : undefined}
       >
+        {isLoading && (
+          <svg
+            className="animate-spin h-5 w-5 text-white absolute left-4"
+            xmlns="http://www.w3.org/2000/svg"
+            fill="none"
+            viewBox="0 0 24 24"
+          >
+            <circle
+              className="opacity-25"
+              cx="12"
+              cy="12"
+              r="10"
+              stroke="currentColor"
+              strokeWidth="4"
+            ></circle>
+            <path
+              className="opacity-75"
+              fill="currentColor"
+              d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
+            ></path>
+          </svg>
+        )}
         <svg
           width="20"
           height="20"
           viewBox="0 0 24 24"
           fill="currentColor"
-          className="flex-shrink-0"
+          className={`flex-shrink-0 ${isLoading ? 'opacity-50' : ''}`}
         >
           <path d="M24 12.073c0-6.627-5.373-12-12-12s-12 5.373-12 12c0 5.99 4.388 10.954 10.125 11.854v-8.385H7.078v-3.47h3.047V9.43c0-3.007 1.792-4.669 4.533-4.669 1.312 0 2.686.235 2.686.235v2.953H15.83c-1.491 0-1.956.925-1.956 1.874v2.25h3.328l-.532 3.47h-2.796v8.385C19.612 23.027 24 18.062 24 12.073z" />
         </svg>
-        <span>Facebook</span>
+        <span className={isLoading ? 'opacity-50' : ''}>
+          {isRedirecting ? 'Đang chuyển hướng...' : isLoading ? 'Đang xử lý...' : 'Facebook'}
+        </span>
       </button>
-      {isLoading && (
-        <p className="text-center text-sm text-white/80 mt-2 animate-pulse">Đang xử lý...</p>
+      {loadingMessage && (
+        <p className="text-center text-sm text-blue-100 mt-2 animate-pulse">
+          {loadingMessage}
+        </p>
+      )}
+      {!isSDKLoaded && FACEBOOK_APP_ID && (
+        <p className="text-center text-xs text-yellow-300 mt-1">
+          Đang tải Facebook SDK...
+        </p>
       )}
     </div>
   )
