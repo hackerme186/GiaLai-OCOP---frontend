@@ -8,6 +8,11 @@ const inter = Inter({ subsets: ["latin"] })
 export const metadata = {
   title: "OCOP Gia Lai",
   description: "Sàn thương mại điện tử sản phẩm OCOP Gia Lai",
+  icons: {
+    icon: "/icon.png",
+    shortcut: "/icon.png",
+    apple: "/icon.png",
+  },
 }
 
 // RootLayout chỉ nhận children

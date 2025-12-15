@@ -3,6 +3,7 @@
 import { useEffect, useState, useMemo, type ReactElement } from "react"
 import Image from "next/image"
 import { getOrders, approveOrderCompletion, type Order } from "@/lib/api"
+import { useOrderProducts } from "@/lib/hooks/useOrderProducts"
 
 export default function AdminOrderManagementTab() {
   const [orders, setOrders] = useState<Order[]>([])
@@ -824,7 +825,99 @@ export default function AdminOrderManagementTab() {
 
       {/* Order Detail Modal - Similar to EnterpriseAdmin but with enterprise info */}
       {showDetailModal && detailOrder && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4 overflow-y-auto">
+        <AdminOrderDetailModalContent 
+          detailOrder={detailOrder}
+          onClose={() => {
+            setShowDetailModal(false)
+            setDetailOrder(null)
+          }}
+          getStatusInfo={getStatusInfo}
+          printInvoice={printInvoice}
+        />
+      )}
+
+      {/* Approval Modal */}
+      {showApprovalModal && approvalOrder && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-xl shadow-2xl p-6 max-w-md w-full">
+            <div className="flex items-center justify-between mb-4">
+              <h3 className="text-xl font-bold text-gray-900">Từ chối yêu cầu hoàn thành</h3>
+              <button
+                onClick={() => {
+                  setShowApprovalModal(false)
+                  setApprovalOrder(null)
+                  setRejectionReason("")
+                }}
+                className="text-gray-400 hover:text-gray-600"
+              >
+                <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                </svg>
+              </button>
+            </div>
+
+            <div className="mb-4">
+              <p className="text-gray-700 mb-2">
+                Đơn hàng <span className="font-semibold">#{approvalOrder.id}</span> đang chờ xác nhận hoàn thành.
+              </p>
+              <p className="text-sm text-gray-600 mb-4">
+                Vui lòng nhập lý do từ chối:
+              </p>
+              <textarea
+                value={rejectionReason}
+                onChange={(e) => setRejectionReason(e.target.value)}
+                placeholder="Ví dụ: Đơn hàng chưa được giao thành công, khách hàng chưa nhận hàng..."
+                className="w-full px-4 py-3 border-2 border-gray-200 rounded-lg focus:border-red-500 focus:ring-2 focus:ring-red-200 resize-none"
+                rows={4}
+              />
+            </div>
+
+            <div className="flex gap-3">
+              <button
+                onClick={() => handleApproveCompletion(false)}
+                disabled={!rejectionReason.trim()}
+                className="flex-1 px-6 py-3 bg-red-600 text-white rounded-lg font-semibold hover:bg-red-700 transition-all disabled:bg-gray-300 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+              >
+                <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                </svg>
+                Từ chối
+              </button>
+              <button
+                onClick={() => {
+                  setShowApprovalModal(false)
+                  setApprovalOrder(null)
+                  setRejectionReason("")
+                }}
+                className="px-6 py-3 bg-gray-200 text-gray-700 rounded-lg font-semibold hover:bg-gray-300 transition-all"
+              >
+                Hủy
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+    </div>
+  )
+}
+
+// Separate component for Admin Order Detail Modal to use hook
+function AdminOrderDetailModalContent({ 
+  detailOrder, 
+  onClose, 
+  getStatusInfo,
+  printInvoice
+}: { 
+  detailOrder: Order
+  onClose: () => void
+  getStatusInfo: (status: string) => { text: string; color: string; icon: ReactElement }
+  printInvoice: (order: Order) => void
+}) {
+  // Use hook to load product details
+  const { getProductName, getProductImageUrl, loadingProducts } = useOrderProducts(detailOrder.orderItems)
+
+  return (
+    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4 overflow-y-auto">
           <div className="bg-white rounded-xl shadow-2xl max-w-4xl w-full my-8 max-h-[90vh] overflow-y-auto">
             {/* Header */}
             <div className="sticky top-0 bg-gradient-to-r from-blue-600 to-indigo-600 text-white p-6 rounded-t-xl">
@@ -836,10 +929,7 @@ export default function AdminOrderManagementTab() {
                   </p>
                 </div>
                 <button
-                  onClick={() => {
-                    setShowDetailModal(false)
-                    setDetailOrder(null)
-                  }}
+                  onClick={onClose}
                   className="text-white hover:text-gray-200 transition-colors"
                 >
                   <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -939,15 +1029,21 @@ export default function AdminOrderManagementTab() {
                   {detailOrder.orderItems?.map((item) => (
                     <div key={item.id} className="p-5 flex items-start gap-4 hover:bg-gray-50 transition-colors">
                       <div className="relative w-24 h-24 bg-gray-200 rounded-lg overflow-hidden flex-shrink-0">
-                        <Image
-                          src={item.productImageUrl || "/hero.jpg"}
-                          alt={item.productName || "Product"}
-                          fill
-                          className="object-cover"
-                        />
+                        {loadingProducts ? (
+                          <div className="w-full h-full flex items-center justify-center">
+                            <div className="animate-spin rounded-full h-6 w-6 border-2 border-gray-300 border-t-gray-600"></div>
+                          </div>
+                        ) : (
+                          <Image
+                            src={getProductImageUrl(item)}
+                            alt={getProductName(item)}
+                            fill
+                            className="object-cover"
+                          />
+                        )}
                       </div>
                       <div className="flex-1 min-w-0">
-                        <h5 className="font-semibold text-gray-900 mb-2">{item.productName}</h5>
+                        <h5 className="font-semibold text-gray-900 mb-2">{getProductName(item)}</h5>
                         <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
                           <div>
                             <span className="text-gray-600">Đơn giá:</span>
@@ -1066,10 +1162,7 @@ export default function AdminOrderManagementTab() {
                   In hóa đơn
                 </button>
                 <button
-                  onClick={() => {
-                    setShowDetailModal(false)
-                    setDetailOrder(null)
-                  }}
+                  onClick={onClose}
                   className="px-6 py-3 bg-gray-200 text-gray-700 rounded-lg font-semibold hover:bg-gray-300 transition-all"
                 >
                   Đóng
@@ -1078,70 +1171,6 @@ export default function AdminOrderManagementTab() {
             </div>
           </div>
         </div>
-      )}
-
-      {/* Approval Modal */}
-      {showApprovalModal && approvalOrder && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-xl shadow-2xl p-6 max-w-md w-full">
-            <div className="flex items-center justify-between mb-4">
-              <h3 className="text-xl font-bold text-gray-900">Từ chối yêu cầu hoàn thành</h3>
-              <button
-                onClick={() => {
-                  setShowApprovalModal(false)
-                  setApprovalOrder(null)
-                  setRejectionReason("")
-                }}
-                className="text-gray-400 hover:text-gray-600"
-              >
-                <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                </svg>
-              </button>
-            </div>
-
-            <div className="mb-4">
-              <p className="text-gray-700 mb-2">
-                Đơn hàng <span className="font-semibold">#{approvalOrder.id}</span> đang chờ xác nhận hoàn thành.
-              </p>
-              <p className="text-sm text-gray-600 mb-4">
-                Vui lòng nhập lý do từ chối:
-              </p>
-              <textarea
-                value={rejectionReason}
-                onChange={(e) => setRejectionReason(e.target.value)}
-                placeholder="Ví dụ: Đơn hàng chưa được giao thành công, khách hàng chưa nhận hàng..."
-                className="w-full px-4 py-3 border-2 border-gray-200 rounded-lg focus:border-red-500 focus:ring-2 focus:ring-red-200 resize-none"
-                rows={4}
-              />
-            </div>
-
-            <div className="flex gap-3">
-              <button
-                onClick={() => handleApproveCompletion(false)}
-                disabled={!rejectionReason.trim()}
-                className="flex-1 px-6 py-3 bg-red-600 text-white rounded-lg font-semibold hover:bg-red-700 transition-all disabled:bg-gray-300 disabled:cursor-not-allowed flex items-center justify-center gap-2"
-              >
-                <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                </svg>
-                Xác nhận từ chối
-              </button>
-              <button
-                onClick={() => {
-                  setShowApprovalModal(false)
-                  setApprovalOrder(null)
-                  setRejectionReason("")
-                }}
-                className="px-6 py-3 bg-gray-200 text-gray-700 rounded-lg font-semibold hover:bg-gray-300 transition-all"
-              >
-                Hủy
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
-    </div>
-  )
+      )
 }
 

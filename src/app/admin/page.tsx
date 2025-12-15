@@ -539,16 +539,30 @@ function DashboardTab({
 
             {/* Notification Dropdown */}
             {showNotificationDropdown && (
-              <div className="absolute right-0 mt-2 w-96 bg-white rounded-lg shadow-2xl border border-gray-200 z-[9999] max-h-96 overflow-hidden flex flex-col">
+              <>
+                {/* Backdrop overlay */}
+                <div 
+                  className="fixed inset-0 bg-black/20 z-[99998]"
+                  onClick={() => setShowNotificationDropdown(false)}
+                />
+                <div className="fixed right-4 top-20 w-[420px] bg-white rounded-xl shadow-2xl border border-gray-200 z-[99999] max-h-[600px] overflow-hidden flex flex-col animate-in fade-in slide-in-from-top-2 duration-200">
                 {/* Header */}
-                <div className="p-4 border-b border-gray-200 bg-gray-50 flex items-center justify-between">
-                  <div className="flex items-center gap-2">
-                    <h3 className="font-bold text-gray-900">Thông báo chưa đọc</h3>
-                    {unreadCount > 0 && (
-                      <span className="bg-blue-500 text-white text-xs font-bold px-2 py-1 rounded-full">
-                        {unreadCount} mới
-                      </span>
-                    )}
+                <div className="px-5 py-4 border-b border-gray-200 bg-gradient-to-r from-blue-50 to-indigo-50 flex items-center justify-between">
+                  <div className="flex items-center gap-3">
+                    <div className="w-10 h-10 rounded-full bg-blue-100 flex items-center justify-center">
+                      <svg className="w-5 h-5 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9" />
+                      </svg>
+                    </div>
+                    <div>
+                      <h3 className="font-bold text-gray-900 text-base">Thông báo chưa đọc</h3>
+                      {unreadCount > 0 && (
+                        <span className="inline-flex items-center gap-1 mt-1 bg-blue-600 text-white text-xs font-bold px-2.5 py-0.5 rounded-full">
+                          <span className="w-1.5 h-1.5 bg-white rounded-full animate-pulse"></span>
+                          {unreadCount} mới
+                        </span>
+                      )}
+                    </div>
                   </div>
                   {unreadCount > 0 && (
                     <button
@@ -561,7 +575,7 @@ function DashboardTab({
                           console.error("Failed to mark all as read:", err)
                         }
                       }}
-                      className="text-sm text-blue-600 hover:text-blue-800 font-medium"
+                      className="text-sm text-blue-600 hover:text-blue-800 font-semibold hover:underline transition-colors px-3 py-1.5 rounded-lg hover:bg-blue-100"
                     >
                       Đánh dấu tất cả đã đọc
                     </button>
@@ -569,79 +583,155 @@ function DashboardTab({
                 </div>
 
                 {/* Notifications List */}
-                <div className="overflow-y-auto flex-1">
+                <div className="overflow-y-auto flex-1 custom-scrollbar">
                   {(() => {
                     const unreadNotifications = notifications.filter(n => !n.read)
                     return unreadNotifications.length === 0 ? (
-                      <div className="p-8 text-center text-gray-500">
-                        <svg className="w-12 h-12 mx-auto mb-3 text-gray-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9" />
-                        </svg>
-                        <p>Không có thông báo chưa đọc</p>
+                      <div className="p-12 text-center">
+                        <div className="w-20 h-20 mx-auto mb-4 bg-gray-100 rounded-full flex items-center justify-center">
+                          <svg className="w-10 h-10 text-gray-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9" />
+                          </svg>
+                        </div>
+                        <p className="text-gray-500 font-medium">Không có thông báo chưa đọc</p>
+                        <p className="text-sm text-gray-400 mt-1">Tất cả thông báo đã được đọc</p>
                       </div>
                     ) : (
-                      <div className="divide-y divide-gray-100">
-                        {unreadNotifications.map((notification) => (
-                        <div
-                          key={notification.id}
-                          className={`p-4 hover:bg-gray-50 transition-colors cursor-pointer ${
-                            !notification.read ? 'bg-blue-50' : ''
-                          }`}
-                          onClick={async () => {
-                            if (!notification.read) {
-                              try {
-                                await markNotificationAsRead(notification.id)
-                                await loadNotifications()
-                              } catch (err) {
-                                console.error("Failed to mark as read:", err)
-                              }
+                      <>
+                        <div className="divide-y divide-gray-100">
+                          {unreadNotifications.map((notification, index) => {
+                          // Determine icon based on notification type
+                          const getNotificationIcon = () => {
+                            const type = notification.type?.toLowerCase() || ''
+                            if (type.includes('order')) {
+                              return (
+                                <svg className="w-5 h-5 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 11V7a4 4 0 00-8 0v4M5 9h14l1 12H4L5 9z" />
+                                </svg>
+                              )
                             }
-                            if (notification.link) {
-                              window.location.href = notification.link
+                            if (type.includes('product')) {
+                              return (
+                                <svg className="w-5 h-5 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4" />
+                                </svg>
+                              )
                             }
-                          }}
-                        >
-                          <div className="flex items-start gap-3">
-                            <div className={`flex-shrink-0 w-2 h-2 rounded-full mt-2 ${
-                              !notification.read ? 'bg-blue-500' : 'bg-gray-300'
-                            }`}></div>
-                            <div className="flex-1 min-w-0">
-                              <p className={`text-sm font-semibold ${
-                                !notification.read ? 'text-gray-900' : 'text-gray-700'
-                              }`}>
-                                {notification.title}
-                              </p>
-                              <p className="text-sm text-gray-600 mt-1 line-clamp-2">
-                                {notification.message}
-                              </p>
-                              <p className="text-xs text-gray-400 mt-2">
-                                {new Date(notification.createdAt).toLocaleString('vi-VN')}
-                              </p>
-                            </div>
-                            <button
-                              onClick={async (e) => {
-                                e.stopPropagation()
-                                try {
-                                  await deleteNotification(notification.id)
-                                  await loadNotifications()
-                                } catch (err) {
-                                  console.error("Failed to delete notification:", err)
+                            if (type.includes('wallet') || type.includes('payment')) {
+                              return (
+                                <svg className="w-5 h-5 text-purple-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 10h18M7 15h1m4 0h1m-7 4h12a3 3 0 003-3V8a3 3 0 00-3-3H6a3 3 0 00-3 3v8a3 3 0 003 3z" />
+                                </svg>
+                              )
+                            }
+                            return (
+                              <svg className="w-5 h-5 text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9" />
+                              </svg>
+                            )
+                          }
+                          
+                          return (
+                            <div
+                              key={notification.id}
+                              className={`group relative px-5 py-4 hover:bg-gradient-to-r hover:from-blue-50 hover:to-indigo-50 transition-all duration-200 cursor-pointer border-l-4 ${
+                                !notification.read 
+                                  ? 'bg-blue-50/50 border-l-blue-500' 
+                                  : 'bg-white border-l-transparent'
+                              }`}
+                              onClick={async () => {
+                                if (!notification.read) {
+                                  try {
+                                    await markNotificationAsRead(notification.id)
+                                    await loadNotifications()
+                                  } catch (err) {
+                                    console.error("Failed to mark as read:", err)
+                                  }
+                                }
+                                if (notification.link) {
+                                  window.location.href = notification.link
                                 }
                               }}
-                              className="flex-shrink-0 text-gray-400 hover:text-red-500 transition-colors p-1"
                             >
-                              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                              </svg>
-                            </button>
-                          </div>
+                              <div className="flex items-start gap-4">
+                                {/* Icon */}
+                                <div className={`flex-shrink-0 w-10 h-10 rounded-lg flex items-center justify-center ${
+                                  !notification.read 
+                                    ? 'bg-blue-100' 
+                                    : 'bg-gray-100'
+                                }`}>
+                                  {getNotificationIcon()}
+                                </div>
+                                
+                                {/* Content */}
+                                <div className="flex-1 min-w-0">
+                                  <div className="flex items-start justify-between gap-2">
+                                    <p className={`text-sm font-bold leading-tight ${
+                                      !notification.read ? 'text-gray-900' : 'text-gray-700'
+                                    }`}>
+                                      {notification.title}
+                                    </p>
+                                    {!notification.read && (
+                                      <span className="flex-shrink-0 w-2 h-2 bg-blue-500 rounded-full mt-1.5 animate-pulse"></span>
+                                    )}
+                                  </div>
+                                  <p className="text-sm text-gray-600 mt-1.5 line-clamp-2 leading-relaxed">
+                                    {notification.message}
+                                  </p>
+                                  <div className="flex items-center gap-2 mt-3">
+                                    <svg className="w-3.5 h-3.5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+                                    </svg>
+                                    <p className="text-xs text-gray-500">
+                                      {new Date(notification.createdAt).toLocaleString('vi-VN', {
+                                        day: '2-digit',
+                                        month: '2-digit',
+                                        year: 'numeric',
+                                        hour: '2-digit',
+                                        minute: '2-digit'
+                                      })}
+                                    </p>
+                                  </div>
+                                </div>
+                                
+                                {/* Delete Button */}
+                                <button
+                                  onClick={async (e) => {
+                                    e.stopPropagation()
+                                    try {
+                                      await deleteNotification(notification.id)
+                                      await loadNotifications()
+                                    } catch (err) {
+                                      console.error("Failed to delete notification:", err)
+                                    }
+                                  }}
+                                  className="flex-shrink-0 opacity-0 group-hover:opacity-100 transition-opacity text-gray-400 hover:text-red-500 p-1.5 rounded-lg hover:bg-red-50"
+                                  title="Xóa thông báo"
+                                >
+                                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                                  </svg>
+                                </button>
+                              </div>
+                            </div>
+                          )
+                        })}
                         </div>
-                      ))}
-                      </div>
+                        {/* Footer */}
+                        <div className="px-5 py-3 border-t border-gray-200 bg-gray-50">
+                          <button
+                            onClick={() => setShowNotificationDropdown(false)}
+                            className="w-full text-sm text-gray-600 hover:text-gray-900 font-medium py-2 px-4 rounded-lg hover:bg-gray-100 transition-colors"
+                          >
+                            Đóng
+                          </button>
+                        </div>
+                      </>
                     )
                   })()}
                 </div>
-              </div>
+                </div>
+              </>
             )}
           </div>
         </div>

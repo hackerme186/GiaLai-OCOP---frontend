@@ -1,7 +1,7 @@
 "use client"
 
-import { useEffect, useState } from "react"
-import { useRouter } from "next/navigation"
+import { useEffect, useState, Suspense } from "react"
+import { useRouter, useSearchParams } from "next/navigation"
 import Image from "next/image"
 import {
   isLoggedIn,
@@ -24,12 +24,15 @@ import SettingsTab from "@/components/enterprise/SettingsTab"
 import NotificationsTab from "@/components/enterprise/NotificationsTab"
 import WalletTab from "@/components/enterprise/WalletTab"
 
-export default function EnterpriseAdminPage() {
+function EnterpriseAdminPageContent() {
   const router = useRouter()
+  const searchParams = useSearchParams()
 
   const [authorized, setAuthorized] = useState<boolean | null>(null)
   const [user, setUser] = useState<User | null>(null)
 
+  // Đọc tab từ query parameter hoặc mặc định là "products"
+  const tabFromQuery = searchParams?.get("tab") as TabType | null
   const [activeTab, setActiveTab] = useState<TabType>("products")
   const [sidebarOpen, setSidebarOpen] = useState(false)
 
@@ -102,6 +105,21 @@ export default function EnterpriseAdminPage() {
 
     check()
   }, [router])
+
+  // Cập nhật tab khi query parameter thay đổi (chỉ khi URL thay đổi từ bên ngoài)
+  useEffect(() => {
+    const tabFromQuery = searchParams?.get("tab") as TabType | null
+    if (tabFromQuery) {
+      // Validate tab exists in tabs array
+      const validTabs: TabType[] = ["products", "orders", "inventory", "profile", "ocop-status", "reports", "wallet", "notifications", "settings"]
+      if (validTabs.includes(tabFromQuery) && tabFromQuery !== activeTab) {
+        setActiveTab(tabFromQuery)
+      }
+    } else {
+      // Set default tab if no query param
+      setActiveTab("products")
+    }
+  }, [searchParams, activeTab])
 
   // Load thông báo tự động
   useEffect(() => {
@@ -402,6 +420,34 @@ export default function EnterpriseAdminPage() {
               user={user} 
               onNotificationUpdate={handleNotificationUpdate}
               unreadCount={unreadCount}
+              onNavigate={(tab, params) => {
+                // Switch tab ngay lập tức
+                const targetTab = tab as TabType
+                
+                // Set activeTab trước
+                setActiveTab(targetTab)
+                
+                // Cập nhật URL để reflect tab change
+                // Sử dụng router.push với shallow routing để không reload trang
+                router.push(`/enterprise-admin?tab=${targetTab}`, { scroll: false })
+                
+                // Có thể scroll đến order/product cụ thể sau khi tab được switch
+                if (params?.orderId || params?.productId) {
+                  setTimeout(() => {
+                    // Scroll đến element có id tương ứng nếu có
+                    const elementId = params.orderId ? `order-${params.orderId}` : `product-${params.productId}`
+                    const element = document.getElementById(elementId)
+                    if (element) {
+                      element.scrollIntoView({ behavior: 'smooth', block: 'center' })
+                      // Highlight element
+                      element.classList.add('ring-2', 'ring-green-500')
+                      setTimeout(() => {
+                        element.classList.remove('ring-2', 'ring-green-500')
+                      }, 3000)
+                    }
+                  }, 500)
+                }
+              }}
             />
           )}
           {activeTab === "settings" && <SettingsTab user={user} />}
@@ -421,3 +467,18 @@ type TabType =
   | "wallet"
   | "notifications"
   | "settings"
+
+export default function EnterpriseAdminPage() {
+  return (
+    <Suspense fallback={
+      <div className="min-h-screen flex items-center justify-center bg-white">
+        <div className="text-center">
+          <div className="animate-spin h-10 w-10 rounded-full border-b-2 border-green-600 mx-auto" />
+          <p className="mt-3 text-gray-600">Đang tải...</p>
+        </div>
+      </div>
+    }>
+      <EnterpriseAdminPageContent />
+    </Suspense>
+  )
+}

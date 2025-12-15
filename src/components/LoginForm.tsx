@@ -1,6 +1,6 @@
 "use client"
 import Link from "next/link"
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import { login, getCurrentUser } from "@/lib/api"
 import { setAuthToken, getRoleFromToken, setUserProfile } from "@/lib/auth"
 import { useRouter } from "next/navigation"
@@ -9,12 +9,22 @@ import GoogleLoginButton from "./GoogleLoginButton"
 
 export default function LoginForm() {
   const router = useRouter()
-  const [email, setEmail] = useState("nguyenbaquyet9a4cpr@gmail.com")
+  const [email, setEmail] = useState("")
   const [password, setPassword] = useState("")
   const [remember, setRemember] = useState(false)
+  const [mounted, setMounted] = useState(false)
 
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
+
+  // Only set default email on client side to avoid hydration mismatch
+  useEffect(() => {
+    setMounted(true)
+    // Set default email only in development or if needed
+    if (process.env.NODE_ENV === 'development') {
+      setEmail("nguyenbaquyet9a4cpr@gmail.com")
+    }
+  }, [])
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -175,10 +185,8 @@ export default function LoginForm() {
             value={email}
             onChange={(e) => setEmail(e.target.value)}
             placeholder="Email"
-            className="w-full pl-12 pr-4 py-3 rounded-lg border-2 border-white/30 bg-white/20 backdrop-blur-sm text-white placeholder:text-white/70 focus:border-white/60 focus:outline-none focus:ring-2 focus:ring-white/30 transition-all"
-            style={{
-              boxShadow: '0 4px 6px rgba(0, 0, 0, 0.1)',
-            }}
+            className="w-full pl-12 pr-4 py-3 rounded-lg border-2 border-white/30 bg-white/20 backdrop-blur-sm text-white placeholder:text-white/70 focus:border-white/60 focus:outline-none focus:ring-2 focus:ring-white/30 transition-all shadow-md"
+            suppressHydrationWarning
           />
         </div>
 
@@ -198,10 +206,8 @@ export default function LoginForm() {
             value={password}
             onChange={(e) => setPassword(e.target.value)}
             placeholder="Mật khẩu"
-            className="w-full pl-12 pr-4 py-3 rounded-lg border-2 border-white/30 bg-white/20 backdrop-blur-sm text-white placeholder:text-white/70 focus:border-white/60 focus:outline-none focus:ring-2 focus:ring-white/30 transition-all"
-            style={{
-              boxShadow: '0 4px 6px rgba(0, 0, 0, 0.1)',
-            }}
+            className="w-full pl-12 pr-4 py-3 rounded-lg border-2 border-white/30 bg-white/20 backdrop-blur-sm text-white placeholder:text-white/70 focus:border-white/60 focus:outline-none focus:ring-2 focus:ring-white/30 transition-all shadow-md"
+            suppressHydrationWarning
           />
         </div>
 
@@ -240,10 +246,8 @@ export default function LoginForm() {
         <button
           type="submit"
           disabled={loading}
-          className="w-full rounded-lg bg-pink-500 hover:bg-pink-600 px-6 py-3 text-lg font-semibold text-white shadow-lg hover:shadow-xl disabled:opacity-60 disabled:cursor-not-allowed focus:outline-none focus:ring-2 focus:ring-pink-500/50 transition-all"
-          style={{
-            boxShadow: '0 4px 12px rgba(236, 72, 153, 0.4)',
-          }}
+          className="w-full rounded-lg bg-pink-500 hover:bg-pink-600 px-6 py-3 text-lg font-semibold text-white shadow-lg hover:shadow-xl disabled:opacity-60 disabled:cursor-not-allowed focus:outline-none focus:ring-2 focus:ring-pink-500/50 transition-all shadow-[0_4px_12px_rgba(236,72,153,0.4)]"
+          suppressHydrationWarning
         >
           {loading ? "Đang đăng nhập..." : "Đăng nhập"}
         </button>
