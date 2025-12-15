@@ -19,6 +19,8 @@ export function isValidImageUrl(url: string | null | undefined): boolean {
     'default',
     'null',
     'undefined',
+    'http://',
+    'https://',
   ]
 
   // Kiểm tra nếu URL chỉ là protocol mà không có domain
@@ -34,10 +36,8 @@ export function isValidImageUrl(url: string | null | undefined): boolean {
     }
   }
 
-  // URL hợp lệ nếu:
-  // 1. Bắt đầu bằng / (local path từ public folder)
-  // 2. Bắt đầu bằng http:// hoặc https:// (remote URL)
-  return trimmedUrl.startsWith('/') || trimmedUrl.startsWith('http://') || trimmedUrl.startsWith('https://')
+  // URL hợp lệ nếu bắt đầu bằng http:// hoặc https:// và có domain
+  return trimmedUrl.startsWith('http://') || trimmedUrl.startsWith('https://')
 }
 
 /**
@@ -50,7 +50,7 @@ export function getImageUrl(
   if (isValidImageUrl(url)) {
     return url!
   }
-  return fallback || '/hero.jpg'
+  return fallback || '/default-avatar.png'
 }
 
 /**
