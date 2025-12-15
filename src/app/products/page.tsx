@@ -1,110 +1,190 @@
 "use client"
 
-import { useState, useEffect, useCallback } from "react"
+import { useState, useEffect, Suspense } from "react"
+import { useQuery } from "@tanstack/react-query"
+import { useSearchParams, useRouter } from "next/navigation"
 import Image from "next/image"
 import Link from "next/link"
-import { getProducts, Product } from "@/lib/api"
+import { getProducts, getCategories, Product, Category } from "@/lib/api"
+import { getImageAttributes, isValidImageUrl, getImageUrl } from "@/lib/imageUtils"
 import Header from "@/components/layout/Header"
 import Footer from "@/components/layout/Footer"
 
-export default function ProductsPage() {
-  const [products, setProducts] = useState<Product[]>([])
-  const [loading, setLoading] = useState(true)
-  const [error, setError] = useState<string | null>(null)
-  const [currentPage, setCurrentPage] = useState(1)
+// Component con sử dụng useSearchParams (phải wrap trong Suspense)
+function ProductsContent() {
+  const searchParams = useSearchParams()
+  const router = useRouter()
+  const [searchInput, setSearchInput] = useState("")
   const [searchQuery, setSearchQuery] = useState("")
   const [selectedCategory, setSelectedCategory] = useState("")
 
-  const fetchProducts = useCallback(async () => {
-    try {
-      setLoading(true)
-      setError(null)
-      
-      // Get ALL products from database
-      const data = await getProducts({
-        page: currentPage,
-        pageSize: 100, // Get all products
-        search: searchQuery || undefined,
-      })
-      
-      // FILTER 1: Only products with status = "Approved"
-      let approvedProducts = data.filter(p => p.status === "Approved")
-      
-      console.log(`✅ Products page: ${approvedProducts.length} approved products`)
-      
-      // FILTER 2: By category if selected
-      let filtered = approvedProducts
-      if (selectedCategory && selectedCategory !== "Tất cả") {
-        filtered = approvedProducts.filter(p => 
-          p.categoryName?.toLowerCase().includes(selectedCategory.toLowerCase())
-        )
+  // Đọc search query từ URL params (khi điều hướng từ navbar)
+  useEffect(() => {
+    const urlSearch = searchParams.get('search')
+    if (urlSearch) {
+      setSearchInput(urlSearch)
+      setSearchQuery(urlSearch)
+    }
+  }, [searchParams])
+
+  // Debounce search input
+  useEffect(() => {
+    const handler = setTimeout(() => {
+      const trimmed = searchInput.trim()
+      setSearchQuery(trimmed)
+      // Update URL khi search thay đổi (nhưng không trigger navigation)
+      if (trimmed) {
+        const newUrl = new URL(window.location.href)
+        newUrl.searchParams.set('search', trimmed)
+        window.history.replaceState({}, '', newUrl.toString())
+      } else {
+        const newUrl = new URL(window.location.href)
+        newUrl.searchParams.delete('search')
+        window.history.replaceState({}, '', newUrl.toString())
+      }
+    }, 500)
+
+    return () => clearTimeout(handler)
+  }, [searchInput])
+
+  // React Query: Fetch products from API with search
+  // ✅ FIX: Request only Approved products from backend to prevent showing pending/rejected products
+  const {
+    data: allProducts = [],
+    isLoading,
+    isError,
+    error,
+    refetch,
+  } = useQuery({
+    queryKey: ["products", "customer", searchQuery, selectedCategory],
+    queryFn: async () => {
+      // Call API with search parameter AND status filter
+      const searchTerm = searchQuery || undefined;
+      if (searchTerm) {
+        console.log('🔍 Frontend: Searching for:', searchTerm);
       }
       
-      setProducts(filtered)
-      setLoading(false)
-    } catch (err) {
-      console.error('❌ Failed to fetch products:', err)
-      setError('Không thể tải sản phẩm từ server')
-      setProducts([]) // Don't fallback to mock - show empty
-      setLoading(false)
-    }
-  }, [currentPage, searchQuery, selectedCategory])
+      // ✅ FIX: Request only Approved products from backend
+      const result = await getProducts({
+        page: 1,
+        pageSize: 100, // Get all products
+        status: "Approved", // ✅ Only get approved products from backend
+        q: searchTerm, // Try 'q' parameter first
+      });
+      
+      if (searchTerm) {
+        console.log('✅ Frontend: Received', result.length, 'approved products from API');
+      }
+      
+      // ✅ Double-check: Filter again on client-side as safety measure
+      const approvedOnly = result.filter((p) => p.status === "Approved");
+      if (approvedOnly.length !== result.length) {
+        console.warn(`⚠️ Backend returned ${result.length - approvedOnly.length} non-approved products. Filtered out.`);
+      }
+      
+      return approvedOnly;
+    },
+    enabled: true, // Always enabled
+    staleTime: 30 * 1000, // 30 seconds
+    refetchInterval: 30 * 1000, // Auto-refresh every 30 seconds
+    refetchOnWindowFocus: true,
+  })
 
-  useEffect(() => {
-    fetchProducts()
-  }, [fetchProducts])
+  // ✅ All products from API are already filtered to Approved only
+  const approvedProducts = allProducts
 
-  const handleSearch = (e: React.FormEvent) => {
-    e.preventDefault()
-    setCurrentPage(1)
-    fetchProducts()
-  }
+  // Client-side search filter (fallback if API doesn't support search)
+  const searchFiltered = searchQuery
+    ? approvedProducts.filter((p) => {
+        const searchLower = searchQuery.toLowerCase();
+        return (
+          p.name?.toLowerCase().includes(searchLower) ||
+          p.description?.toLowerCase().includes(searchLower) ||
+          p.categoryName?.toLowerCase().includes(searchLower)
+        );
+      })
+    : approvedProducts;
 
+  // Fetch categories from API (only active categories added by admin)
+  const { data: categoriesData = [] } = useQuery({
+    queryKey: ["categories", "active"],
+    queryFn: async () => {
+      // Chỉ lấy danh mục đã được admin system kích hoạt
+      const allCategories = await getCategories(true) // isActive = true
+      return allCategories.filter((cat: Category) => cat.isActive === true)
+    },
+    staleTime: 5 * 60 * 1000, // 5 minutes
+    refetchOnWindowFocus: false,
+  })
+
+  // Build categories list: "Tất cả" + categories from API
   const categories = [
     "Tất cả",
-    "Nông sản",
-    "Thủ công mỹ nghệ", 
-    "Thực phẩm",
-    "Dược liệu",
-    "Khác"
+    ...categoriesData.map((cat: Category) => cat.name)
   ]
 
-  if (loading) {
+  // Filter by category
+  const products =
+    selectedCategory && selectedCategory !== "Tất cả"
+      ? searchFiltered.filter((p) =>
+          p.categoryName?.toLowerCase().includes(selectedCategory.toLowerCase())
+        )
+      : searchFiltered
+
+  // Loading state
+  if (isLoading) {
     return (
       <>
         <Header />
-        <div className="min-h-screen bg-gray-50 flex items-center justify-center">
-          <div className="text-center">
-            <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-indigo-600 mx-auto"></div>
-            <p className="mt-4 text-gray-600">Đang tải sản phẩm...</p>
-          </div>
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-indigo-600 mx-auto"></div>
+          <p className="mt-4 text-gray-600">Đang tải sản phẩm...</p>
         </div>
+      </div>
         <Footer />
       </>
     )
   }
 
-  if (error) {
+  // Error state
+  if (isError) {
+    const errorMessage =
+      error instanceof Error
+        ? error.message
+        : "Không thể tải sản phẩm từ server"
     return (
       <>
         <Header />
-        <div className="min-h-screen bg-gray-50 flex items-center justify-center">
-          <div className="text-center">
-            <div className="w-16 h-16 mx-auto mb-4 bg-red-100 rounded-full flex items-center justify-center">
-              <svg className="w-8 h-8 text-red-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L3.732 16.5c-.77.833.192 2.5 1.732 2.5z" />
-              </svg>
-            </div>
-            <h2 className="text-2xl font-bold text-gray-900 mb-2">Lỗi tải sản phẩm</h2>
-            <p className="text-gray-600 mb-6">{error}</p>
-            <button
-              onClick={() => window.location.reload()}
-              className="bg-indigo-600 text-white px-6 py-2 rounded-lg hover:bg-indigo-700 transition-colors"
-            >
-              Thử lại
-            </button>
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+        <div className="text-center">
+          <div className="w-16 h-16 mx-auto mb-4 bg-red-100 rounded-full flex items-center justify-center">
+              <svg
+                className="w-8 h-8 text-red-600"
+                fill="none"
+                stroke="currentColor"
+                viewBox="0 0 24 24"
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth={2}
+                  d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L3.732 16.5c-.77.833.192 2.5 1.732 2.5z"
+                />
+            </svg>
           </div>
+            <h2 className="text-2xl font-bold text-gray-900 mb-2">
+              Lỗi tải sản phẩm
+            </h2>
+            <p className="text-gray-600 mb-6">{errorMessage}</p>
+          <button
+              onClick={() => refetch()}
+            className="bg-indigo-600 text-white px-6 py-2 rounded-lg hover:bg-indigo-700 transition-colors"
+          >
+            Thử lại
+          </button>
         </div>
+      </div>
         <Footer />
       </>
     )
@@ -113,33 +193,70 @@ export default function ProductsPage() {
   return (
     <>
       <Header />
-      <div className="min-h-screen bg-gray-50 py-8">
+    <div className="min-h-screen bg-gray-50 py-8">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         {/* Header */}
         <div className="mb-8">
           <h1 className="text-3xl font-bold text-gray-900 mb-2">Sản phẩm OCOP</h1>
-          <p className="text-gray-600">Khám phá các sản phẩm OCOP chất lượng cao</p>
+          <p className="text-gray-600">
+            {searchQuery
+              ? `Tìm thấy ${products.length} sản phẩm cho "${searchQuery}"`
+              : "Khám phá các sản phẩm OCOP chất lượng cao"}
+          </p>
         </div>
 
         {/* Search and Filter */}
         <div className="mb-8 space-y-4">
           {/* Search Bar */}
-          <form onSubmit={handleSearch} className="max-w-md">
+          <div className="max-w-md">
             <div className="relative">
               <input
                 type="text"
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
+                value={searchInput}
+                onChange={(e) => setSearchInput(e.target.value)}
                 placeholder="Tìm kiếm sản phẩm..."
-                className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
+                className="w-full pl-10 pr-10 py-2 border border-gray-400 rounded-xl bg-white text-gray-900 placeholder:text-gray-500 shadow-sm focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
               />
               <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                <svg className="h-5 w-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+                <svg
+                  className="h-5 w-5 text-gray-400"
+                  fill="none"
+                  stroke="currentColor"
+                  viewBox="0 0 24 24"
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth={2}
+                    d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"
+                  />
                 </svg>
               </div>
+              {searchInput && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    setSearchInput("")
+                    setSearchQuery("")
+                  }}
+                  className="absolute inset-y-0 right-0 pr-3 flex items-center text-gray-400 hover:text-gray-600"
+                  aria-label="Xóa tìm kiếm"
+                >
+                  <svg
+                    className="h-4 w-4"
+                    fill="currentColor"
+                    viewBox="0 0 20 20"
+                  >
+                    <path
+                      fillRule="evenodd"
+                      d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z"
+                      clipRule="evenodd"
+                    />
+                  </svg>
+                </button>
+              )}
+              </div>
             </div>
-          </form>
 
           {/* Category Filter */}
           <div className="flex flex-wrap gap-2">
@@ -148,7 +265,6 @@ export default function ProductsPage() {
                 key={category}
                 onClick={() => {
                   setSelectedCategory(category === "Tất cả" ? "" : category)
-                  setCurrentPage(1)
                 }}
                 className={`px-4 py-2 rounded-full text-sm font-medium transition-colors ${
                   (category === "Tất cả" && !selectedCategory) || selectedCategory === category
@@ -162,6 +278,20 @@ export default function ProductsPage() {
           </div>
         </div>
 
+        {/* Search Results Info */}
+        {searchQuery && (
+          <div className="mb-4 text-sm text-gray-600">
+            {isLoading ? (
+              <span>Đang tìm kiếm...</span>
+            ) : (
+              <span>
+                Tìm thấy <strong className="text-gray-900">{products.length}</strong> sản phẩm
+                {selectedCategory && ` trong danh mục "${selectedCategory}"`}
+              </span>
+            )}
+          </div>
+        )}
+
         {/* Products Grid */}
         {products && products.length > 0 ? (
           <>
@@ -174,10 +304,17 @@ export default function ProductsPage() {
                 >
                   <div className="aspect-square bg-gray-200 relative overflow-hidden">
                     <Image
-                      src={product.imageUrl || "/hero.jpg"}
+                      src={isValidImageUrl(product.imageUrl) ? getImageUrl(product.imageUrl, "/hero.jpg") : "/hero.jpg"}
                       alt={product.name}
                       fill
                       className="object-cover group-hover:scale-105 transition-transform duration-300"
+                      {...getImageAttributes(product.imageUrl)}
+                      onError={(e) => {
+                        const target = e.target as HTMLImageElement
+                        if (!target.src.includes('hero.jpg')) {
+                          target.src = '/hero.jpg'
+                        }
+                      }}
                     />
                     {product.categoryName && (
                       <div className="absolute top-2 left-2">
@@ -242,32 +379,6 @@ export default function ProductsPage() {
               ))}
             </div>
 
-            {/* Pagination */}
-            {products.length >= 12 && (
-              <div className="flex justify-center items-center space-x-2">
-                <button
-                  onClick={() => setCurrentPage(Math.max(1, currentPage - 1))}
-                  disabled={currentPage === 1}
-                  className="px-3 py-2 border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
-                >
-                  Trước
-                </button>
-                
-                <div className="flex space-x-1">
-                  <span className="px-3 py-2 text-sm text-gray-600">
-                    Trang {currentPage}
-                  </span>
-                </div>
-                
-                <button
-                  onClick={() => setCurrentPage(currentPage + 1)}
-                  disabled={products.length < 12}
-                  className="px-3 py-2 border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
-                >
-                  Sau
-                </button>
-              </div>
-            )}
           </>
         ) : (
           <div className="text-center py-12">
@@ -286,9 +397,9 @@ export default function ProductsPage() {
             {(searchQuery || selectedCategory) && (
               <button
                 onClick={() => {
+                  setSearchInput("")
                   setSearchQuery("")
                   setSelectedCategory("")
-                  setCurrentPage(1)
                 }}
                 className="bg-indigo-600 text-white px-4 py-2 rounded-lg hover:bg-indigo-700 transition-colors"
               >
@@ -301,5 +412,25 @@ export default function ProductsPage() {
     </div>
       <Footer />
     </>
+  )
+}
+
+// Component chính - wrap ProductsContent trong Suspense
+export default function ProductsPage() {
+  return (
+    <Suspense fallback={
+      <>
+        <Header />
+        <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+          <div className="text-center">
+            <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-indigo-600 mx-auto"></div>
+            <p className="mt-4 text-gray-600">Đang tải sản phẩm...</p>
+          </div>
+        </div>
+        <Footer />
+      </>
+    }>
+      <ProductsContent />
+    </Suspense>
   )
 }

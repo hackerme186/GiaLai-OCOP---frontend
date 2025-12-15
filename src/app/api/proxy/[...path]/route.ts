@@ -15,16 +15,35 @@ async function handle(request: NextRequest, { params }: { params: Promise<{ path
   headers.delete("host");
   headers.delete("connection");
   headers.delete("content-length");
-  // Ensure JSON content-type when proxying JSON body
+  
+  // Handle body based on content type
   const hasBody = !["GET", "HEAD"].includes(request.method);
-  if (hasBody && !headers.get("content-type")) {
-    headers.set("content-type", "application/json");
+  let body: BodyInit | undefined = undefined;
+  
+  if (hasBody) {
+    const contentType = headers.get("content-type") || "";
+    
+    // Handle FormData (multipart/form-data)
+    if (contentType.includes("multipart/form-data")) {
+      // For FormData, we need to pass it as FormData
+      // Next.js request.formData() returns a FormData object
+      body = await request.formData();
+      // Don't set content-type header - browser will set it with boundary
+      headers.delete("content-type");
+    } else {
+      // For JSON or other text-based content, read as text
+      body = await request.text();
+      // Ensure JSON content-type if not set
+      if (!headers.get("content-type")) {
+        headers.set("content-type", "application/json");
+      }
+    }
   }
 
   const init: RequestInit = {
     method: request.method,
     headers,
-    body: hasBody ? await request.text() : undefined,
+    body,
     // Follow redirects from upstream
     redirect: "follow",
   };

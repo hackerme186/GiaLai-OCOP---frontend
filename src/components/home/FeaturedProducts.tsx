@@ -2,11 +2,19 @@
 import { useState, useEffect } from 'react'
 import Image from 'next/image'
 import { getProducts, Product } from '@/lib/api'
+import { getImageAttributes, isValidImageUrl, getImageUrl } from '@/lib/imageUtils'
+
+const STORAGE_KEY = "ocop_home_content"
+
+const defaultTitle = 'Sản phẩm OCOP nổi bật'
+const defaultDescription = 'Các sản phẩm đặc trưng từ Gia Lai và Bình Định'
 
 const FeaturedProducts = () => {
   const [products, setProducts] = useState<Product[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
+  const [title, setTitle] = useState(defaultTitle)
+  const [description, setDescription] = useState(defaultDescription)
 
   useEffect(() => {
     const fetchProducts = async () => {
@@ -16,9 +24,12 @@ const FeaturedProducts = () => {
         
         console.log('🔄 Fetching products from API...')
         
-        // Get ALL products from database
+        // ✅ FIX: Request only Approved products from backend
+        // Use silent mode to reduce console errors when backend is unavailable
         const data = await getProducts({
           pageSize: 100, // Get all products
+          status: "Approved", // ✅ Only get approved products from backend
+          silent: true, // Silent mode - don't spam console with errors
         })
         
         console.log('📦 Raw API response:', data)
@@ -31,10 +42,13 @@ const FeaturedProducts = () => {
         console.log('📋 Product list:', productList)
         console.log('📋 Product list length:', productList.length)
         
-        // FILTER: Only show products with status = "Approved"
+        // ✅ Double-check: Filter again on client-side as safety measure
         const approvedProducts = productList.filter((p: Product) => {
-          console.log(`Checking product ${p.id}: ${p.name}, status: ${p.status}`)
-          return p.status === "Approved"
+          const isApproved = p.status === "Approved"
+          if (!isApproved) {
+            console.warn(`⚠️ Product ${p.id} (${p.name}) has status "${p.status}", not Approved. Filtered out.`)
+          }
+          return isApproved
         })
         
         console.log(`✅ Fetched ${approvedProducts.length} approved products from API`)
@@ -44,14 +58,20 @@ const FeaturedProducts = () => {
         setProducts(approvedProducts.slice(0, 8))
         setLoading(false)
       } catch (err) {
-        console.error('❌ Failed to fetch products from API:', err)
-        console.error('❌ Error details:', {
-          message: err instanceof Error ? err.message : 'Unknown error',
-          stack: err instanceof Error ? err.stack : undefined,
-          raw: err
-        })
-        setError('Không thể tải sản phẩm từ server')
-        setProducts([]) // Don't fallback to mock - show empty
+        // Only log error if not in silent mode
+        const isSilent = (err as any)?.silent
+        if (!isSilent) {
+          console.error('❌ Failed to fetch products from API:', err)
+        }
+        
+        // Check if it's a network error (backend not available)
+        const isNetworkError = (err as any)?.isNetworkError || (err as any)?.status === 0
+        const errorMessage = isNetworkError 
+          ? 'Backend đang khởi động. Vui lòng đợi vài giây rồi tải lại trang.'
+          : 'Không thể tải sản phẩm từ server'
+        
+        setError(errorMessage)
+        setProducts([]) // Show empty state
         setLoading(false)
       }
     }
@@ -59,14 +79,45 @@ const FeaturedProducts = () => {
     fetchProducts()
   }, [])
 
+  useEffect(() => {
+    // Load title and description from localStorage
+    const loadContent = () => {
+      try {
+        const stored = localStorage.getItem(STORAGE_KEY)
+        if (stored) {
+          const parsed = JSON.parse(stored) as { featuredProductsTitle?: string; featuredProductsDescription?: string }
+          if (parsed.featuredProductsTitle) setTitle(parsed.featuredProductsTitle)
+          if (parsed.featuredProductsDescription) setDescription(parsed.featuredProductsDescription)
+        }
+      } catch (err) {
+        console.error("Failed to load content from storage:", err)
+      }
+    }
+
+    loadContent()
+
+    // Listen for home content updates from admin
+    const handleContentUpdate = (event: CustomEvent) => {
+      if (event.detail) {
+        if (event.detail.featuredProductsTitle) setTitle(event.detail.featuredProductsTitle)
+        if (event.detail.featuredProductsDescription) setDescription(event.detail.featuredProductsDescription)
+      }
+    }
+
+    window.addEventListener('homeContentUpdated' as any, handleContentUpdate as EventListener)
+    return () => {
+      window.removeEventListener('homeContentUpdated' as any, handleContentUpdate as EventListener)
+    }
+  }, [])
+
   if (loading) {
     return (
       <section className="py-16 bg-gray-50">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <h2 className="text-3xl font-bold text-gray-900 mb-2">
-            Sản phẩm OCOP nổi bật
+            {title}
           </h2>
-          <p className="text-gray-600 mb-8">Các sản phẩm đặc trưng từ Gia Lai và Bình Định</p>
+          <p className="text-gray-600 mb-8">{description}</p>
           <div className="flex justify-center items-center h-64">
             <div className="text-gray-500">Đang tải sản phẩm...</div>
           </div>
@@ -95,9 +146,9 @@ const FeaturedProducts = () => {
     <section className="py-16 bg-gray-50">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <h2 className="text-3xl font-bold text-gray-900 mb-2">
-          Sản phẩm OCOP nổi bật
+          {title}
         </h2>
-        <p className="text-gray-600 mb-8">Các sản phẩm đặc trưng từ Gia Lai và Bình Định</p>
+        <p className="text-gray-600 mb-8">{description}</p>
 
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-8">
           {products.map((product) => (
@@ -117,10 +168,20 @@ const FeaturedProducts = () => {
                   </div>
                 )}
                 <Image
-                  src={product.imageUrl || '/hero.jpg'}
+                  src={isValidImageUrl(product.imageUrl) ? getImageUrl(product.imageUrl, '/hero.jpg') : '/hero.jpg'}
                   alt={product.name}
                   fill
                   className="object-cover"
+                  {...getImageAttributes(product.imageUrl)}
+                  onError={(e) => {
+                    // Fallback to hero.jpg if image fails to load
+                    const target = e.target as HTMLImageElement
+                    const currentSrc = target.src
+                    const fallbackSrc = '/hero.jpg'
+                    if (!currentSrc.includes('hero.jpg')) {
+                      target.src = fallbackSrc
+                    }
+                  }}
                 />
               </div>
               <div className="p-4">

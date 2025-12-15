@@ -1,76 +1,64 @@
 "use client"
 import Image from "next/image"
-import AuthCard from "@/components/AuthCard"
-import SocialLogin from "@/components/SocialLogin"
-import { useRouter } from "next/navigation"
 
 interface AuthLayoutProps {
   children: React.ReactNode
-  title: string
-  subtitle: string
-  linkText: string
-  linkAction: () => void
 }
 
 export default function AuthLayout({ 
-  children, 
-  title,
-  subtitle,
-  linkText,
-  linkAction
+  children
 }: AuthLayoutProps) {
   return (
-    <main className="min-h-screen grid lg:grid-cols-3 grid-rows-2 lg:grid-rows-1 bg-gray-50">
-      <div className="relative row-span-1 lg:col-span-2 h-64 lg:h-full overflow-hidden">
+    <main className="min-h-screen relative flex items-center justify-center overflow-hidden">
+      {/* Background Image - Blurred Green Field */}
+      <div className="absolute inset-0">
         <Image
-          src="/hero.jpg" 
-          alt="Hero"
+          src="/login picture.jpg"
+          alt="Background"
           fill
+          className="object-cover blur-sm"
           priority
-          className="object-cover object-right"
+          quality={90}
         />
+        {/* Overlay for better text readability */}
         <div className="absolute inset-0 bg-black/20" />
       </div>
+      
+      {/* Faint hexagons and circles on the left side */}
+      <div className="absolute inset-0 overflow-hidden pointer-events-none">
+        {/* Hexagons */}
+        {[...Array(3)].map((_, i) => (
+          <div
+            key={`hex-${i}`}
+            className="absolute opacity-10"
+            style={{
+              left: `${10 + i * 15}%`,
+              top: `${20 + i * 25}%`,
+              width: '80px',
+              height: '80px',
+              background: 'white',
+              clipPath: 'polygon(50% 0%, 100% 25%, 100% 75%, 50% 100%, 0% 75%, 0% 25%)',
+            }}
+          />
+        ))}
+        {/* Circles */}
+        {[...Array(4)].map((_, i) => (
+          <div
+            key={`circle-${i}`}
+            className="absolute rounded-full bg-white/10"
+            style={{
+              left: `${5 + i * 12}%`,
+              top: `${30 + i * 20}%`,
+              width: `${60 + i * 20}px`,
+              height: `${60 + i * 20}px`,
+            }}
+          />
+        ))}
+      </div>
 
-      <div className="row-span-1 lg:col-span-1 flex items-center justify-center px-4 py-10">
-        <AuthCard>
-          <h2 className="text-center text-2xl font-bold text-gray-900">
-            {title}
-          </h2>
-          <p className="mt-2 text-center text-sm text-gray-600">
-            {subtitle}
-          </p>
-
-          <div className="h-4" />
-          <div className="h-4" />
-
-          {children}
-
-          <SocialLogin />
-
-          <p className="mt-6 text-center text-sm text-gray-600">
-            <button
-              type="button"
-              onClick={linkAction}
-              className="font-medium text-indigo-600 hover:text-indigo-500"
-            >
-              {linkText}
-            </button>
-          </p>
-
-          <p className="mt-4 text-center text-xs text-gray-500">
-            Bằng cách tiếp tục, bạn đồng ý với chúng tôi{" "}
-            <br />
-            <a href="#" className="text-indigo-600 hover:underline">
-              Điều khoản và điều kiện
-            </a>{" "}
-            và{" "}
-            <a href="#" className="text-indigo-600 hover:underline">
-              Quyền riêng tư
-            </a>
-            .
-          </p>
-        </AuthCard>
+      {/* Login Form Content - Directly on background */}
+      <div className="relative z-10 w-full max-w-md mx-auto px-4">
+        {children}
       </div>
     </main>
   )
