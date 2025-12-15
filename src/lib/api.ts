@@ -96,7 +96,7 @@ async function request<TResponse>(
     }
 
     // Create a custom error with more context
-    const apiError = new Error(`Backend API không khả dụng. Vui lòng khởi động backend server hoặc đợi backend khởi động.`) as any;
+    const apiError = new Error(`Lỗi kết nối. Vui lòng kiểm tra internet hoặc thử lại sau.`) as any;
     apiError.status = 0; // Network error
     apiError.isNetworkError = true;
     apiError.originalError = errorMsg;
@@ -171,21 +171,48 @@ async function request<TResponse>(
       throw authError;
     }
 
-    // Tạo error message chi tiết
-    let message = `${response.status} ${response.statusText}`;
+    // Tạo error message thân thiện với người dùng (không hiển thị mã HTTP)
+    let message = "";
+    
+    // Ưu tiên sử dụng message từ backend
     if (bodyMessage) {
-      message += ` - ${bodyMessage}`;
+      message = bodyMessage;
+    } else if (bodyError) {
+      message = bodyError;
+    } else {
+      // Fallback: Map HTTP status codes to user-friendly messages
+      switch (response.status) {
+        case 400:
+          message = "Thông tin không hợp lệ. Vui lòng kiểm tra lại.";
+          break;
+        case 403:
+          message = "Bạn không có quyền thực hiện thao tác này.";
+          break;
+        case 404:
+          message = "Không tìm thấy dữ liệu. Vui lòng thử lại.";
+          break;
+        case 409:
+          message = "Dữ liệu đã tồn tại. Vui lòng kiểm tra lại.";
+          break;
+        case 500:
+        case 502:
+        case 503:
+        case 504:
+          message = "Lỗi server. Vui lòng thử lại sau.";
+          break;
+        default:
+          message = "Đã xảy ra lỗi. Vui lòng thử lại.";
+      }
     }
-    if (bodyError && bodyError !== bodyMessage) {
-      message += ` (${bodyError})`;
-    }
-    if (bodyDetails) {
-      message += `\nChi tiết: ${bodyDetails}`;
+    
+    // Thêm chi tiết nếu có (không hiển thị trực tiếp cho user, chỉ log)
+    if (bodyDetails && typeof bodyDetails === "string") {
+      console.warn("⚠️ [API] Error details:", bodyDetails);
     }
 
     const error = new Error(message.trim());
     (error as any).status = response.status;
-    (error as any).response = data; // Lưu toàn bộ response data
+    (error as any).response = data; // Lưu toàn bộ response data để debug
     (error as any).bodyMessage = bodyMessage;
     (error as any).bodyDetails = bodyDetails;
     (error as any).bodyError = bodyError;

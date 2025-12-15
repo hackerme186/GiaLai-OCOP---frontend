@@ -4,6 +4,7 @@ import { loginWithFacebook } from "@/lib/api"
 import { setAuthToken, getRoleFromToken, setUserProfile } from "@/lib/auth"
 import { getCurrentUser } from "@/lib/api"
 import { useRouter } from "next/navigation"
+import { getUserFriendlyError } from "@/lib/errorHandler"
 
 // Facebook SDK types
 declare global {
@@ -311,71 +312,8 @@ export default function FacebookLoginButton({ onError }: FacebookLoginButtonProp
         console.error("❌ [FacebookLogin] Error object:", err)
       }
       
-      // Log thêm thông tin về error nếu có
-      let errorMessage = "Đã xảy ra lỗi khi đăng nhập. Vui lòng thử lại."
-      let isNetworkError = false
-      let isAuthError = false
-      
-      if (err && typeof err === 'object') {
-        const errorObj = err as any
-        
-        // Check for network errors
-        if (errorObj.isNetworkError || 
-            errorObj.message?.includes("network") || 
-            errorObj.message?.includes("fetch") ||
-            errorObj.message?.includes("Failed to fetch") ||
-            errorObj.message?.includes("NetworkError")) {
-          isNetworkError = true
-          errorMessage = "Lỗi kết nối. Vui lòng kiểm tra internet và thử lại."
-        }
-        
-        // Check for authentication errors
-        if (errorObj.isAuthError || 
-            errorObj.status === 401 || 
-            errorObj.message?.includes("401") ||
-            errorObj.message?.includes("Unauthorized") ||
-            errorObj.message?.includes("token không hợp lệ") ||
-            errorObj.message?.includes("token đã hết hạn")) {
-          isAuthError = true
-          errorMessage = "Token không hợp lệ hoặc đã hết hạn. Vui lòng thử lại."
-        }
-        
-        // Check for server errors
-        if (errorObj.status === 500 || errorObj.status >= 500) {
-          errorMessage = "Lỗi server. Vui lòng thử lại sau."
-        }
-        
-        // Check for timeout errors
-        if (errorObj.message?.includes("timeout") || errorObj.message?.includes("Timeout")) {
-          errorMessage = "Kết nối quá lâu. Vui lòng thử lại."
-        }
-        
-        // Log error details
-        if (errorObj.status) {
-          console.error("❌ [FacebookLogin] Error status:", errorObj.status)
-        }
-        if (errorObj.response) {
-          console.error("❌ [FacebookLogin] Error response:", errorObj.response)
-        }
-        if (isAuthError) {
-          console.error("❌ [FacebookLogin] Authentication error detected")
-        }
-        if (isNetworkError) {
-          console.error("❌ [FacebookLogin] Network error detected:", errorObj.originalError)
-        }
-      } else if (err instanceof Error) {
-        // Handle Error instances
-        if (err.message.includes("network") || err.message.includes("fetch") || err.message.includes("Failed to fetch")) {
-          isNetworkError = true
-          errorMessage = "Lỗi kết nối. Vui lòng kiểm tra internet và thử lại."
-        } else if (err.message.includes("401") || err.message.includes("Unauthorized") || err.message.includes("token")) {
-          isAuthError = true
-          errorMessage = "Token không hợp lệ hoặc đã hết hạn. Vui lòng thử lại."
-        } else if (err.message) {
-          // Use the error message if it's user-friendly
-          errorMessage = err.message
-        }
-      }
+      // Chuyển đổi error thành thông báo dễ hiểu cho người dùng
+      const errorMessage = getUserFriendlyError(err)
       
       setLoadingMessage("")
       setIsRedirecting(false)
