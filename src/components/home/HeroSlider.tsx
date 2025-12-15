@@ -21,7 +21,7 @@ const defaultSlides: HeroSlide[] = [
     title: 'Cà Phê Gia Lai',
     subtitle: 'Tinh hoa đất Tây Nguyên',
     description: 'Khám phá ngay',
-    image: '/coffee gia lai.jpg',
+    image: '/coffee-gia-lai.jpg',
     textPosition: 'left'
   },
   {
@@ -29,7 +29,7 @@ const defaultSlides: HeroSlide[] = [
     title: 'Đặc sản Bình Định',
     subtitle: 'Nem chợ Huyện - Bánh tráng An Thái',
     description: 'Xem thêm',
-    image: '/nem chua cho huyen.png',
+    image: '/nem-chua-cho-huyen.png',
     textPosition: 'right'
   },
   {
@@ -37,7 +37,7 @@ const defaultSlides: HeroSlide[] = [
     title: 'Hạt điều - Tiêu Gia Lai',
     subtitle: 'Vị ngon đậm đà',
     description: 'Mua ngay',
-    image: '/hat dieu - tieu.png',
+    image: '/hat-dieu-tieu.png',
     textPosition: 'left'
   }
 ]
