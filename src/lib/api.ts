@@ -481,6 +481,7 @@ export interface OrderItem {
   total?: number;
   enterpriseId?: number;
   enterpriseName?: string;
+  enterpriseImageUrl?: string; // URL ảnh enterprise từ backend
 }
 
 export interface CustomerInfo {

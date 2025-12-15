@@ -37,10 +37,10 @@ cd frontend
 npm install
 
 # Setup environment variables (QUAN TRỌNG!)
-# Windows:
-.\setup-env.ps1
-# Linux/Mac:
-chmod +x setup-env.sh && ./setup-env.sh
+# Tạo file .env.local với nội dung:
+# NEXT_PUBLIC_API_BASE=http://localhost:5003/api
+# NEXT_PUBLIC_GOOGLE_CLIENT_ID=your-google-client-id
+# NEXT_PUBLIC_FACEBOOK_APP_ID=your-facebook-app-id
 
 # Run development server
 npm run dev
@@ -52,13 +52,12 @@ npm run dev
 
 **⚠️ QUAN TRỌNG:** Bạn cần setup environment variables trước khi chạy!
 
-**Cách nhanh nhất:**
-- Windows: `.\setup-env.ps1`
-- Linux/Mac: `chmod +x setup-env.sh && ./setup-env.sh`
-
-**Hoặc tạo thủ công:**
-- Xem [README_ENV.md](./README_ENV.md) để biết cách setup
-- Xem [SETUP_ENV.md](./SETUP_ENV.md) để biết chi tiết đầy đủ
+**Tạo file `.env.local` với nội dung:**
+```
+NEXT_PUBLIC_API_BASE=http://localhost:5003/api
+NEXT_PUBLIC_GOOGLE_CLIENT_ID=your-google-client-id
+NEXT_PUBLIC_FACEBOOK_APP_ID=your-facebook-app-id
+```
 
 **Logic hoạt động:**
 - **Local Development**: Tự động dùng `.env.local` → API: `http://localhost:5003/api`

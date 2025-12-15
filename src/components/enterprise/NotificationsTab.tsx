@@ -1,15 +1,18 @@
 "use client"
 
 import { useEffect, useState } from "react"
+import { useRouter } from "next/navigation"
 import { getNotifications, markNotificationAsRead, markAllNotificationsAsRead, deleteNotification, type User, type Notification } from "@/lib/api"
 
 interface NotificationsTabProps {
   user: User | null
   onNotificationUpdate?: () => void
   unreadCount?: number
+  onNavigate?: (tab: string, params?: { orderId?: number; productId?: number }) => void
 }
 
-export default function NotificationsTab({ user, onNotificationUpdate, unreadCount: parentUnreadCount }: NotificationsTabProps) {
+export default function NotificationsTab({ user, onNotificationUpdate, unreadCount: parentUnreadCount, onNavigate }: NotificationsTabProps) {
+  const router = useRouter()
   const [notifications, setNotifications] = useState<Notification[]>([])
   const [loading, setLoading] = useState(true)
   const [filter, setFilter] = useState<"all" | "unread" | "read">("all")
@@ -137,6 +140,83 @@ export default function NotificationsTab({ user, onNotificationUpdate, unreadCou
 
   const unreadCount = notifications.filter(n => !n.read).length
 
+  // Xác định route dựa trên notification type và các field có sẵn
+  const getNotificationRoute = (notification: Notification): { tab?: string; url?: string } => {
+    // Nếu có link trực tiếp, sử dụng link đó
+    if (notification.link) {
+      return { url: notification.link }
+    }
+
+    // Dựa vào type và các field để xác định route
+    switch (notification.type) {
+      case "new_order":
+      case "order_status_changed":
+      case "order_cancelled":
+      case "order_completed":
+        // Điều hướng đến tab quản lý đơn hàng
+        // Ưu tiên sử dụng callback nếu có (khi đang ở trong enterprise-admin)
+        if (onNavigate) {
+          return { tab: "orders" }
+        }
+        // Nếu không có callback, điều hướng đến enterprise-admin với tab orders
+        return { url: "/enterprise-admin?tab=orders" }
+      
+      case "product_approved":
+      case "product_rejected":
+      case "product_pending":
+        // Điều hướng đến trang quản lý sản phẩm hoặc OCOP status trong enterprise-admin
+        if (onNavigate) {
+          return { tab: notification.type.includes("approved") || notification.type.includes("rejected") ? "ocop-status" : "products" }
+        }
+        return { url: "/enterprise-admin?tab=ocop-status" }
+      
+      case "low_stock":
+      case "out_of_stock":
+        // Điều hướng đến trang quản lý kho trong enterprise-admin
+        if (onNavigate) {
+          return { tab: "inventory" }
+        }
+        return { url: "/enterprise-admin?tab=inventory" }
+      
+      case "wallet_deposit":
+      case "wallet_withdraw":
+      case "wallet_deposit_rejected":
+      case "wallet_withdraw_rejected":
+        // Điều hướng đến trang ví trong enterprise-admin
+        if (onNavigate) {
+          return { tab: "wallet" }
+        }
+        return { url: "/enterprise-admin?tab=wallet" }
+      
+      default:
+        // Mặc định không điều hướng
+        return {}
+    }
+  }
+
+  // Xử lý click vào notification
+  const handleNotificationClick = (notification: Notification) => {
+    // Đánh dấu đã đọc nếu chưa đọc
+    if (!notification.read) {
+      markAsRead(notification.id)
+    }
+
+    // Lấy route tương ứng
+    const route = getNotificationRoute(notification)
+    
+    // Ưu tiên sử dụng callback từ parent để switch tab trong cùng trang
+    if (route.tab && onNavigate) {
+      // Gọi callback để switch tab - chỉ truyền orderId/productId nếu cần scroll đến element
+      onNavigate(route.tab, {
+        orderId: notification.orderId,
+        productId: notification.productId,
+      })
+    } else if (route.url) {
+      // Nếu không có callback, điều hướng đến URL
+      router.push(route.url)
+    }
+  }
+
   if (loading) {
     return (
       <div className="bg-white rounded-xl shadow-lg p-8 text-center">
@@ -208,12 +288,25 @@ export default function NotificationsTab({ user, onNotificationUpdate, unreadCou
         </div>
       ) : (
         <div className="space-y-3">
-          {filteredNotifications.map(notification => (
+          {filteredNotifications.map(notification => {
+            const route = getNotificationRoute(notification)
+            const isClickable = route.tab || route.url
+            
+            return (
             <div
               key={notification.id}
+              onClick={(e) => {
+                if (isClickable) {
+                  e.stopPropagation()
+                  e.preventDefault()
+                  handleNotificationClick(notification)
+                }
+              }}
               className={`bg-white rounded-xl shadow-lg p-6 border-l-4 ${
                 notification.read ? "border-gray-300" : "border-green-600"
-              } ${getNotificationColor(notification.type)}`}
+              } ${getNotificationColor(notification.type)} ${
+                isClickable ? "cursor-pointer hover:shadow-xl transition-all transform hover:-translate-y-1" : ""
+              }`}
             >
               <div className="flex items-start gap-4">
                 <div className="text-3xl flex-shrink-0">
@@ -229,21 +322,32 @@ export default function NotificationsTab({ user, onNotificationUpdate, unreadCou
                     )}
                   </div>
                   <p className="text-sm text-gray-600 mb-3">{notification.message}</p>
+                  {isClickable && (
+                    <p className="text-xs text-green-600 mb-2 font-medium">
+                      👆 Click để xem chi tiết
+                    </p>
+                  )}
                   <div className="flex items-center justify-between">
                     <span className="text-xs text-gray-500">
                       {new Date(notification.createdAt).toLocaleString("vi-VN")}
                     </span>
-                    <div className="flex gap-2">
+                    <div className="flex gap-2" onClick={(e) => e.stopPropagation()}>
                       {!notification.read && (
                         <button
-                          onClick={() => markAsRead(notification.id)}
+                          onClick={(e) => {
+                            e.stopPropagation()
+                            markAsRead(notification.id)
+                          }}
                           className="text-xs text-green-600 hover:text-green-800 font-medium"
                         >
                           Đánh dấu đã đọc
                         </button>
                       )}
                       <button
-                        onClick={() => handleDeleteNotification(notification.id)}
+                        onClick={(e) => {
+                          e.stopPropagation()
+                          handleDeleteNotification(notification.id)
+                        }}
                         className="text-xs text-red-600 hover:text-red-800 font-medium"
                       >
                         Xóa
@@ -253,7 +357,8 @@ export default function NotificationsTab({ user, onNotificationUpdate, unreadCou
                 </div>
               </div>
             </div>
-          ))}
+            )
+          })}
         </div>
       )}
     </div>

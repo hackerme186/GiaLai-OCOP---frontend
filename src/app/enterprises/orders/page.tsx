@@ -7,6 +7,7 @@ import Footer from "@/components/layout/Footer"
 import { isLoggedIn } from "@/lib/auth"
 import { getCurrentUser, getOrders, updateOrderStatus, type Order, type User } from "@/lib/api"
 import Image from "next/image"
+import { useOrderProducts } from "@/lib/hooks/useOrderProducts"
 
 export default function EnterpriseOrdersPage() {
     const router = useRouter()
@@ -247,6 +248,8 @@ interface EnterpriseOrderCardProps {
 }
 
 function EnterpriseOrderCard({ order, onStatusUpdate }: EnterpriseOrderCardProps) {
+    // Use hook to load product details
+    const { getProductName, getProductImageUrl, loadingProducts } = useOrderProducts(order.orderItems)
     const getStatusInfo = (status: string) => {
         const normalized = status?.toLowerCase() || ""
         if (normalized.includes("completed")) {
@@ -312,17 +315,23 @@ function EnterpriseOrderCard({ order, onStatusUpdate }: EnterpriseOrderCardProps
                     {order.orderItems.map((item) => (
                         <div key={item.id} className="flex gap-4 pb-3 border-b border-gray-100 last:border-0">
                             <div className="relative w-16 h-16 rounded-lg overflow-hidden bg-gray-100 flex-shrink-0 border border-gray-200">
-                                <Image
-                                    src={item.productImageUrl || "/hero.jpg"}
-                                    alt={item.productName || `Sản phẩm #${item.productId}`}
-                                    fill
-                                    className="object-cover"
-                                    sizes="64px"
-                                />
+                                {loadingProducts ? (
+                                    <div className="w-full h-full flex items-center justify-center">
+                                        <div className="animate-spin rounded-full h-4 w-4 border-2 border-gray-300 border-t-gray-600"></div>
+                                    </div>
+                                ) : (
+                                    <Image
+                                        src={getProductImageUrl(item)}
+                                        alt={getProductName(item)}
+                                        fill
+                                        className="object-cover"
+                                        sizes="64px"
+                                    />
+                                )}
                             </div>
                             <div className="flex-1 min-w-0">
                                 <h3 className="font-semibold text-gray-900 text-sm mb-1">
-                                    {item.productName || `Sản phẩm #${item.productId}`}
+                                    {getProductName(item)}
                                 </h3>
                                 <div className="text-sm text-gray-600">
                                     <span className="font-semibold text-green-600">

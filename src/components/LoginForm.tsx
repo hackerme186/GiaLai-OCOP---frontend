@@ -1,6 +1,6 @@
 "use client"
 import Link from "next/link"
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import { login, getCurrentUser } from "@/lib/api"
 import { setAuthToken, getRoleFromToken, setUserProfile } from "@/lib/auth"
 import { useRouter } from "next/navigation"
@@ -10,12 +10,22 @@ import GoogleLoginButton from "./GoogleLoginButton"
 
 export default function LoginForm() {
   const router = useRouter()
-  const [email, setEmail] = useState("nguyenbaquyet9a4cpr@gmail.com")
+  const [email, setEmail] = useState("")
   const [password, setPassword] = useState("")
   const [remember, setRemember] = useState(false)
+  const [mounted, setMounted] = useState(false)
 
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
+
+  // Only set default email on client side to avoid hydration mismatch
+  useEffect(() => {
+    setMounted(true)
+    // Set default email only in development or if needed
+    if (process.env.NODE_ENV === 'development') {
+      setEmail("nguyenbaquyet9a4cpr@gmail.com")
+    }
+  }, [])
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -156,7 +166,7 @@ export default function LoginForm() {
     <div className="w-full">
       {/* Title - Welcome OCOP-GiaLai */}
       <h1 className="text-4xl md:text-5xl font-bold text-center mb-8 text-white">
-        Welcome OCOP-GiaLai
+        Chào mừng đến với OCOP-GiaLai
       </h1>
 
       <form onSubmit={handleSubmit} className="space-y-5">
@@ -176,10 +186,8 @@ export default function LoginForm() {
             value={email}
             onChange={(e) => setEmail(e.target.value)}
             placeholder="Email"
-            className="w-full pl-12 pr-4 py-3 rounded-lg border-2 border-white/30 bg-white/20 backdrop-blur-sm text-white placeholder:text-white/70 focus:border-white/60 focus:outline-none focus:ring-2 focus:ring-white/30 transition-all"
-            style={{
-              boxShadow: '0 4px 6px rgba(0, 0, 0, 0.1)',
-            }}
+            className="w-full pl-12 pr-4 py-3 rounded-lg border-2 border-white/30 bg-white/20 backdrop-blur-sm text-white placeholder:text-white/70 focus:border-white/60 focus:outline-none focus:ring-2 focus:ring-white/30 transition-all shadow-md"
+            suppressHydrationWarning
           />
         </div>
 
@@ -198,11 +206,9 @@ export default function LoginForm() {
             required
             value={password}
             onChange={(e) => setPassword(e.target.value)}
-            placeholder="Password"
-            className="w-full pl-12 pr-4 py-3 rounded-lg border-2 border-white/30 bg-white/20 backdrop-blur-sm text-white placeholder:text-white/70 focus:border-white/60 focus:outline-none focus:ring-2 focus:ring-white/30 transition-all"
-            style={{
-              boxShadow: '0 4px 6px rgba(0, 0, 0, 0.1)',
-            }}
+            placeholder="Mật khẩu"
+            className="w-full pl-12 pr-4 py-3 rounded-lg border-2 border-white/30 bg-white/20 backdrop-blur-sm text-white placeholder:text-white/70 focus:border-white/60 focus:outline-none focus:ring-2 focus:ring-white/30 transition-all shadow-md"
+            suppressHydrationWarning
           />
         </div>
 
@@ -218,7 +224,7 @@ export default function LoginForm() {
               className="h-4 w-4 rounded border-white/50 bg-white/20 text-pink-500 focus:ring-pink-500 focus:ring-offset-0 cursor-pointer"
             />
             <label htmlFor="remember" className="ml-2 cursor-pointer">
-              Remember me
+              Ghi nhớ đăng nhập
             </label>
           </div>
 
@@ -226,7 +232,7 @@ export default function LoginForm() {
             href="/forgot" 
             className="text-white/90 hover:text-white transition-colors"
           >
-            Forgot Password?
+            Quên mật khẩu?
           </Link>
         </div>
 
@@ -241,12 +247,10 @@ export default function LoginForm() {
         <button
           type="submit"
           disabled={loading}
-          className="w-full rounded-lg bg-pink-500 hover:bg-pink-600 px-6 py-3 text-lg font-semibold text-white shadow-lg hover:shadow-xl disabled:opacity-60 disabled:cursor-not-allowed focus:outline-none focus:ring-2 focus:ring-pink-500/50 transition-all"
-          style={{
-            boxShadow: '0 4px 12px rgba(236, 72, 153, 0.4)',
-          }}
+          className="w-full rounded-lg bg-pink-500 hover:bg-pink-600 px-6 py-3 text-lg font-semibold text-white shadow-lg hover:shadow-xl disabled:opacity-60 disabled:cursor-not-allowed focus:outline-none focus:ring-2 focus:ring-pink-500/50 transition-all shadow-[0_4px_12px_rgba(236,72,153,0.4)]"
+          suppressHydrationWarning
         >
-          {loading ? "Logging in..." : "Login"}
+          {loading ? "Đang đăng nhập..." : "Đăng nhập"}
         </button>
 
         {/* Divider with "or" in pink circle */}
@@ -256,7 +260,7 @@ export default function LoginForm() {
           </div>
           <div className="relative flex justify-center">
             <div className="bg-pink-500 rounded-full w-10 h-10 flex items-center justify-center">
-              <span className="text-white text-sm font-medium">or</span>
+              <span className="text-white text-sm font-medium">hoặc</span>
             </div>
           </div>
         </div>
@@ -272,19 +276,19 @@ export default function LoginForm() {
 
         {/* Registration Link */}
         <p className="text-center text-sm text-white/90 mt-6">
-          Don't have an account?{" "}
+          Chưa có tài khoản?{" "}
           <Link
             href="/register"
             className="text-white font-medium hover:text-white/80 underline transition-colors"
           >
-            Register
+            Đăng ký
           </Link>
         </p>
       </form>
 
       {/* Copyright */}
       <p className="text-center text-xs text-white/70 mt-8">
-        © 2024 OCOP-GiaLai. All rights reserved
+        © 2024 OCOP-GiaLai. Bảo lưu mọi quyền
       </p>
     </div>
   )
