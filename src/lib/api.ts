@@ -173,7 +173,7 @@ async function request<TResponse>(
 
     // Tạo error message thân thiện với người dùng (không hiển thị mã HTTP)
     let message = "";
-    
+
     // Ưu tiên sử dụng message từ backend
     if (bodyMessage) {
       message = bodyMessage;
@@ -204,7 +204,7 @@ async function request<TResponse>(
           message = "Đã xảy ra lỗi. Vui lòng thử lại.";
       }
     }
-    
+
     // Thêm chi tiết nếu có (không hiển thị trực tiếp cho user, chỉ log)
     if (bodyDetails && typeof bodyDetails === "string") {
       console.warn("⚠️ [API] Error details:", bodyDetails);
@@ -1321,9 +1321,9 @@ export async function requestOrderCompletion(payload: RequestOrderCompletionDto)
 export async function approveOrderCompletion(payload: ApproveOrderCompletionDto): Promise<Order> {
   return request<Order>(`/orders/${payload.orderId}/approve-completion`, {
     method: "POST",
-    json: { 
+    json: {
       approved: payload.approved,
-      rejectionReason: payload.rejectionReason 
+      rejectionReason: payload.rejectionReason
     },
   });
 }
@@ -2035,35 +2035,153 @@ export async function getAddressFromGps(lat: number, lng: number): Promise<GpsAd
   });
 }
 
-// ------ TRANSACTIONS ------
-export interface Transaction {
-  id: number;
-  orderId?: number;
-  userId?: number;
+// ------ TRANSACTION HISTORY ------
+export type TransactionSort = "date_desc" | "date_asc" | "amount_desc" | "amount_asc";
+
+export interface TransactionHistoryFilter {
+  searchTerm?: string;
+  startDate?: string | Date;
+  endDate?: string | Date;
+  status?: string;
+  paymentMethod?: string;
+  type?: string;
+  sortBy?: TransactionSort;
+  page?: number;
+  pageSize?: number;
+}
+
+export interface TransactionHistoryItem {
+  transactionCode: string;
+  orderCode?: string;
+  transactionDate: string;
   amount: number;
-  type: string;
+  paymentMethod: string;
   status: string;
-  createdAt?: string;
-  updatedAt?: string;
+  type: string;
+  description?: string;
+  orderId?: number; // derived from code for easy navigation
 }
 
-export async function getTransactions(): Promise<Transaction[]> {
-  return request<Transaction[]>("/transactions", {
+export interface TransactionHistoryResponse {
+  items: TransactionHistoryItem[];
+  page: number;
+  pageSize: number;
+  totalItems: number;
+  totalPages: number;
+}
+
+export interface TransactionCustomerInfo {
+  id: number;
+  name: string;
+  email: string;
+  phoneNumber?: string;
+  avatarUrl?: string;
+  address?: string;
+}
+
+export interface TransactionOrderItem {
+  id: number;
+  productId: number;
+  productName: string;
+  quantity: number;
+  price: number;
+  subtotal: number;
+  productImage?: string;
+}
+
+export interface TransactionPaymentInfo {
+  method: string;
+  status: string;
+  reference: string;
+  maskedBankAccount?: string;
+  bankName?: string;
+  paidAt?: string;
+}
+
+export interface TransactionShippingInfo {
+  shipperName?: string;
+  trackingNumber?: string;
+  status: string;
+  shippedAt?: string;
+  deliveredAt?: string;
+  deliveryNotes?: string;
+  shippingAddress?: string;
+}
+
+export interface TransactionDetail {
+  id: number;
+  transactionCode: string;
+  transactionDate: string;
+  status: string;
+  type: string;
+  totalAmount: number;
+  customer?: TransactionCustomerInfo;
+  orderItems?: TransactionOrderItem[];
+  payments?: TransactionPaymentInfo[];
+  shippingInfo?: TransactionShippingInfo;
+}
+
+const extractOrderId = (code?: string): number | undefined => {
+  if (!code) return undefined;
+  const match = code.match(/(\d+)/);
+  if (!match) return undefined;
+  const id = Number(match[1]);
+  return Number.isNaN(id) ? undefined : id;
+};
+
+const normalizeDateParam = (value?: string | Date): string | undefined => {
+  if (!value) return undefined;
+  const date = typeof value === "string" ? new Date(value) : value;
+  return Number.isNaN(date.getTime()) ? undefined : date.toISOString();
+};
+
+export async function getTransactionHistory(
+  filter: TransactionHistoryFilter = {}
+): Promise<TransactionHistoryResponse> {
+  const params = new URLSearchParams();
+
+  if (filter.searchTerm?.trim()) params.set("searchTerm", filter.searchTerm.trim());
+  const startDate = normalizeDateParam(filter.startDate);
+  const endDate = normalizeDateParam(filter.endDate);
+  if (startDate) params.set("startDate", startDate);
+  if (endDate) params.set("endDate", endDate);
+  if (filter.status) params.set("status", filter.status);
+  if (filter.paymentMethod) params.set("paymentMethod", filter.paymentMethod);
+  if (filter.type) params.set("type", filter.type);
+  if (filter.sortBy) params.set("sortBy", filter.sortBy);
+  if (filter.page) params.set("page", filter.page.toString());
+  if (filter.pageSize) params.set("pageSize", filter.pageSize.toString());
+
+  const query = params.toString();
+  const response = await request<TransactionHistoryResponse>(`/transactionhistory${query ? `?${query}` : ""}`, {
+    method: "GET",
+  });
+
+  const itemsWithOrderId = (response.items || []).map((item) => ({
+    ...item,
+    orderId: extractOrderId(item.orderCode || item.transactionCode),
+  }));
+
+  return {
+    ...response,
+    items: itemsWithOrderId,
+  };
+}
+
+export async function getTransactionDetail(id: number): Promise<TransactionDetail> {
+  return request<TransactionDetail>(`/transactionhistory/${id}`, {
     method: "GET",
   });
 }
 
-export async function getTransaction(id: number): Promise<Transaction> {
-  return request<Transaction>(`/transactions/${id}`, {
-    method: "GET",
-  });
+// Backward-compatible aliases
+export async function getTransactions(filter?: TransactionHistoryFilter): Promise<TransactionHistoryItem[]> {
+  const res = await getTransactionHistory(filter);
+  return res.items;
 }
 
-export async function createTransaction(payload: Omit<Transaction, "id" | "createdAt" | "updatedAt">): Promise<Transaction> {
-  return request<Transaction>("/transactions", {
-    method: "POST",
-    json: payload,
-  });
+export async function getTransaction(id: number): Promise<TransactionDetail> {
+  return getTransactionDetail(id);
 }
 
 // ------ LOCATIONS (SystemAdmin) ------

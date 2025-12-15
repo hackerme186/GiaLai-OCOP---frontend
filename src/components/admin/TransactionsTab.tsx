@@ -1,14 +1,23 @@
 "use client"
 
 import { useState, useEffect } from "react"
-import { getTransactions, type Transaction } from "@/lib/api"
+import {
+  getTransactionHistory,
+  type TransactionHistoryItem,
+  type TransactionHistoryFilter,
+} from "@/lib/api"
 
 export default function TransactionsTab() {
-  const [transactions, setTransactions] = useState<Transaction[]>([])
+  const [transactions, setTransactions] = useState<TransactionHistoryItem[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [filterStatus, setFilterStatus] = useState<string>("all")
   const [filterType, setFilterType] = useState<string>("all")
+  const [meta, setMeta] = useState<{ page: number; totalItems: number; totalPages: number }>({
+    page: 1,
+    totalItems: 0,
+    totalPages: 0,
+  })
 
   useEffect(() => {
     loadTransactions()
@@ -18,8 +27,13 @@ export default function TransactionsTab() {
     try {
       setLoading(true)
       setError(null)
-      const data = await getTransactions()
-      setTransactions(data)
+      const filter: TransactionHistoryFilter = {
+        page: 1,
+        pageSize: 100, // admin view: load up to 100 recent transactions
+      }
+      const data = await getTransactionHistory(filter)
+      setTransactions(data.items)
+      setMeta({ page: data.page, totalItems: data.totalItems, totalPages: data.totalPages })
     } catch (err) {
       setError(err instanceof Error ? err.message : "Không thể tải danh sách giao dịch")
     } finally {
@@ -28,8 +42,8 @@ export default function TransactionsTab() {
   }
 
   const filteredTransactions = transactions.filter((t) => {
-    if (filterStatus !== "all" && t.status !== filterStatus) return false
-    if (filterType !== "all" && t.type !== filterType) return false
+    if (filterStatus !== "all" && t.status.toLowerCase() !== filterStatus.toLowerCase()) return false
+    if (filterType !== "all" && t.type.toLowerCase() !== filterType.toLowerCase()) return false
     return true
   })
 
@@ -46,27 +60,31 @@ export default function TransactionsTab() {
   }
 
   const getStatusColor = (status: string) => {
-    switch (status.toLowerCase()) {
-      case "completed":
-      case "success":
-        return "bg-green-100 text-green-800 border-green-300"
-      case "pending":
-        return "bg-yellow-100 text-yellow-800 border-yellow-300"
-      case "failed":
-      case "cancelled":
-        return "bg-red-100 text-red-800 border-red-300"
-      default:
-        return "bg-gray-100 text-gray-800 border-gray-300"
+    const normalized = status.toLowerCase()
+    if (normalized.includes("completed") || normalized === "success" || normalized === "paid") {
+      return "bg-green-100 text-green-800 border-green-300"
     }
+    if (normalized.includes("pending") || normalized.includes("processing")) {
+      return "bg-yellow-100 text-yellow-800 border-yellow-300"
+    }
+    if (normalized.includes("cancel") || normalized.includes("failed") || normalized.includes("rejected")) {
+      return "bg-red-100 text-red-800 border-red-300"
+    }
+    return "bg-gray-100 text-gray-800 border-gray-300"
   }
 
   const getTypeColor = (type: string) => {
     switch (type.toLowerCase()) {
       case "payment":
+      case "order":
         return "bg-blue-100 text-blue-800 border-blue-300"
       case "refund":
         return "bg-orange-100 text-orange-800 border-orange-300"
-      case "withdrawal":
+      case "wallet_deposit":
+      case "deposit":
+        return "bg-emerald-100 text-emerald-800 border-emerald-300"
+      case "wallet_withdraw":
+      case "withdraw":
         return "bg-purple-100 text-purple-800 border-purple-300"
       default:
         return "bg-gray-100 text-gray-800 border-gray-300"
@@ -82,8 +100,8 @@ export default function TransactionsTab() {
     )
   }
 
-  const uniqueStatuses = Array.from(new Set(transactions.map((t) => t.status)))
-  const uniqueTypes = Array.from(new Set(transactions.map((t) => t.type)))
+  const uniqueStatuses = Array.from(new Set(transactions.map((t) => t.status))).filter(Boolean)
+  const uniqueTypes = Array.from(new Set(transactions.map((t) => t.type))).filter(Boolean)
 
   return (
     <div className="space-y-6">
@@ -95,7 +113,7 @@ export default function TransactionsTab() {
             <p className="text-white/90 text-lg">Theo dõi và quản lý tất cả giao dịch trong hệ thống</p>
           </div>
           <div className="bg-white/20 backdrop-blur-sm rounded-xl px-6 py-3 border border-white/30">
-            <div className="text-2xl font-bold">{transactions.length}</div>
+            <div className="text-2xl font-bold">{meta.totalItems || transactions.length}</div>
             <div className="text-sm opacity-90">Tổng giao dịch</div>
           </div>
         </div>
@@ -186,9 +204,9 @@ export default function TransactionsTab() {
             <table className="min-w-full divide-y divide-gray-200">
               <thead className="bg-gradient-to-r from-teal-50 to-cyan-50">
                 <tr>
-                  <th className="px-6 py-4 text-left text-xs font-bold text-gray-900 uppercase tracking-wider border-b-2 border-gray-200">
-                    ID
-                  </th>
+              <th className="px-6 py-4 text-left text-xs font-bold text-gray-900 uppercase tracking-wider border-b-2 border-gray-200">
+                Mã giao dịch
+              </th>
                   <th className="px-6 py-4 text-left text-xs font-bold text-gray-900 uppercase tracking-wider border-b-2 border-gray-200">
                     Số tiền
                   </th>
@@ -199,27 +217,27 @@ export default function TransactionsTab() {
                     Trạng thái
                   </th>
                   <th className="px-6 py-4 text-left text-xs font-bold text-gray-900 uppercase tracking-wider border-b-2 border-gray-200">
-                    Order ID
+                Phương thức
                   </th>
                   <th className="px-6 py-4 text-left text-xs font-bold text-gray-900 uppercase tracking-wider border-b-2 border-gray-200">
-                    User ID
-                  </th>
-                  <th className="px-6 py-4 text-left text-xs font-bold text-gray-900 uppercase tracking-wider border-b-2 border-gray-200">
-                    Ngày tạo
+                Mã đơn hàng
+              </th>
+              <th className="px-6 py-4 text-left text-xs font-bold text-gray-900 uppercase tracking-wider border-b-2 border-gray-200">
+                Ngày giao dịch
                   </th>
                 </tr>
               </thead>
               <tbody className="bg-white divide-y divide-gray-200">
                 {filteredTransactions.map((transaction, index) => (
                   <tr 
-                    key={transaction.id} 
+                key={transaction.transactionCode} 
                     className="hover:bg-gradient-to-r hover:from-teal-50/50 hover:to-cyan-50/50 transition-all duration-200"
                     style={{
                       animation: `fadeInUp 0.3s ease-out ${index * 0.05}s both`
                     }}
                   >
                     <td className="px-6 py-4 whitespace-nowrap">
-                      <span className="text-sm font-bold text-gray-900">#{transaction.id}</span>
+                  <span className="text-sm font-bold text-gray-900">{transaction.transactionCode}</span>
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap">
                       <span className="text-lg font-bold text-green-600">
@@ -230,24 +248,31 @@ export default function TransactionsTab() {
                       <span
                         className={`inline-flex items-center gap-1 px-3 py-1.5 rounded-full text-xs font-bold border-2 ${getTypeColor(transaction.type)}`}
                       >
-                        {transaction.type === 'payment' ? '💳' : transaction.type === 'refund' ? '↩️' : '💰'} {transaction.type}
+                    {transaction.type === 'payment' || transaction.type === 'order'
+                      ? '💳'
+                      : transaction.type === 'refund'
+                        ? '↩️'
+                        : transaction.type.toLowerCase().includes('withdraw')
+                          ? '📤'
+                          : '💰'}{" "}
+                    {transaction.type}
                       </span>
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap">
                       <span
                         className={`inline-flex items-center gap-1 px-3 py-1.5 rounded-full text-xs font-bold border-2 ${getStatusColor(transaction.status)}`}
                       >
-                        {transaction.status === 'completed' || transaction.status === 'success' ? '✅' : transaction.status === 'pending' ? '⏳' : '❌'} {transaction.status}
+                    {transaction.status === 'completed' || transaction.status === 'success' ? '✅' : transaction.status.toLowerCase().includes('pending') ? '⏳' : '❌'} {transaction.status}
                       </span>
                     </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm font-semibold text-gray-600">
-                      {transaction.orderId ? `#${transaction.orderId}` : <span className="text-gray-400">N/A</span>}
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm font-semibold text-gray-600">
-                      {transaction.userId ? `#${transaction.userId}` : <span className="text-gray-400">N/A</span>}
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-600">
-                      {formatDate(transaction.createdAt)}
+                <td className="px-6 py-4 whitespace-nowrap text-sm font-semibold text-gray-600">
+                  {transaction.paymentMethod || <span className="text-gray-400">N/A</span>}
+                </td>
+                <td className="px-6 py-4 whitespace-nowrap text-sm font-semibold text-gray-600">
+                  {transaction.orderId ? `#${transaction.orderId}` : transaction.orderCode || <span className="text-gray-400">N/A</span>}
+                </td>
+                <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-600">
+                  {formatDate(transaction.transactionDate)}
                     </td>
                   </tr>
                 ))}
@@ -256,7 +281,7 @@ export default function TransactionsTab() {
           </div>
           <div className="bg-gradient-to-r from-teal-50 to-cyan-50 px-6 py-4 border-t-2 border-gray-200">
             <div className="text-sm font-semibold text-gray-700">
-              Tổng cộng: <span className="text-lg font-bold text-teal-600">{filteredTransactions.length}</span> giao dịch
+              Tổng cộng: <span className="text-lg font-bold text-teal-600">{meta.totalItems || filteredTransactions.length}</span> giao dịch
             </div>
           </div>
         </div>
