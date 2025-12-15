@@ -6,6 +6,7 @@ import Link from "next/link"
 import { cn } from "@/lib/utils"
 import { register } from "@/lib/api"
 import { setAuthToken, setUserProfile } from "@/lib/auth"
+import { getRegisterError } from "@/lib/errorHandler"
 
 export default function RegisterForm() {
   const router = useRouter()
@@ -75,7 +76,7 @@ export default function RegisterForm() {
       // Navigate to home page sau khi đăng ký thành công
       router.replace("/home")
     } catch (err) {
-      const errorMessage = err instanceof Error ? err.message : "Đăng ký thất bại"
+      const errorMessage = getRegisterError(err)
       setError(errorMessage)
     } finally {
       setLoading(false)

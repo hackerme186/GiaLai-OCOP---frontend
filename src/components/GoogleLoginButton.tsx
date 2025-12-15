@@ -4,6 +4,7 @@ import { loginWithGoogle } from "@/lib/api"
 import { setAuthToken, getRoleFromToken, setUserProfile } from "@/lib/auth"
 import { getCurrentUser } from "@/lib/api"
 import { useRouter } from "next/navigation"
+import { getUserFriendlyError } from "@/lib/errorHandler"
 
 // Google Identity Services types
 declare global {
@@ -191,7 +192,8 @@ export default function GoogleLoginButton({ onError }: GoogleLoginButtonProps) {
         }
       }
       
-      const errorMessage = err instanceof Error ? err.message : "Đăng nhập Google thất bại. Vui lòng thử lại."
+      // Chuyển đổi error thành thông báo dễ hiểu cho người dùng
+      const errorMessage = getUserFriendlyError(err)
       onError?.(errorMessage)
     } finally {
       setIsLoading(false)

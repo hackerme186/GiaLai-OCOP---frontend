@@ -4,6 +4,7 @@ import { useState } from "react"
 import { login, getCurrentUser } from "@/lib/api"
 import { setAuthToken, getRoleFromToken, setUserProfile } from "@/lib/auth"
 import { useRouter } from "next/navigation"
+import { getLoginError } from "@/lib/errorHandler"
 import FacebookLoginButton from "./FacebookLoginButton"
 import GoogleLoginButton from "./GoogleLoginButton"
 
@@ -143,7 +144,7 @@ export default function LoginForm() {
         console.error("❌ [Login] Response data:", (err as any).response)
       }
       
-      const errorMessage = err instanceof Error ? err.message : "Đăng nhập thất bại. Vui lòng thử lại."
+      const errorMessage = getLoginError(err)
       setError(errorMessage)
     } finally {
       setLoading(false)
