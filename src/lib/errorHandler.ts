@@ -237,34 +237,56 @@ export const ERROR_MESSAGES = {
 /**
  * Get a user-friendly error message for login errors
  * Specialized for authentication scenarios
+ * 
+ * Security Note: Trả về thông báo chung cho tất cả lỗi đăng nhập
+ * để tránh lộ thông tin về email có tồn tại hay không
  */
 export function getLoginError(error: unknown): string {
+  // Kiểm tra nếu là lỗi network hoặc server (giữ nguyên message)
+  if (error && typeof error === 'object') {
+    const errorObj = error as any
+    
+    // Network errors - giữ nguyên
+    if (errorObj.isNetworkError || errorObj.status === 0) {
+      return getUserFriendlyError(error)
+    }
+    
+    // Server errors (500+) - giữ nguyên
+    if (errorObj.status >= 500) {
+      return getUserFriendlyError(error)
+    }
+  }
+  
   const message = getUserFriendlyError(error)
   
-  // Map common login error patterns to specific messages
+  // Tất cả các lỗi liên quan đến authentication (401, 400, sai email/password, etc.)
+  // đều trả về thông báo chung để bảo mật
   if (
+    // Lỗi 401, 400, 403
+    message.includes("Phiên đăng nhập") ||
+    message.includes("hết hạn") ||
+    message.includes("Thông tin") ||
+    message.includes("không hợp lệ") ||
+    message.includes("không có quyền") ||
+    // Các từ khóa liên quan đến sai thông tin
     message.includes("sai mật khẩu") ||
     message.includes("password") ||
-    message.includes("incorrect")
-  ) {
-    return ERROR_MESSAGES.WRONG_PASSWORD
-  }
-
-  if (
+    message.includes("incorrect") ||
+    message.includes("mật khẩu") ||
     message.includes("email") ||
     message.includes("không tìm thấy") ||
-    message.includes("not found")
+    message.includes("not found") ||
+    message.includes("invalid") ||
+    message.includes("unauthorized") ||
+    message.includes("không chính xác") ||
+    message.includes("không đúng") ||
+    message.includes("sai") ||
+    message.includes("wrong")
   ) {
-    return ERROR_MESSAGES.WRONG_EMAIL
+    return "Email hoặc mật khẩu không đúng."
   }
 
-  if (
-    message.includes("không hợp lệ") ||
-    message.includes("invalid")
-  ) {
-    return ERROR_MESSAGES.AUTH_INVALID
-  }
-
+  // Các lỗi khác (network, server, timeout) - giữ nguyên
   return message
 }
 
