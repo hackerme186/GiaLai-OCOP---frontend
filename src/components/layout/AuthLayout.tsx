@@ -13,7 +13,7 @@ export default function AuthLayout({
       {/* Background Image - Blurred Green Field */}
       <div className="absolute inset-0">
         <Image
-          src="/login picture.jpg"
+          src="/hero.jpg"
           alt="Background"
           fill
           className="object-cover blur-sm"
