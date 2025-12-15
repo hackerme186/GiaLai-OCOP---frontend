@@ -249,11 +249,11 @@ export async function uploadImage(
                 // Ignore parsing errors, use default message
             }
 
-            // Add status code context for debugging
+            // Add user-friendly context without exposing status codes
             if (response.status >= 500) {
-                errorMessage = `Lỗi server (${response.status}): ${errorMessage}\n\nVui lòng thử lại sau hoặc liên hệ quản trị viên nếu lỗi vẫn tiếp tục.`
+                errorMessage = `Đã xảy ra lỗi khi upload ảnh. Vui lòng kiểm tra:\n- Kích thước file không quá 10MB\n- Định dạng file là JPG, PNG, GIF hoặc WEBP\n- Kết nối mạng ổn định\n\nNếu vẫn gặp lỗi, vui lòng thử lại sau hoặc liên hệ quản trị viên nếu lỗi vẫn tiếp tục.`
             } else if (response.status === 400) {
-                errorMessage = `Dữ liệu không hợp lệ (${response.status}): ${errorMessage}\n\nVui lòng kiểm tra lại file ảnh và thử lại.`
+                errorMessage = `Dữ liệu không hợp lệ. ${errorMessage}\n\nVui lòng kiểm tra lại file ảnh và thử lại.`
             }
 
             throw new Error(errorMessage)
@@ -401,11 +401,11 @@ export async function uploadImages(
                 // Ignore parsing errors, use default message
             }
 
-            // Add status code context for debugging
+            // Add user-friendly context without exposing status codes
             if (response.status >= 500) {
-                errorMessage = `Lỗi server (${response.status}): ${errorMessage}\n\nVui lòng thử lại sau hoặc liên hệ quản trị viên nếu lỗi vẫn tiếp tục.`
+                errorMessage = `Đã xảy ra lỗi khi upload ảnh. Vui lòng kiểm tra:\n- Kích thước file không quá 10MB\n- Định dạng file là JPG, PNG, GIF hoặc WEBP\n- Kết nối mạng ổn định\n\nNếu vẫn gặp lỗi, vui lòng thử lại sau hoặc liên hệ quản trị viên nếu lỗi vẫn tiếp tục.`
             } else if (response.status === 400) {
-                errorMessage = `Dữ liệu không hợp lệ (${response.status}): ${errorMessage}\n\nVui lòng kiểm tra lại file ảnh và thử lại.`
+                errorMessage = `Dữ liệu không hợp lệ. ${errorMessage}\n\nVui lòng kiểm tra lại file ảnh và thử lại.`
             }
 
             throw new Error(errorMessage)
