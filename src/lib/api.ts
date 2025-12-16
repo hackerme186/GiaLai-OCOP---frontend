@@ -174,11 +174,25 @@ async function request<TResponse>(
     // Tạo error message thân thiện với người dùng (không hiển thị mã HTTP)
     let message = "";
     
-    // Ưu tiên sử dụng message từ backend
+    // Helper function để convert bất kỳ giá trị nào thành string
+    const toStringSafe = (val: any): string => {
+      if (val == null) return "";
+      if (typeof val === "string") return val;
+      if (typeof val === "object") {
+        try {
+          return JSON.stringify(val);
+        } catch {
+          return String(val);
+        }
+      }
+      return String(val);
+    };
+    
+    // Ưu tiên sử dụng message từ backend (đảm bảo convert thành string)
     if (bodyMessage) {
-      message = bodyMessage;
+      message = toStringSafe(bodyMessage);
     } else if (bodyError) {
-      message = bodyError;
+      message = toStringSafe(bodyError);
     } else {
       // Fallback: Map HTTP status codes to user-friendly messages
       switch (response.status) {
@@ -205,12 +219,20 @@ async function request<TResponse>(
       }
     }
     
+    // Đảm bảo message luôn là string và không rỗng
+    if (!message || typeof message !== "string") {
+      message = "Đã xảy ra lỗi. Vui lòng thử lại.";
+    }
+    
+    // Trim message an toàn - đảm bảo không bao giờ là empty string
+    const trimmedMessage = (message || "").trim() || "Đã xảy ra lỗi. Vui lòng thử lại.";
+    
     // Thêm chi tiết nếu có (không hiển thị trực tiếp cho user, chỉ log)
-    if (bodyDetails && typeof bodyDetails === "string") {
+    if (bodyDetails && typeof bodyDetails === "string" && !options.silent) {
       console.warn("⚠️ [API] Error details:", bodyDetails);
     }
 
-    const error = new Error(message.trim());
+    const error = new Error(trimmedMessage);
     (error as any).status = response.status;
     (error as any).response = data; // Lưu toàn bộ response data để debug
     (error as any).bodyMessage = bodyMessage;
