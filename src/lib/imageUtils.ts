@@ -1,3 +1,9 @@
+THANH VAN@TuanThanh MINGW64 /e/SE18/SEP/GiaLai-OCOP---frontend (main)
+$ git commit -m "Fix: Allow local image paths and fix dashboard imports"
+On branch main
+Your branch is up to date with 'origin/main'.
+
+nothing to commit, working tree clean
 /**
  * Image URL validation and utility functions
  */
