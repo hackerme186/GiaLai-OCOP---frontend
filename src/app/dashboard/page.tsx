@@ -1,7 +1,8 @@
 'use client';
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { getCurrentUser, logout, isAuthenticated, type User } from '@/lib/api';
+import { getCurrentUser, type User } from '@/lib/api';
+import { logout, isLoggedIn as isAuthenticated } from '@/lib/auth';
 
 export default function DashboardPage() {
     const router = useRouter();
@@ -9,21 +10,26 @@ export default function DashboardPage() {
     const [loading, setLoading] = useState(true);
 
     useEffect(() => {
-        // Check authentication
-        if (!isAuthenticated()) {
-            router.push('/login');
-            return;
-        }
+        const checkAuth = async () => {
+            // Check authentication
+            const authenticated = await isAuthenticated();
+            if (!authenticated) {
+                router.push('/login');
+                return;
+            }
 
-        // Get user data
-        const userData = getCurrentUser();
-        if (!userData) {
-            router.push('/login');
-            return;
-        }
+            // Get user data
+            const userData = await getCurrentUser();
+            if (!userData) {
+                router.push('/login');
+                return;
+            }
 
-        setUser(userData);
-        setLoading(false);
+            setUser(userData);
+            setLoading(false);
+        };
+        
+        checkAuth();
     }, [router]);
 
     const handleLogout = () => {
