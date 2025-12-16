@@ -139,3 +139,18 @@ export function getRoleFromToken(token?: string | null): string | null {
   
   return null;
 }
+
+// Helper functions for backward compatibility
+export type User = UserProfile & {
+  isActive?: boolean;
+  isEmailVerified?: boolean;
+};
+
+export function isAuthenticated(): boolean {
+  if (typeof window === "undefined") return false;
+  return !!getAuthToken();
+}
+
+export function getCurrentUser(): User | null {
+  return getUserProfile();
+}

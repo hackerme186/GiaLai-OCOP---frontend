@@ -29,6 +29,7 @@ export function Providers({
       <SessionProvider
         refetchInterval={0}
         refetchOnWindowFocus={false}
+        basePath="/api/auth"
       >
         <CartProvider>
           <AutoLogoutProvider idleTimeInMinutes={15}>

@@ -36,18 +36,35 @@ cd frontend
 # Install dependencies
 npm install
 
+# Setup environment variables (QUAN TRỌNG!)
+# Tạo file .env.local với nội dung:
+# NEXT_PUBLIC_API_BASE=http://localhost:5003/api
+# NEXT_PUBLIC_GOOGLE_CLIENT_ID=your-google-client-id
+# NEXT_PUBLIC_FACEBOOK_APP_ID=your-facebook-app-id
+
 # Run development server
 npm run dev
 ```
 
 **That's it!** 🎉 Open [http://localhost:3000](http://localhost:3000)
 
-Frontend automatically connects to production backend at:
+### Environment Variables Setup
+
+**⚠️ QUAN TRỌNG:** Bạn cần setup environment variables trước khi chạy!
+
+**Tạo file `.env.local` với nội dung:**
 ```
-https://gialai-ocop-be.onrender.com
+NEXT_PUBLIC_API_BASE=http://localhost:5003/api
+NEXT_PUBLIC_GOOGLE_CLIENT_ID=your-google-client-id
+NEXT_PUBLIC_FACEBOOK_APP_ID=your-facebook-app-id
 ```
 
-> ⚠️ **Note:** Backend trên Render free tier có thể sleep sau 15 phút không hoạt động. Lần đầu truy cập sẽ mất 30-60 giây để wake up. Xem [QUICK_START.md](QUICK_START.md) để biết thêm chi tiết.
+**Logic hoạt động:**
+- **Local Development**: Tự động dùng `.env.local` → API: `http://localhost:5003/api`
+- **Production**: Tự động dùng `.env.production` → API: `https://gialai-ocop-be.onrender.com/api`
+- **Không cần chỉnh code**: Chỉ cần tạo file `.env` tương ứng
+
+> ⚠️ **Note:** Backend trên Render free tier có thể sleep sau 15 phút không hoạt động. Lần đầu truy cập sẽ mất 30-60 giây để wake up.
 
 ---
 
@@ -59,6 +76,7 @@ https://gialai-ocop-be.onrender.com
 | [**QUICK_START.md**](QUICK_START.md) | Getting started guide |
 | [**API_INTEGRATION_COMPLETE.md**](API_INTEGRATION_COMPLETE.md) | Complete API documentation |
 | [**ENV_CONFIGURATION.md**](ENV_CONFIGURATION.md) | Environment variables setup |
+| [**HUONG_DAN_GOOGLE_LOGIN.md**](HUONG_DAN_GOOGLE_LOGIN.md) | 🔐 Hướng dẫn thiết lập đăng nhập Google |
 | [**TROUBLESHOOTING.md**](TROUBLESHOOTING.md) | Common issues & solutions |
 | [**PRODUCTION_DEPLOYMENT.md**](PRODUCTION_DEPLOYMENT.md) | Deploy to production |
 

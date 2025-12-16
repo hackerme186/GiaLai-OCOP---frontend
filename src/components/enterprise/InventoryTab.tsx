@@ -126,40 +126,76 @@ export default function InventoryTab({ user }: InventoryTabProps) {
 
   return (
     <div className="space-y-6">
+
       {/* Header */}
-      <div className="bg-white rounded-xl shadow-lg p-6">
-        <h2 className="text-2xl font-bold text-gray-900 mb-2">Quản lý kho</h2>
-        <p className="text-sm text-gray-500">Theo dõi và quản lý tồn kho sản phẩm</p>
+      <div className="bg-gradient-to-r from-purple-600 via-pink-600 to-rose-600 rounded-2xl shadow-xl p-8 text-white">
+        <h2 className="text-3xl font-bold mb-2 drop-shadow-lg">📚 Quản lý kho</h2>
+        <p className="text-purple-100 text-lg">Theo dõi và quản lý tồn kho sản phẩm</p>
       </div>
 
       {/* Statistics */}
-      <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-        <div className="bg-white rounded-xl shadow-lg p-6 border-l-4 border-blue-600">
-          <div className="text-3xl font-bold text-blue-600 mb-2">
+      <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
+        <div className="bg-gradient-to-br from-blue-50 to-blue-100 rounded-2xl shadow-lg p-6 border-2 border-blue-200 hover:shadow-xl transition-all transform hover:-translate-y-1">
+          <div className="flex items-center justify-between mb-3">
+            <div className="w-12 h-12 bg-blue-500 rounded-xl flex items-center justify-center shadow-md">
+              <svg className="w-6 h-6 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4" />
+              </svg>
+            </div>
+          </div>
+
+          <div className="text-4xl font-bold text-blue-700 mb-2">
             {products.filter(p => p.stockStatus === "InStock").length}
           </div>
-          <div className="text-sm text-gray-600">Sản phẩm có hàng</div>
+          <div className="text-sm font-semibold text-blue-600">Sản phẩm có hàng</div>
         </div>
 
-        <div className="bg-white rounded-xl shadow-lg p-6 border-l-4 border-green-600">
-          <div className="text-3xl font-bold text-green-600 mb-2">
+        <div className="bg-gradient-to-br from-green-50 to-emerald-100 rounded-2xl shadow-lg p-6 border-2 border-green-200 hover:shadow-xl transition-all transform hover:-translate-y-1">
+          <div className="flex items-center justify-between mb-3">
+            <div className="w-12 h-12 bg-green-500 rounded-xl flex items-center justify-center shadow-md">
+              <svg className="w-6 h-6 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+              </svg>
+            </div>
+          </div>
+          <div className="text-4xl font-bold text-green-700 mb-2">
             {products.filter(p => p.stockStatus === "InStock").length}
           </div>
-          <div className="text-sm text-gray-600">Sản phẩm còn hàng</div>
+          <div className="text-sm font-semibold text-green-600">Sản phẩm còn hàng</div>
         </div>
 
-        <div className="bg-white rounded-xl shadow-lg p-6 border-l-4 border-yellow-600">
-          <div className="text-3xl font-bold text-yellow-600 mb-2">
+        <div className="bg-gradient-to-br from-yellow-50 to-amber-100 rounded-2xl shadow-lg p-6 border-2 border-yellow-200 hover:shadow-xl transition-all transform hover:-translate-y-1">
+          <div className="flex items-center justify-between mb-3">
+            <div className="w-12 h-12 bg-yellow-500 rounded-xl flex items-center justify-center shadow-md">
+              <svg className="w-6 h-6 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L3.732 16.5c-.77.833.192 2.5 1.732 2.5z" />
+              </svg>
+            </div>
+          </div>
+
+          <div className="text-4xl font-bold text-yellow-700 mb-2">
             {lowStockProducts.length}
           </div>
-          <div className="text-sm text-gray-600">Tồn thấp</div>
+          <div className="text-sm font-semibold text-yellow-600">Tồn thấp</div>
         </div>
 
-        <div className="bg-white rounded-xl shadow-lg p-6 border-l-4 border-red-600">
-          <div className="text-3xl font-bold text-red-600 mb-2">
+        <div className="bg-gradient-to-br from-red-50 to-rose-100 rounded-2xl shadow-lg p-6 border-2 border-red-200 hover:shadow-xl transition-all transform hover:-translate-y-1">
+          <div className="flex items-center justify-between mb-3">
+            <div className="w-12 h-12 bg-red-500 rounded-xl flex items-center justify-center shadow-md">
+              <svg className="w-6 h-6 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+              </svg>
+            </div>
+          </div>
+
+          <div className="text-4xl font-bold text-red-700 mb-2">
             {outOfStockProducts.length}
           </div>
-          <div className="text-sm text-gray-600">Hết hàng</div>
+          <div className="text-sm font-semibold text-red-600">Hết hàng</div>
+
         </div>
       </div>
 
@@ -194,7 +230,7 @@ export default function InventoryTab({ user }: InventoryTabProps) {
       )}
 
       {/* Products Table */}
-      <div className="bg-white rounded-xl shadow-lg overflow-hidden">
+      <div className="bg-white rounded-2xl shadow-lg overflow-hidden border-2 border-gray-200">
         <div className="p-6 border-b border-gray-200">
           <div className="flex items-center justify-between">
             <h3 className="text-xl font-bold text-gray-900">Danh sách sản phẩm</h3>
@@ -288,7 +324,7 @@ export default function InventoryTab({ user }: InventoryTabProps) {
       </div>
 
       {/* Inventory History */}
-      <div className="bg-white rounded-xl shadow-lg p-6">
+      <div className="bg-white rounded-2xl shadow-lg p-6 border-2 border-gray-200">
         <h3 className="text-xl font-bold text-gray-900 mb-4">Lịch sử thay đổi tồn kho</h3>
         {loadingHistory ? (
           <div className="text-center py-8">

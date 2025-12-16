@@ -1,7 +1,7 @@
 "use client"
 
 import { useState, useEffect, useRef } from "react"
-import { getCurrentAddress } from "@/lib/geolocation"
+import { getCoordinatesFromAddressComponents, type AddressComponents } from "@/lib/geolocation"
 import { getProvinces, getDistricts, getWards, updateShippingAddressDetail, type Province, type District, type Ward } from "@/lib/api"
 
 interface NewAddressFormProps {
@@ -32,7 +32,9 @@ export default function NewAddressForm({ onBack, onSubmit, initialData }: NewAdd
     const [specificAddress, setSpecificAddress] = useState(initialData?.specificAddress || "")
     const [addressType, setAddressType] = useState<"home" | "office">(initialData?.addressType || "home")
     const [isDefault, setIsDefault] = useState(initialData?.isDefault || false)
-    const [loadingLocation, setLoadingLocation] = useState(false)
+    const [loadingCoordinates, setLoadingCoordinates] = useState(false)
+    const [latitude, setLatitude] = useState<number | undefined>(initialData?.latitude)
+    const [longitude, setLongitude] = useState<number | undefined>(initialData?.longitude)
     const [error, setError] = useState<string | null>(null)
     const [loading, setLoading] = useState(false)
 
@@ -207,16 +209,68 @@ export default function NewAddressForm({ onBack, onSubmit, initialData }: NewAdd
         }
     }, [districtId])
 
-    const handleAddLocation = async () => {
-        setLoadingLocation(true)
+
+    const handleGetCoordinatesFromAddress = async () => {
+        // Validate required fields
+        if (!provinceId || provinceId <= 0) {
+            setError("Vui lòng chọn Tỉnh/Thành phố trước")
+            return
+        }
+        if (!districtId || districtId <= 0) {
+            setError("Vui lòng chọn Quận/Huyện trước")
+            return
+        }
+        if (!wardId || wardId <= 0) {
+            setError("Vui lòng chọn Phường/Xã trước")
+            return
+        }
+        if (!specificAddress.trim()) {
+            setError("Vui lòng nhập địa chỉ cụ thể (số nhà, tên đường) trước")
+            return
+        }
+
+        setLoadingCoordinates(true)
         setError(null)
+
         try {
-            const addressResult = await getCurrentAddress()
-            setSpecificAddress(addressResult.address)
+            // Get selected province, district, ward names
+            const selectedProvince = provinces.find(p => p.id === provinceId)
+            const selectedDistrict = districts.find(d => d.id === districtId)
+            const selectedWard = wards.find(w => w.id === wardId)
+
+            if (!selectedProvince || !selectedDistrict || !selectedWard) {
+                throw new Error("Không tìm thấy thông tin địa chỉ. Vui lòng thử lại.")
+            }
+
+            // Build address components
+            const addressComponents: AddressComponents = {
+                street: specificAddress.trim(),
+                ward: selectedWard.name,
+                district: selectedDistrict.name,
+                province: selectedProvince.name,
+            }
+
+            // Get coordinates from address components
+            const result = await getCoordinatesFromAddressComponents(addressComponents)
+            
+            setLatitude(result.latitude)
+            setLongitude(result.longitude)
+            setError(null)
+            
+            // Show success message
+            console.log("✅ Đã lấy tọa độ thành công:", result.latitude, result.longitude)
         } catch (err) {
-            setError(err instanceof Error ? err.message : "Không thể lấy vị trí từ GPS")
+            const errorMessage = err instanceof Error ? err.message : "Không thể lấy tọa độ từ địa chỉ"
+            // Provide more helpful error message
+            let finalErrorMessage = errorMessage
+            if (errorMessage.includes("Không tìm thấy tọa độ") || errorMessage.includes("không thể lấy tọa độ")) {
+                finalErrorMessage = `${errorMessage}\n\n💡 Gợi ý:\n- Kiểm tra lại tên đường, phường, quận/huyện, tỉnh\n- Thử nhập địa chỉ đầy đủ hơn\n- Đảm bảo tên địa chỉ đúng chính tả`
+            }
+            setError(finalErrorMessage)
+            setLatitude(undefined)
+            setLongitude(undefined)
         } finally {
-            setLoadingLocation(false)
+            setLoadingCoordinates(false)
         }
     }
 
@@ -270,6 +324,8 @@ export default function NewAddressForm({ onBack, onSubmit, initialData }: NewAdd
                 specificAddress: specificAddress.trim(),
                 addressType,
                 isDefault,
+                latitude,
+                longitude,
             }
 
             // Gọi callback sau khi API thành công
@@ -301,7 +357,7 @@ export default function NewAddressForm({ onBack, onSubmit, initialData }: NewAdd
             {/* Error Message */}
             {error && (
                 <div className="mb-4 rounded-lg border border-red-200 bg-red-50 px-4 py-3">
-                    <p className="text-sm font-medium text-red-700">{error}</p>
+                    <p className="text-sm font-medium text-red-700 whitespace-pre-line">{error}</p>
                 </div>
             )}
 
@@ -415,45 +471,38 @@ export default function NewAddressForm({ onBack, onSubmit, initialData }: NewAdd
                         disabled={loading}
                         className="w-full rounded-lg border border-gray-300 px-4 py-2.5 bg-white text-gray-900 placeholder:text-gray-500 focus:border-orange-500 focus:outline-none focus:ring-2 focus:ring-orange-200 resize-none disabled:bg-gray-50 disabled:cursor-not-allowed"
                     />
-                </div>
-
-                {/* Map/Location Section */}
-                <div>
-                    <div className="w-full h-48 bg-gray-100 rounded-lg border border-gray-300 flex items-center justify-center relative overflow-hidden">
-                        {/* Placeholder map pattern */}
-                        <div className="absolute inset-0 opacity-10">
-                            <svg className="w-full h-full" viewBox="0 0 100 100" preserveAspectRatio="none">
-                                <defs>
-                                    <pattern id="grid" width="10" height="10" patternUnits="userSpaceOnUse">
-                                        <path d="M 10 0 L 0 0 0 10" fill="none" stroke="currentColor" strokeWidth="0.5" />
-                                    </pattern>
-                                </defs>
-                                <rect width="100" height="100" fill="url(#grid)" />
-                            </svg>
-                        </div>
+                    {/* Button to get coordinates from address */}
+                    <div className="mt-2 flex items-center justify-between">
                         <button
                             type="button"
-                            onClick={handleAddLocation}
-                            disabled={loadingLocation || loading}
-                            className="relative z-10 inline-flex items-center gap-2 px-4 py-2 bg-white border-2 border-orange-500 text-orange-600 rounded-lg font-medium hover:bg-orange-50 transition-colors disabled:opacity-50 disabled:cursor-not-allowed shadow-sm"
+                            onClick={handleGetCoordinatesFromAddress}
+                            disabled={loadingCoordinates || loading || !provinceId || !districtId || !wardId || !specificAddress.trim()}
+                            className="inline-flex items-center gap-2 px-4 py-2 text-sm font-medium text-orange-600 bg-orange-50 border border-orange-200 rounded-lg hover:bg-orange-100 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                         >
-                            {loadingLocation ? (
+                            {loadingCoordinates ? (
                                 <>
                                     <svg className="animate-spin h-4 w-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
                                         <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
                                         <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
                                     </svg>
-                                    <span>Đang tải...</span>
+                                    <span>Đang tìm...</span>
                                 </>
                             ) : (
                                 <>
-                                    <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
+                                    <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" />
+                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" />
                                     </svg>
-                                    <span>Thêm vị trí</span>
+                                    <span>Lấy tọa độ từ địa chỉ</span>
                                 </>
                             )}
                         </button>
+                        {/* Display coordinates if available */}
+                        {latitude !== undefined && longitude !== undefined && !isNaN(latitude) && !isNaN(longitude) && (
+                            <div className="text-xs text-gray-600">
+                                <span className="font-medium">Tọa độ:</span> {latitude.toFixed(6)}, {longitude.toFixed(6)}
+                            </div>
+                        )}
                     </div>
                 </div>
 

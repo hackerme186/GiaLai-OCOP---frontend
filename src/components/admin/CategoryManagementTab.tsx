@@ -81,102 +81,160 @@ export default function CategoryManagementTab() {
   }
 
   return (
-    <div>
-      <div className="flex justify-between items-center mb-6">
-        <h2 className="text-2xl font-semibold text-gray-900">Quản lý danh mục</h2>
-        <button
-          onClick={handleCreate}
-          className="inline-flex items-center gap-2 px-6 py-3 bg-gradient-to-r from-green-500 to-green-600 text-white rounded-lg shadow-lg hover:shadow-xl hover:from-green-600 hover:to-green-700 text-sm font-semibold transition-all duration-200 transform hover:scale-105 active:scale-95"
-        >
-          <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
-          </svg>
-          Thêm danh mục
-        </button>
+    <div className="space-y-6">
+      {/* Header */}
+      <div className="bg-gradient-to-r from-yellow-500 via-orange-500 to-amber-500 rounded-2xl shadow-xl p-8 text-white">
+        <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
+          <div>
+            <h2 className="text-3xl font-bold mb-2 drop-shadow-lg">📁 Quản lý danh mục</h2>
+            <p className="text-white/90 text-lg">Quản lý các danh mục sản phẩm OCOP trong hệ thống</p>
+          </div>
+          <button
+            onClick={handleCreate}
+            className="inline-flex items-center gap-2 px-6 py-3 bg-white/20 backdrop-blur-sm text-white rounded-xl hover:bg-white/30 transition-all shadow-lg hover:shadow-xl transform hover:-translate-y-0.5 font-semibold"
+          >
+            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
+            </svg>
+            Thêm danh mục mới
+          </button>
+        </div>
       </div>
 
-      {/* List */}
-      <div className="border rounded-lg shadow-sm overflow-x-auto">
-        {loading ? (
-          <div className="p-8 text-center text-gray-500">Đang tải...</div>
-        ) : categories.length === 0 ? (
-          <div className="p-8 text-center text-gray-500">Chưa có danh mục nào</div>
-        ) : (
-          <table className="min-w-full text-sm">
-            <thead className="bg-gray-50">
-              <tr>
-                <th className="text-left px-4 py-3 font-medium text-gray-700">ID</th>
-                <th className="text-left px-4 py-3 font-medium text-gray-700">Tên danh mục</th>
-                <th className="text-left px-4 py-3 font-medium text-gray-700">Mô tả</th>
-                <th className="text-right px-4 py-3 font-medium text-gray-700">Thao tác</th>
-              </tr>
-            </thead>
-            <tbody>
-              {categories.map((category, index) => (
-                <tr key={category.id ?? `category-${index}`} className="border-t hover:bg-gray-50">
-                  <td className="px-4 py-3 text-gray-600">{category.id}</td>
-                  <td className="px-4 py-3 font-medium">{category.name}</td>
-                  <td className="px-4 py-3 text-gray-600">{category.description || '-'}</td>
-                  <td className="px-4 py-3 text-right">
-                    <div className="flex items-center justify-end gap-2">
-                      <button 
-                        onClick={() => handleEdit(category)} 
-                        className="inline-flex items-center gap-1.5 px-4 py-2 rounded-lg bg-gradient-to-r from-blue-500 to-blue-600 text-white text-sm font-medium shadow-md hover:shadow-lg hover:from-blue-600 hover:to-blue-700 transition-all duration-200 transform hover:scale-105 active:scale-95"
-                      >
-                        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
-                        </svg>
-                        Sửa
-                      </button>
-                      <button 
-                        onClick={() => handleDelete(category.id)} 
-                        className="inline-flex items-center gap-1.5 px-4 py-2 rounded-lg bg-gradient-to-r from-red-500 to-red-600 text-white text-sm font-medium shadow-md hover:shadow-lg hover:from-red-600 hover:to-red-700 transition-all duration-200 transform hover:scale-105 active:scale-95"
-                      >
-                        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
-                        </svg>
-                        Xóa
-                      </button>
+      {/* Categories List */}
+      {loading ? (
+        <div className="bg-white rounded-2xl shadow-lg border border-gray-200 p-12">
+          <div className="text-center">
+            <div className="inline-block animate-spin rounded-full h-12 w-12 border-4 border-yellow-200 border-t-yellow-600 mb-4" />
+            <p className="text-gray-600 font-medium">Đang tải dữ liệu...</p>
+          </div>
+        </div>
+      ) : categories.length === 0 ? (
+        <div className="bg-white rounded-2xl shadow-lg border border-gray-200 p-12">
+          <div className="text-center">
+            <svg className="w-20 h-20 text-gray-300 mx-auto mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 7h.01M7 3h5c.512 0 1.024.195 1.414.586l7 7a2 2 0 010 2.828l-7 7a2 2 0 01-2.828 0l-7-7A1.994 1.994 0 013 12V7a4 4 0 014-4z" />
+            </svg>
+            <p className="text-gray-500 font-medium text-lg mb-2">Chưa có danh mục nào</p>
+            <p className="text-gray-400 text-sm">Nhấn "Thêm danh mục mới" để bắt đầu</p>
+          </div>
+        </div>
+      ) : (
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+          {categories.map((category, index) => (
+            <div
+              key={category.id ?? `category-${index}`}
+              className="bg-white rounded-2xl border-2 border-gray-200 shadow-lg hover:shadow-xl hover:border-yellow-300 transition-all duration-300 overflow-hidden"
+              style={{
+                animation: `fadeInUp 0.4s ease-out ${index * 0.1}s both`
+              }}
+            >
+              {/* Header */}
+              <div className="bg-gradient-to-r from-yellow-50 to-amber-50 p-6 border-b-2 border-yellow-200">
+                <div className="flex items-start justify-between">
+                  <div className="flex-1">
+                    <div className="flex items-center gap-3 mb-2">
+                      <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-yellow-400 to-orange-500 flex items-center justify-center shadow-md">
+                        <span className="text-2xl">📁</span>
+                      </div>
+                      <div>
+                        <h3 className="text-xl font-bold text-gray-900">{category.name}</h3>
+                        <p className="text-xs text-gray-500 mt-1">ID: {category.id}</p>
+                      </div>
                     </div>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        )}
-      </div>
+                  </div>
+                </div>
+              </div>
+
+              {/* Content */}
+              <div className="p-6">
+                <div className="mb-4">
+                  <p className="text-sm font-semibold text-gray-700 mb-2">Mô tả</p>
+                  <p className="text-sm text-gray-600 line-clamp-3">
+                    {category.description || 'Chưa có mô tả'}
+                  </p>
+                </div>
+
+                {/* Actions */}
+                <div className="pt-4 border-t border-gray-200 flex gap-2">
+                  <button 
+                    onClick={() => handleEdit(category)} 
+                    className="flex-1 flex items-center justify-center gap-2 px-4 py-2.5 bg-gradient-to-r from-blue-500 to-blue-600 text-white rounded-xl font-semibold hover:from-blue-600 hover:to-blue-700 transition-all shadow-md hover:shadow-lg transform hover:-translate-y-0.5"
+                  >
+                    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+                    </svg>
+                    Sửa
+                  </button>
+                  <button 
+                    onClick={() => handleDelete(category.id)} 
+                    className="flex-1 flex items-center justify-center gap-2 px-4 py-2.5 bg-gradient-to-r from-red-500 to-red-600 text-white rounded-xl font-semibold hover:from-red-600 hover:to-red-700 transition-all shadow-md hover:shadow-lg transform hover:-translate-y-0.5"
+                  >
+                    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                    </svg>
+                    Xóa
+                  </button>
+                </div>
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
 
       {/* Create/Edit Modal */}
       {showModal && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-          <div className="bg-white rounded-lg p-6 max-w-md w-full mx-4">
-            <h3 className="text-lg font-semibold mb-4">
-              {editingCategory ? 'Sửa danh mục' : 'Thêm danh mục mới'}
-            </h3>
-            <form onSubmit={handleSubmit}>
-              <div className="mb-4">
-                <label className="block text-sm font-medium text-gray-700 mb-1">
+        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50 p-4 animate-fadeIn">
+          <div className="bg-white rounded-2xl shadow-2xl p-8 max-w-lg w-full mx-4 animate-scaleIn">
+            <div className="flex items-center justify-between mb-6">
+              <div className="flex items-center gap-3">
+                <div className="w-12 h-12 rounded-full bg-yellow-100 flex items-center justify-center">
+                  <span className="text-2xl">📁</span>
+                </div>
+                <h3 className="text-2xl font-bold text-gray-900">
+                  {editingCategory ? 'Sửa danh mục' : 'Thêm danh mục mới'}
+                </h3>
+              </div>
+              <button
+                type="button"
+                onClick={() => {
+                  setShowModal(false)
+                  setEditingCategory(null)
+                  setFormData({ name: '', description: '' })
+                }}
+                className="text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-full p-2 transition-all"
+              >
+                <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                </svg>
+              </button>
+            </div>
+            <form onSubmit={handleSubmit} className="space-y-6">
+              <div className="bg-gradient-to-br from-yellow-50 to-amber-50 rounded-xl p-6 border-2 border-yellow-200">
+                <label className="block text-sm font-bold text-gray-900 mb-3 uppercase tracking-wide">
                   Tên danh mục *
                 </label>
                 <input
                   type="text"
                   value={formData.name}
                   onChange={e => setFormData({ ...formData, name: e.target.value })}
-                  className="w-full border border-gray-300 rounded px-3 py-2"
+                  className="w-full px-4 py-3 border-2 border-gray-200 rounded-xl focus:border-yellow-500 focus:ring-2 focus:ring-yellow-200 transition-all font-semibold"
                   required
+                  placeholder="Nhập tên danh mục..."
                 />
               </div>
-              <div className="mb-4">
-                <label className="block text-sm font-medium text-gray-700 mb-1">
+              <div className="bg-gradient-to-br from-orange-50 to-amber-50 rounded-xl p-6 border-2 border-orange-200">
+                <label className="block text-sm font-bold text-gray-900 mb-3 uppercase tracking-wide">
                   Mô tả
                 </label>
                 <textarea
                   value={formData.description}
                   onChange={e => setFormData({ ...formData, description: e.target.value })}
-                  className="w-full border border-gray-300 rounded px-3 py-2 min-h-[100px]"
+                  className="w-full px-4 py-3 border-2 border-gray-200 rounded-xl focus:border-orange-500 focus:ring-2 focus:ring-orange-200 transition-all resize-y min-h-[120px]"
+                  placeholder="Nhập mô tả cho danh mục..."
                 />
               </div>
-              <div className="flex justify-end gap-3">
+              <div className="flex justify-end gap-3 pt-4 border-t-2 border-gray-200">
                 <button
                   type="button"
                   onClick={() => {
@@ -184,27 +242,24 @@ export default function CategoryManagementTab() {
                     setEditingCategory(null)
                     setFormData({ name: '', description: '' })
                   }}
-                  className="inline-flex items-center gap-2 px-5 py-2.5 bg-gradient-to-r from-gray-100 to-gray-200 text-gray-700 rounded-lg shadow-md hover:shadow-lg hover:from-gray-200 hover:to-gray-300 text-sm font-medium transition-all duration-200 transform hover:scale-105 active:scale-95"
+                  className="px-6 py-3 bg-gray-100 text-gray-700 rounded-xl font-semibold hover:bg-gray-200 transition-all shadow-sm"
                 >
-                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                  </svg>
                   Hủy
                 </button>
                 <button
                   type="submit"
-                  className="inline-flex items-center gap-2 px-5 py-2.5 bg-gradient-to-r from-indigo-500 to-indigo-600 text-white rounded-lg shadow-md hover:shadow-lg hover:from-indigo-600 hover:to-indigo-700 text-sm font-medium transition-all duration-200 transform hover:scale-105 active:scale-95"
+                  className="px-6 py-3 bg-gradient-to-r from-yellow-600 to-orange-600 text-white rounded-xl font-semibold hover:from-yellow-700 hover:to-orange-700 transition-all shadow-lg hover:shadow-xl transform hover:-translate-y-0.5 inline-flex items-center gap-2"
                 >
                   {editingCategory ? (
                     <>
-                      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
                       </svg>
                       Cập nhật
                     </>
                   ) : (
                     <>
-                      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
                       </svg>
                       Tạo mới
