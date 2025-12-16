@@ -33,7 +33,9 @@ function EnterpriseAdminPageContent() {
 
   // Đọc tab từ query parameter hoặc mặc định là "products"
   const tabFromQuery = searchParams?.get("tab") as TabType | null
-  const [activeTab, setActiveTab] = useState<TabType>("products")
+  const validTabs: TabType[] = ["products", "orders", "inventory", "profile", "ocop-status", "reports", "wallet", "notifications", "settings"]
+  const initialTab = (tabFromQuery && validTabs.includes(tabFromQuery)) ? tabFromQuery : "products"
+  const [activeTab, setActiveTab] = useState<TabType>(initialTab)
   const [sidebarOpen, setSidebarOpen] = useState(false)
 
   const [notifications, setNotifications] = useState<Notification[]>([])
@@ -109,17 +111,23 @@ function EnterpriseAdminPageContent() {
   // Cập nhật tab khi query parameter thay đổi (chỉ khi URL thay đổi từ bên ngoài)
   useEffect(() => {
     const tabFromQuery = searchParams?.get("tab") as TabType | null
-    if (tabFromQuery) {
-      // Validate tab exists in tabs array
-      const validTabs: TabType[] = ["products", "orders", "inventory", "profile", "ocop-status", "reports", "wallet", "notifications", "settings"]
-      if (validTabs.includes(tabFromQuery) && tabFromQuery !== activeTab) {
-        setActiveTab(tabFromQuery)
-      }
-    } else {
+    if (tabFromQuery && validTabs.includes(tabFromQuery)) {
+      // Validate tab exists và cập nhật state
+      setActiveTab(prevTab => {
+        // Chỉ update nếu khác với giá trị hiện tại để tránh re-render không cần thiết
+        return tabFromQuery !== prevTab ? tabFromQuery : prevTab
+      })
+    } else if (!tabFromQuery) {
       // Set default tab if no query param
-      setActiveTab("products")
+      setActiveTab(prevTab => {
+        if (prevTab !== "products") {
+          router.replace("/enterprise-admin?tab=products", { scroll: false })
+          return "products"
+        }
+        return prevTab
+      })
     }
-  }, [searchParams, activeTab])
+  }, [searchParams, router])
 
   // Load thông báo tự động
   useEffect(() => {
@@ -203,7 +211,10 @@ function EnterpriseAdminPageContent() {
           {tabs.map(tab => (
             <button
               key={tab.id}
-              onClick={() => setActiveTab(tab.id)}
+              onClick={() => {
+                setActiveTab(tab.id)
+                router.push(`/enterprise-admin?tab=${tab.id}`, { scroll: false })
+              }}
               className={`w-full flex items-center px-4 py-3 rounded-lg text-left transition ${
                 activeTab === tab.id
                   ? "bg-green-600 text-white shadow"
@@ -328,6 +339,7 @@ function EnterpriseAdminPageContent() {
                               
                               const targetTab = getTargetTab()
                               setActiveTab(targetTab)
+                              router.push(`/enterprise-admin?tab=${targetTab}`, { scroll: false })
                               setShowNotificationDropdown(false)
                               
                               // Nếu có link và không phải là /enterprise-admin, điều hướng
@@ -381,6 +393,7 @@ function EnterpriseAdminPageContent() {
                   <button
                     onClick={() => {
                       setActiveTab("notifications")
+                      router.push(`/enterprise-admin?tab=notifications`, { scroll: false })
                       setShowNotificationDropdown(false)
                     }}
                     className="w-full text-center text-sm text-green-600 hover:text-green-700 font-medium py-2"

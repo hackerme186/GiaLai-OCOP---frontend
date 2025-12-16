@@ -1,8 +1,9 @@
 'use client';
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { getCurrentUser, type User } from '@/lib/api';
-import { logout, isLoggedIn as isAuthenticated } from '@/lib/auth';
+
+import { getCurrentUser, logout, isAuthenticated, type User } from '@/lib/auth';
+
 
 export default function DashboardPage() {
     const router = useRouter();
@@ -10,26 +11,21 @@ export default function DashboardPage() {
     const [loading, setLoading] = useState(true);
 
     useEffect(() => {
-        const checkAuth = async () => {
-            // Check authentication
-            const authenticated = await isAuthenticated();
-            if (!authenticated) {
-                router.push('/login');
-                return;
-            }
+        // Check authentication
+        if (!isAuthenticated()) {
+            router.push('/login');
+            return;
+        }
 
-            // Get user data
-            const userData = await getCurrentUser();
-            if (!userData) {
-                router.push('/login');
-                return;
-            }
+        // Get user data
+        const userData = getCurrentUser();
+        if (!userData) {
+            router.push('/login');
+            return;
+        }
 
-            setUser(userData);
-            setLoading(false);
-        };
-        
-        checkAuth();
+        setUser(userData);
+        setLoading(false);
     }, [router]);
 
     const handleLogout = () => {
@@ -143,7 +139,7 @@ export default function DashboardPage() {
                         <div>
                             <dt className="text-sm font-medium text-gray-500">Enterprise ID</dt>
                             <dd className="mt-1 text-sm text-gray-900">
-                                {user.enterpriseId || 'Ch╞░a li├¬n kß║┐t'}
+                                {user.enterpriseId || 'Chưa liên kết'}
                             </dd>
                         </div>
                     </dl>
@@ -152,7 +148,7 @@ export default function DashboardPage() {
                 {/* Debug Info (Development only) */}
                 {process.env.NODE_ENV === 'development' && (
                     <div className="mt-6 bg-gray-800 text-white rounded-lg p-6">
-                        <h3 className="text-lg font-semibold mb-4">≡ƒöº Debug Info</h3>
+                        <h3 className="text-lg font-semibold mb-4">🐛 Debug Info</h3>
                         <pre className="text-xs overflow-auto">
                             {JSON.stringify(user, null, 2)}
                         </pre>
