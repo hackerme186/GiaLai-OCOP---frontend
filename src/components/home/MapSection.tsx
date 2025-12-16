@@ -217,6 +217,7 @@ const MapSection = () => {
                       src={product.imageUrl || '/hero.jpg'}
                       alt={product.name || 'Sản phẩm'}
                       fill
+                      sizes="128px"
                       className="object-cover rounded-lg"
                     />
                   </div>

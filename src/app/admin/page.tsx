@@ -120,8 +120,11 @@ export default function AdminPage() {
       setNotifications(data)
       const unread = data.filter(n => !n.read).length
       setUnreadCount(unread)
-    } catch (err) {
-      console.error("Failed to load notifications:", err)
+    } catch (err: any) {
+      // Chỉ log lỗi nếu không phải silent error
+      if (!err?.silent) {
+        console.error("Failed to load notifications:", err)
+      }
       setNotifications([])
       setUnreadCount(0)
     }
@@ -137,7 +140,7 @@ export default function AdminPage() {
 
         if (roleLower === "systemadmin" || roleLower === "admin" || roleLower === "sysadmin") {
           console.log("Admin page - Loading pending wallet requests count...")
-          const result = await getPendingWalletRequestsCount()
+          const result = await getPendingWalletRequestsCount({ silent: true })
           console.log("Admin page - Pending wallet requests count result:", result)
           const count = result?.count || 0
           console.log("Admin page - Setting pending count to:", count)
@@ -146,12 +149,15 @@ export default function AdminPage() {
           // Auto refresh every 30 seconds
           const interval = setInterval(async () => {
             try {
-              const refreshResult = await getPendingWalletRequestsCount()
+              const refreshResult = await getPendingWalletRequestsCount({ silent: true })
               const refreshCount = refreshResult?.count || 0
               console.log("Admin page - Refreshed pending count:", refreshCount)
               setPendingWalletRequestsCount(refreshCount)
-            } catch (err) {
-              console.error("Failed to refresh pending count:", err)
+            } catch (err: any) {
+              // Chỉ log lỗi nếu không phải silent error
+              if (!err?.silent) {
+                console.error("Failed to refresh pending count:", err)
+              }
             }
           }, 30000)
 
@@ -160,12 +166,15 @@ export default function AdminPage() {
           console.log("Admin page - Not SystemAdmin, skipping pending requests count")
         }
       } catch (err: any) {
-        console.error("Admin page - Failed to load pending wallet requests count:", err)
-        console.error("Admin page - Error details:", {
-          message: err.message,
-          status: err.status,
-          response: err.response
-        })
+        // Chỉ log lỗi nếu không phải silent error
+        if (!err?.silent) {
+          console.error("Admin page - Failed to load pending wallet requests count:", err)
+          console.error("Admin page - Error details:", {
+            message: err.message,
+            status: err.status,
+            response: err.response
+          })
+        }
       }
     }
 
@@ -453,8 +462,11 @@ function DashboardTab({
     try {
       const data = await getReportSummary()
       setSummary(data)
-    } catch (err) {
-      console.error("Failed to load dashboard:", err)
+    } catch (err: any) {
+      // Chỉ log lỗi nếu không phải silent error
+      if (!err?.silent) {
+        console.error("Failed to load dashboard:", err)
+      }
       setError(err instanceof Error ? err.message : "Không thể tải dữ liệu tổng quan")
     } finally {
       setLoading(false)
@@ -571,8 +583,11 @@ function DashboardTab({
                           await markAllNotificationsAsRead()
                           await loadNotifications()
                           setShowNotificationDropdown(false)
-                        } catch (err) {
-                          console.error("Failed to mark all as read:", err)
+                        } catch (err: any) {
+                          // Chỉ log lỗi nếu không phải silent error
+                          if (!err?.silent) {
+                            console.error("Failed to mark all as read:", err)
+                          }
                         }
                       }}
                       className="text-sm text-blue-600 hover:text-blue-800 font-semibold hover:underline transition-colors px-3 py-1.5 rounded-lg hover:bg-blue-100"
@@ -644,8 +659,11 @@ function DashboardTab({
                                   try {
                                     await markNotificationAsRead(notification.id)
                                     await loadNotifications()
-                                  } catch (err) {
-                                    console.error("Failed to mark as read:", err)
+                                  } catch (err: any) {
+                                    // Chỉ log lỗi nếu không phải silent error
+                                    if (!err?.silent) {
+                                      console.error("Failed to mark as read:", err)
+                                    }
                                   }
                                 }
                                 if (notification.link) {
@@ -701,8 +719,11 @@ function DashboardTab({
                                     try {
                                       await deleteNotification(notification.id)
                                       await loadNotifications()
-                                    } catch (err) {
-                                      console.error("Failed to delete notification:", err)
+                                    } catch (err: any) {
+                                      // Chỉ log lỗi nếu không phải silent error
+                                      if (!err?.silent) {
+                                        console.error("Failed to delete notification:", err)
+                                      }
                                     }
                                   }}
                                   className="flex-shrink-0 opacity-0 group-hover:opacity-100 transition-opacity text-gray-400 hover:text-red-500 p-1.5 rounded-lg hover:bg-red-50"

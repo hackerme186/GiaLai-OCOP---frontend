@@ -36,7 +36,8 @@ export default function HomePage() {
     } else if (status === "unauthenticated") {
       checkAuthStatus()
     }
-  }, [router, status, session])
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [router, status])
 
   // Show loading while checking authentication
   if (!mounted || status === "loading") {

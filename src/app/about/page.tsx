@@ -48,6 +48,7 @@ export default function AboutPage() {
                   src="/coffee-gia-lai.jpg"
                   alt="Cà phê Gia Lai"
                   fill
+                  sizes="(max-width: 1024px) 100vw, 50vw"
                   className="object-cover"
                 />
               </div>
@@ -202,6 +203,7 @@ export default function AboutPage() {
                     src="/coffee-gia-lai.jpg"
                     alt="Cà phê Gia Lai"
                     fill
+                    sizes="(max-width: 768px) 100vw, 33vw"
                     className="object-cover"
                   />
                 </div>
@@ -217,6 +219,7 @@ export default function AboutPage() {
                     src="/hat-dieu-tieu.png"
                     alt="Hạt điều - Tiêu"
                     fill
+                    sizes="(max-width: 768px) 100vw, 33vw"
                     className="object-cover"
                   />
                 </div>
@@ -232,6 +235,7 @@ export default function AboutPage() {
                     src="/nem-chua-cho-huyen.png"
                     alt="Đặc sản Bình Định"
                     fill
+                    sizes="(max-width: 768px) 100vw, 33vw"
                     className="object-cover"
                   />
                 </div>

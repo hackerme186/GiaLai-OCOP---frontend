@@ -936,6 +936,7 @@ export default function AccountPage() {
                       src={avatarPreview || user?.avatarUrl || ""}
                       alt={user?.name || "Avatar"}
                       fill
+                      sizes="80px"
                       className="object-cover"
                       unoptimized={
                         (() => {

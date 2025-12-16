@@ -2550,9 +2550,10 @@ export async function getWalletRequest(id: number): Promise<WalletRequest> {
   });
 }
 
-export async function getPendingWalletRequestsCount(): Promise<{ count: number }> {
+export async function getPendingWalletRequestsCount(options?: { silent?: boolean }): Promise<{ count: number }> {
   return request<{ count: number }>("/walletrequest/pending/count", {
     method: "GET",
+    silent: options?.silent,
   });
 }
 

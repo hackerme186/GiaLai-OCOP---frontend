@@ -282,6 +282,7 @@ export default function HomeManagementTab() {
                       src={getImageUrl(slide.image)}
                       alt={slide.title}
                       fill
+                      sizes="(max-width: 768px) 100vw, 50vw"
                       className="object-cover"
                       {...getImageAttributes(slide.image)}
                       onError={(e) => {
@@ -463,6 +464,7 @@ export default function HomeManagementTab() {
                         src={getImageUrl(slideFormData.image)}
                         alt="Banner Preview"
                         fill
+                        sizes="128px"
                         className="object-cover"
                         {...getImageAttributes(slideFormData.image)}
                         onError={(e) => {

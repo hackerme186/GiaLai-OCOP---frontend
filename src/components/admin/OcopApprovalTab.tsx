@@ -330,6 +330,7 @@ export default function OcopApprovalTab() {
                         src={item.imageUrl}
                         alt={item.name}
                         fill
+                        sizes="(max-width: 1024px) 100vw, 50vw"
                         className="object-cover"
                         unoptimized
                         onError={(e) => {
@@ -537,6 +538,7 @@ export default function OcopApprovalTab() {
                       src={selectedProduct.imageUrl}
                       alt={selectedProduct.name}
                       fill
+                      sizes="100vw"
                       className="object-cover"
                       unoptimized
                       onError={(e) => {

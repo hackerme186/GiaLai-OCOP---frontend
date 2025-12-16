@@ -16,6 +16,7 @@ export default function AuthLayout({
           src="/hero.jpg"
           alt="Background"
           fill
+          sizes="100vw"
           className="object-cover blur-sm"
           priority
           quality={90}

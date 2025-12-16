@@ -364,6 +364,7 @@ export default function EnterpriseProfileTab({ user }: EnterpriseProfileTabProps
                   src={logoPreview}
                   alt="Logo"
                   fill
+                  sizes="128px"
                   className="object-cover"
                 />
               </div>
@@ -390,6 +391,7 @@ export default function EnterpriseProfileTab({ user }: EnterpriseProfileTabProps
                   src={bannerPreview}
                   alt="Banner"
                   fill
+                  sizes="100vw"
                   className="object-cover"
                 />
               </div>

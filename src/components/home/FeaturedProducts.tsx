@@ -171,6 +171,7 @@ const FeaturedProducts = () => {
                   src={isValidImageUrl(product.imageUrl) ? getImageUrl(product.imageUrl, '/hero.jpg') : '/hero.jpg'}
                   alt={product.name}
                   fill
+                  sizes="(max-width: 640px) 100vw, (max-width: 1024px) 50vw, 25vw"
                   className="object-cover"
                   {...getImageAttributes(product.imageUrl)}
                   onError={(e) => {

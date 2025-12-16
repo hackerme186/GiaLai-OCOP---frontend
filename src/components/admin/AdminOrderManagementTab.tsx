@@ -662,6 +662,7 @@ export default function AdminOrderManagementTab() {
                           src={item.productImageUrl || "/hero.jpg"}
                           alt={item.productName || "Product"}
                           fill
+                          sizes="80px"
                           className="object-cover"
                         />
                       </div>
@@ -1250,6 +1251,7 @@ function AdminOrderDetailModalContent({
                             src={getProductImageUrl(item)}
                             alt={getProductName(item)}
                             fill
+                            sizes="96px"
                             className="object-cover"
                           />
                         )}

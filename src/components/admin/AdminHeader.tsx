@@ -45,8 +45,11 @@ export default function AdminHeader({ activeTab, onTabChange }: AdminHeaderProps
         } else {
           console.log("AdminHeader - Not SystemAdmin, skipping pending requests count")
         }
-      } catch (err) {
-        console.error("Failed to load user info:", err)
+      } catch (err: any) {
+        // Chỉ log lỗi nếu không phải silent error
+        if (!err?.silent) {
+          console.error("Failed to load user info:", err)
+        }
       }
     }
     

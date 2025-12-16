@@ -209,6 +209,7 @@ export default function NewsManagementTab() {
                     src={getImageUrl(item.image)}
                     alt={item.title}
                     fill
+                    sizes="(max-width: 768px) 100vw, 33vw"
                     className="object-cover"
                     {...getImageAttributes(item.image)}
                     onError={(e) => {
@@ -330,6 +331,7 @@ export default function NewsManagementTab() {
                         src={getImageUrl(imagePreview)}
                         alt="Preview"
                         fill
+                        sizes="128px"
                         className="object-cover"
                         {...getImageAttributes(imagePreview)}
                         onError={(e) => {
