@@ -32,6 +32,7 @@ body {
     opacity: 0;
     transform: translateY(20px);
   }
+
   to {
     opacity: 1;
     transform: translateY(0);
@@ -43,6 +44,7 @@ body {
   from {
     opacity: 0;
   }
+
   to {
     opacity: 1;
   }
@@ -53,6 +55,7 @@ body {
     opacity: 0;
     transform: scale(0.95);
   }
+
   to {
     opacity: 1;
     transform: scale(1);
@@ -68,7 +71,9 @@ body {
 }
 
 /* Ensure inputs and form elements maintain their explicit colors */
-input, textarea, select {
+input,
+textarea,
+select {
   color: inherit;
 }
 
@@ -80,13 +85,16 @@ input[type="date"],
 input[type="tel"],
 input[type="url"],
 textarea {
-  color: rgb(17, 24, 39) !important; /* text-gray-900 */
+  color: rgb(17, 24, 39) !important;
+  /* text-gray-900 */
 }
 
 input::placeholder,
 textarea::placeholder {
-  color: rgb(107, 114, 128) !important; /* text-gray-500 */
-  opacity: 1 !important; /* Prevent browser default opacity */
+  color: rgb(107, 114, 128) !important;
+  /* text-gray-500 */
+  opacity: 1 !important;
+  /* Prevent browser default opacity */
 }
 
 /* Dropdown animation */
@@ -95,6 +103,7 @@ textarea::placeholder {
     opacity: 0;
     transform: translateY(-10px);
   }
+
   to {
     opacity: 1;
     transform: translateY(0);
@@ -107,9 +116,11 @@ textarea::placeholder {
 
 /* Glassmorphism Login Page Animations */
 @keyframes float {
-  0%, 100% {
+  0%,
+  100% {
     transform: translateY(0px);
   }
+
   50% {
     transform: translateY(-10px);
   }
@@ -117,4 +128,27 @@ textarea::placeholder {
 
 .animate-float {
   animation: float 3s ease-in-out infinite;
+}
+
+/* Custom scrollbar for notification dropdown */
+.custom-scrollbar::-webkit-scrollbar {
+  width: 6px;
+}
+
+.custom-scrollbar::-webkit-scrollbar-track {
+  background: #f1f5f9;
+  border-radius: 3px;
+}
+
+.custom-scrollbar::-webkit-scrollbar-thumb {
+  background: #cbd5e1;
+  border-radius: 3px;
+}
+
+.custom-scrollbar::-webkit-scrollbar-thumb:hover {
+  background: #94a3b8;
+}
+
+.animate-in {
+  animation: fadeIn 0.2s ease-out;
 }

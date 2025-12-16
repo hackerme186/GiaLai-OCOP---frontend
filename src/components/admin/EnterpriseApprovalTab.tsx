@@ -5,7 +5,12 @@ import {
   EnterpriseApplication,
   approveEnterpriseApplication,
   getEnterpriseApplications,
-  rejectEnterpriseApplication
+  rejectEnterpriseApplication,
+  createProduct,
+  getUser,
+  getCategories,
+  type Category,
+  type CreateProductDto
 } from "@/lib/api"
 
 const PAGE_SIZE = 10
@@ -91,11 +96,123 @@ export default function EnterpriseApprovalTab() {
 
   const handleApprove = async (id: number) => {
     if (!confirm("Bạn có chắc chắn muốn duyệt hồ sơ này?")) return
+    
+    // Tìm application data trước khi approve
+    const application = applications.find(app => app.id === id)
+    if (!application) {
+      alert("Không tìm thấy thông tin đơn đăng ký")
+      return
+    }
+
     try {
+      // Bước 1: Duyệt đơn đăng ký OCOP
       await approveEnterpriseApplication(id)
-      alert("Đã duyệt thành công!")
+      console.log("✅ Đã duyệt đơn đăng ký OCOP:", id)
+
+      // Bước 2: Lấy thông tin user để lấy enterpriseId
+      let enterpriseId: number | undefined
+      try {
+        const user = await getUser(application.userId)
+        enterpriseId = user.enterpriseId
+        console.log("✅ Lấy được enterpriseId:", enterpriseId)
+      } catch (userErr) {
+        console.warn("⚠️ Không thể lấy enterpriseId từ user:", userErr)
+        // Có thể backend chưa tạo enterprise ngay, đợi một chút
+        await new Promise(resolve => setTimeout(resolve, 1000))
+        try {
+          const user = await getUser(application.userId)
+          enterpriseId = user.enterpriseId
+          console.log("✅ Lấy được enterpriseId sau khi đợi:", enterpriseId)
+        } catch (retryErr) {
+          console.error("❌ Vẫn không lấy được enterpriseId:", retryErr)
+        }
+      }
+
+      // Bước 3: Tạo sản phẩm từ thông tin trong application
+      if (application.productName && enterpriseId) {
+        try {
+          // Tìm categoryId từ productCategory name
+          let categoryId: number | undefined
+          if (application.productCategory) {
+            try {
+              const categories = await getCategories(true) // Chỉ lấy active categories
+              const category = categories.find(
+                cat => cat.name.toLowerCase().trim() === application.productCategory.toLowerCase().trim()
+              )
+              if (category) {
+                categoryId = category.id
+                console.log("✅ Tìm thấy categoryId:", categoryId, "cho category:", application.productCategory)
+              } else {
+                console.warn("⚠️ Không tìm thấy category với tên:", application.productCategory)
+              }
+            } catch (catErr) {
+              console.warn("⚠️ Không thể load categories:", catErr)
+            }
+          }
+
+          // Lấy hình ảnh đầu tiên từ productImages (comma-separated)
+          const productImageUrl = application.productImages 
+            ? application.productImages.split(',')[0].trim() 
+            : undefined
+
+          // Tạo sản phẩm với status "PendingApproval" để SystemAdmin có thể duyệt
+          const productData: CreateProductDto = {
+            name: application.productName,
+            description: application.productDescription || "",
+            price: 0, // Giá mặc định, có thể cập nhật sau
+            imageUrl: productImageUrl,
+            stockStatus: "InStock",
+            categoryId: categoryId,
+            enterpriseId: enterpriseId, // Gán enterpriseId để sản phẩm thuộc về enterprise đã được duyệt
+            // Không set ocopRating ở đây, để SystemAdmin quyết định khi duyệt
+          }
+
+          console.log("📤 Tạo sản phẩm từ đơn đăng ký OCOP:", {
+            ...productData,
+            enterpriseId: enterpriseId,
+            note: "Backend sẽ tự động gán enterpriseId từ user context hoặc cần xử lý riêng"
+          })
+          
+          // Tạo sản phẩm
+          // Lưu ý: Backend có thể tự động set:
+          // - status = "PendingApproval" (mặc định cho product mới)
+          // - enterpriseId từ user context (nếu user là EnterpriseAdmin)
+          // Nếu SystemAdmin tạo product, backend có thể cần xử lý đặc biệt để gán enterpriseId
+          const createdProduct = await createProduct(productData)
+          console.log("✅ Đã tạo sản phẩm:", createdProduct)
+
+          // Kiểm tra xem sản phẩm đã có enterpriseId chưa
+          if (createdProduct && createdProduct.enterpriseId) {
+            console.log("✅ Sản phẩm đã được gán enterpriseId:", createdProduct.enterpriseId)
+          } else {
+            console.warn("⚠️ Sản phẩm chưa có enterpriseId. Backend có thể cần xử lý để gán enterpriseId cho sản phẩm này.")
+            console.warn("⚠️ EnterpriseId cần gán:", enterpriseId)
+          }
+
+          alert("Đã duyệt thành công và tạo sản phẩm! Sản phẩm đã được chuyển vào phần duyệt sản phẩm.")
+        } catch (productErr) {
+          console.error("❌ Lỗi khi tạo sản phẩm:", productErr)
+          // Vẫn báo thành công duyệt đơn, nhưng cảnh báo về sản phẩm
+          alert(
+            "Đã duyệt thành công!\n\n" +
+            "⚠️ Lưu ý: Không thể tự động tạo sản phẩm. " +
+            "Vui lòng tạo sản phẩm thủ công hoặc kiểm tra lại thông tin đơn đăng ký.\n\n" +
+            "Lỗi: " + (productErr instanceof Error ? productErr.message : "Lỗi không xác định")
+          )
+        }
+      } else {
+        if (!application.productName) {
+          console.warn("⚠️ Đơn đăng ký không có thông tin sản phẩm")
+        }
+        if (!enterpriseId) {
+          console.warn("⚠️ Không lấy được enterpriseId, không thể tạo sản phẩm")
+        }
+        alert("Đã duyệt thành công!\n\n⚠️ Lưu ý: Không thể tự động tạo sản phẩm do thiếu thông tin.")
+      }
+
       await loadApplications()
     } catch (err) {
+      console.error("❌ Lỗi khi duyệt đơn đăng ký:", err)
       alert(
         "Duyệt thất bại: " + (err instanceof Error ? err.message : "Lỗi không xác định")
       )

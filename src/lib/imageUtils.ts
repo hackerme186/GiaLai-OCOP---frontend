@@ -36,8 +36,8 @@ export function isValidImageUrl(url: string | null | undefined): boolean {
     }
   }
 
-  // URL hợp lệ nếu bắt đầu bằng http:// hoặc https:// và có domain
-  return trimmedUrl.startsWith('http://') || trimmedUrl.startsWith('https://')
+  // URL hợp lệ nếu bắt đầu bằng http://, https://, hoặc / (local path)
+  return trimmedUrl.startsWith('http://') || trimmedUrl.startsWith('https://') || trimmedUrl.startsWith('/')
 }
 
 /**

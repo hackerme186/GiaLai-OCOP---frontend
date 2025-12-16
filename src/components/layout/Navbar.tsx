@@ -188,6 +188,7 @@ const Navbar = () => {
                       ? 'text-gray-900 font-semibold' 
                       : 'text-gray-600 font-medium'
                   }`}
+                  suppressHydrationWarning
                 >
                   Liên hệ
                   <svg 
@@ -260,11 +261,13 @@ const Navbar = () => {
                 onChange={(e) => setSearchQuery(e.target.value)}
                 placeholder="Tìm kiếm..."
                 className="outline-none text-sm placeholder-gray-400 w-full bg-transparent text-gray-700"
+                suppressHydrationWarning
               />
               <button 
                 type="submit" 
                 aria-label="Search" 
                 className="ml-1 text-indigo-600 hover:text-indigo-700 hover:bg-indigo-50 rounded-full p-1 transition-colors flex-shrink-0"
+                suppressHydrationWarning
               >
                 <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
@@ -332,12 +335,14 @@ const Navbar = () => {
                   <button
                     onClick={() => router.push('/login')}
                     className="text-gray-600 hover:text-indigo-600 px-4 py-2 rounded-lg text-sm font-semibold flex items-center whitespace-nowrap hover:bg-indigo-50 transition-all duration-200"
+                    suppressHydrationWarning
                   >
                     Đăng nhập
                   </button>
                   <button
                     onClick={() => router.push('/register')}
                     className="bg-gradient-to-r from-green-600 to-emerald-600 text-white px-6 py-2 rounded-lg text-sm font-semibold hover:from-green-700 hover:to-emerald-700 flex items-center whitespace-nowrap shadow-md hover:shadow-lg transition-all duration-200 transform hover:scale-105"
+                    suppressHydrationWarning
                   >
                     Đăng ký
                   </button>
@@ -536,12 +541,14 @@ const Navbar = () => {
                     <button
                       onClick={() => { router.push('/login'); setMobileMenuOpen(false); }}
                       className="block w-full text-left px-4 py-3 text-base font-semibold text-gray-700 hover:text-indigo-600 hover:bg-indigo-50 rounded-lg transition-colors"
+                      suppressHydrationWarning
                     >
                       Đăng nhập
                     </button>
                     <button
                       onClick={() => { router.push('/register'); setMobileMenuOpen(false); }}
                       className="block w-full bg-gradient-to-r from-green-600 to-emerald-600 text-white px-4 py-3 rounded-lg text-center font-semibold hover:from-green-700 hover:to-emerald-700 shadow-md transition-all duration-200"
+                      suppressHydrationWarning
                     >
                       Đăng ký
                     </button>

@@ -1025,20 +1025,6 @@ export default function AccountPage() {
                         Hồ Sơ
                       </Link>
                       <Link
-                        href="/account/bank"
-                        onClick={(e) => {
-                          e.preventDefault()
-                          setActiveMenu("bank")
-                        }}
-                        className={`flex items-center gap-3 px-4 py-2.5 text-sm transition-colors ${activeMenu === "bank"
-                          ? "text-orange-500 bg-orange-50 border-l-2 border-orange-500"
-                          : "text-gray-600 hover:bg-gray-100"
-                          }`}
-                      >
-                        <span className="w-1.5 h-1.5 rounded-full bg-current ml-2"></span>
-                        Ngân Hàng
-                      </Link>
-                      <Link
                         href="/account/address"
                         onClick={(e) => {
                           e.preventDefault()
@@ -1065,6 +1051,13 @@ export default function AccountPage() {
                       >
                         <span className="w-1.5 h-1.5 rounded-full bg-current ml-2"></span>
                         Đổi Mật Khẩu
+                      </Link>
+                      <Link
+                        href="/wallet"
+                        className="flex items-center gap-3 px-4 py-2.5 text-sm transition-colors text-gray-600 hover:bg-gray-100"
+                      >
+                        <span className="w-1.5 h-1.5 rounded-full bg-current ml-2"></span>
+                        Ví của tôi
                       </Link>
                       {!user?.isEmailVerified && (
                         <Link

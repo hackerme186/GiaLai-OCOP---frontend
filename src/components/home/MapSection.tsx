@@ -32,33 +32,52 @@ const MapSection = () => {
         setError(null)
         
         // Fetch products
-        const productData = await getProducts({ 
-          pageSize: 100,
-          status: "Approved",
-        })
-        
-        const productList = Array.isArray(productData) ? productData : []
-        const approvedProducts = productList.filter((p: Product) => p.status === "Approved")
-        
-        // Display first 4 approved products
-        setProducts(approvedProducts.slice(0, 4))
+        try {
+          // Use silent mode to reduce console errors when backend is unavailable
+          const productData = await getProducts({ 
+            pageSize: 100,
+            status: "Approved",
+            silent: true, // Silent mode - don't spam console with errors
+          })
+          
+          const productList = Array.isArray(productData) ? productData : []
+          const approvedProducts = productList.filter((p: Product) => p.status === "Approved")
+          
+          // Display first 4 approved products
+          setProducts(approvedProducts.slice(0, 4))
+        } catch (productErr) {
+          // Only log error if not in silent mode
+          const isSilent = (productErr as any)?.silent
+          if (!isSilent) {
+            console.warn('Failed to fetch products for map section:', productErr)
+          }
+          setProducts([])
+          // Check if it's a network error
+          const isNetworkError = (productErr as any)?.isNetworkError || (productErr as any)?.status === 0
+          if (isNetworkError && !isSilent) {
+            setError('Backend đang khởi động. Vui lòng đợi vài giây rồi tải lại trang.')
+          }
+        }
         
         // Fetch enterprises for map (chỉ lấy các doanh nghiệp đã được duyệt)
         try {
           let enterpriseData: EnterpriseMapDto[] = []
           
           // Thử gọi API với pageSize = 100 (giống như map page sử dụng)
+          // Use silent mode to reduce console errors when backend is unavailable
           try {
             enterpriseData = await searchMap({
               pageSize: 100,
+              silent: true, // Silent mode - don't spam console with errors
             })
           } catch (err) {
             // Nếu lỗi, thử gọi không có tham số
-            console.warn('Failed with pageSize, trying without params:', err)
             try {
-              enterpriseData = await searchMap({})
+              enterpriseData = await searchMap({
+                silent: true, // Silent mode
+              })
             } catch (err2) {
-              console.error('Failed to fetch enterprises:', err2)
+              // Silent mode - don't log or throw, just set empty array
               enterpriseData = []
             }
           }
@@ -83,8 +102,22 @@ const MapSection = () => {
         
         setLoading(false)
       } catch (err) {
-        console.error('❌ Failed to fetch data:', err)
-        setError('Không thể tải dữ liệu')
+        // Only log error if not in silent mode
+        const isSilent = (err as any)?.silent
+        if (!isSilent) {
+          console.error('❌ Failed to fetch data:', err)
+        }
+        
+        // Check if it's a network error (backend not available)
+        const isNetworkError = (err as any)?.isNetworkError || (err as any)?.status === 0
+        const errorMessage = isNetworkError 
+          ? 'Backend đang khởi động. Vui lòng đợi vài giây rồi tải lại trang.'
+          : 'Không thể tải dữ liệu'
+        
+        // Only set error if not silent (to avoid showing error message for non-critical requests)
+        if (!isSilent) {
+          setError(errorMessage)
+        }
         setProducts([])
         setEnterprises([])
         setLoading(false)

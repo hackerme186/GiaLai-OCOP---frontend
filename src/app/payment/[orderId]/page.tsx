@@ -8,6 +8,8 @@ import Footer from "@/components/layout/Footer"
 import { createPayment, getOrder, getPaymentsByOrder, getProduct, type Payment, type Order, type OrderItem } from "@/lib/api"
 import { isLoggedIn } from "@/lib/auth"
 import { getImageAttributes, isValidImageUrl, getImageUrl } from "@/lib/imageUtils"
+import { useOrderProducts } from "@/lib/hooks/useOrderProducts"
+import { QRCodeSVG } from "qrcode.react"
 
 // Component con sử dụng useSearchParams (phải wrap trong Suspense)
 function PaymentContent() {
@@ -23,109 +25,77 @@ function PaymentContent() {
     const [error, setError] = useState<string | null>(null)
     const [creatingPayment, setCreatingPayment] = useState(false)
     const [orderItemsWithEnterprise, setOrderItemsWithEnterprise] = useState<OrderItem[]>([])
+    // Use hook to load product details
+    const { getProductName, getProductImageUrl, loadingProducts } = useOrderProducts(order?.orderItems)
+    // Thông tin tài khoản SystemAdmin (dùng chung cho toàn bộ đơn hàng)
+    // Thông tin mặc định của tài khoản SystemAdmin (MB Bank - NGUYEN BA QUYET)
+    const ADMIN_BANK_ACCOUNT = process.env.NEXT_PUBLIC_ADMIN_BANK_ACCOUNT || "0858153779"
+    const ADMIN_BANK_CODE = process.env.NEXT_PUBLIC_ADMIN_BANK_CODE || "970422" // MB Bank BIN
+    const ADMIN_ACCOUNT_NAME = process.env.NEXT_PUBLIC_ADMIN_ACCOUNT_NAME || "NGUYEN BA QUYET"
+    const ADMIN_QR_URL = process.env.NEXT_PUBLIC_ADMIN_QR_URL || ""
 
-    // Nhóm orderItems theo enterpriseId để hiển thị với payment tương ứng
-    // Sử dụng orderItemsWithEnterprise (đã load enterpriseId từ product nếu cần)
-    // Phải đặt trước useEffect để tuân thủ Rules of Hooks
-    const orderItemsByEnterprise = useMemo(() => {
-        const itemsToUse = orderItemsWithEnterprise.length > 0 ? orderItemsWithEnterprise : (order?.orderItems || [])
-        if (itemsToUse.length === 0) return new Map<number, OrderItem[]>()
-        
-        const grouped = new Map<number, OrderItem[]>()
-        itemsToUse.forEach((item) => {
-            if (item.enterpriseId) {
-                const existing = grouped.get(item.enterpriseId) || []
-                grouped.set(item.enterpriseId, [...existing, item])
-            }
-        })
-        return grouped
-    }, [orderItemsWithEnterprise, order?.orderItems])
-
-    // Lấy danh sách enterpriseId từ orderItems để filter payments
-    // Sử dụng orderItemsWithEnterprise (đã load enterpriseId từ product nếu cần)
-    // Phải đặt trước useEffect để tuân thủ Rules of Hooks
-    const enterpriseIdsInOrder = useMemo(() => {
-        const itemsToUse = orderItemsWithEnterprise.length > 0 ? orderItemsWithEnterprise : (order?.orderItems || [])
-        if (itemsToUse.length === 0) return new Set<number>()
-        const ids = new Set<number>()
-        itemsToUse.forEach((item) => {
-            if (item.enterpriseId) {
-                ids.add(item.enterpriseId)
-            }
-        })
-        return ids
-    }, [orderItemsWithEnterprise, order?.orderItems])
-
-    // Chỉ lấy payments có enterpriseId trong danh sách sản phẩm của đơn hàng
-    // KHÔNG hiển thị tất cả payments - chỉ hiển thị payments của doanh nghiệp có sản phẩm trong đơn hàng
-    // Phải đặt trước useEffect để tuân thủ Rules of Hooks
+    // Chỉ lấy các payment BankTransfer của đơn hàng này (để lấy reference / trạng thái)
     const bankTransferPayments = useMemo(() => {
-        console.log("=== FILTERING PAYMENTS ===")
-        console.log("enterpriseIdsInOrder:", Array.from(enterpriseIdsInOrder))
-        console.log("total payments:", payments.length)
-        console.log("payments details:", payments.map(p => ({
-            id: p.id,
-            orderId: p.orderId,
-            enterpriseId: p.enterpriseId,
-            enterpriseName: p.enterpriseName,
-            method: p.method
-        })))
-        
-        const filtered = payments.filter((p) => {
-            // Chỉ lấy BankTransfer payments của đơn hàng này
-            if (p.method !== "BankTransfer" || p.orderId !== orderId) {
-                return false
-            }
-            
-            // Nếu payment không có enterpriseId, không hiển thị
-            if (!p.enterpriseId) {
-                console.log(`❌ Payment ${p.id} has no enterpriseId - skipping`)
-                return false
-            }
-            
-            // Nếu không có enterpriseIds trong orderItems, không hiển thị payment nào
-            if (enterpriseIdsInOrder.size === 0) {
-                console.log("❌ No enterpriseIds in orderItems - no payments to show")
-                return false
-            }
-            
-            // Chỉ hiển thị payments có enterpriseId trong danh sách sản phẩm
-            const hasMatch = enterpriseIdsInOrder.has(p.enterpriseId)
-            if (!hasMatch) {
-                console.log(`❌ Payment ${p.id} enterpriseId ${p.enterpriseId} NOT in orderItems. OrderItems enterpriseIds:`, Array.from(enterpriseIdsInOrder))
-            } else {
-                console.log(`✅ Payment ${p.id} enterpriseId ${p.enterpriseId} MATCHES - including`)
-            }
-            return hasMatch
-        })
-        
-        console.log(`=== FILTERED RESULT: ${filtered.length} payments out of ${payments.length} ===`)
-        console.log("Filtered payments:", filtered.map(p => ({
-            id: p.id,
-            enterpriseId: p.enterpriseId,
-            enterpriseName: p.enterpriseName,
-            amount: p.amount
-        })))
-        
-        // Kiểm tra xem có đủ payments cho tất cả doanh nghiệp không
-        const filteredEnterpriseIds = new Set(filtered.map(p => p.enterpriseId).filter(Boolean))
-        const missingEnterpriseIds = Array.from(enterpriseIdsInOrder).filter(id => !filteredEnterpriseIds.has(id))
-        
-        if (missingEnterpriseIds.length > 0) {
-            console.warn(`⚠️ WARNING: Missing payments for ${missingEnterpriseIds.length} enterprise(s):`, missingEnterpriseIds)
-            console.warn(`⚠️ Expected ${enterpriseIdsInOrder.size} payments but only got ${filtered.length}`)
-        } else {
-            console.log(`✅ All enterprises have payments: ${filtered.length} payments for ${enterpriseIdsInOrder.size} enterprises`)
+        return payments.filter((p) => p.method === "BankTransfer" && p.orderId === orderId)
+    }, [payments, orderId])
+
+    // Payment hiển thị cho người dùng: luôn là 1 tài khoản SystemAdmin
+    const adminBankPayment: Payment | null = useMemo(() => {
+        if (!order) return null
+        const primaryPayment = bankTransferPayments[0]
+        const amount = order.totalAmount || primaryPayment?.amount || 0
+        const reference = primaryPayment?.reference || order.paymentReference || `ORDER-${order.id}`
+
+        return {
+            id: primaryPayment?.id || order.id,
+            orderId: order.id,
+            enterpriseId: 0,
+            enterpriseName: "SystemAdmin",
+            amount,
+            method: "BankTransfer",
+            status: primaryPayment?.status || "Pending",
+            reference,
+            bankCode: ADMIN_BANK_CODE,
+            bankAccount: ADMIN_BANK_ACCOUNT,
+            accountName: ADMIN_ACCOUNT_NAME,
+            qrCodeUrl: ADMIN_QR_URL,
+            notes: "Thanh toán về tài khoản SystemAdmin (duy nhất)",
+            createdAt: primaryPayment?.createdAt || new Date().toISOString(),
+            paidAt: primaryPayment?.paidAt,
         }
+    }, [order, bankTransferPayments, ADMIN_BANK_ACCOUNT, ADMIN_BANK_CODE, ADMIN_ACCOUNT_NAME, ADMIN_QR_URL])
+
+    // Sử dụng VietQR API để generate QR code đúng chuẩn cho các app ngân hàng Việt Nam
+    const vietQRUrl = useMemo(() => {
+        if (!adminBankPayment) return null
         
-        return filtered
-    }, [payments, enterpriseIdsInOrder, orderId])
+        const bankCode = adminBankPayment.bankCode || "970422" // MB Bank
+        const accountNumber = adminBankPayment.bankAccount || ""
+        const accountName = encodeURIComponent(adminBankPayment.accountName || "")
+        const amount = adminBankPayment.amount || 0
+        const content = encodeURIComponent(adminBankPayment.reference || "")
+        
+        // Sử dụng VietQR API để generate QR code đúng chuẩn EMV QR Code
+        // Format: https://img.vietqr.io/image/{bankCode}-{accountNumber}-compact2.png?amount={amount}&addInfo={content}&accountName={accountName}
+        if (bankCode && accountNumber) {
+            return `https://img.vietqr.io/image/${bankCode}-${accountNumber}-compact2.png?amount=${amount}&addInfo=${content}&accountName=${accountName}`
+        }
+        return null
+    }, [adminBankPayment])
+    
+    // Fallback: Generate QR code từ thông tin chuyển khoản (nếu VietQR API không khả dụng)
+    const qrCodeData = useMemo(() => {
+        if (!adminBankPayment) return ""
+        // Format thông tin chuyển khoản để tạo QR code fallback
+        return `Chuyển khoản đến ${adminBankPayment.accountName}\nSố tài khoản: ${adminBankPayment.bankAccount}\nNgân hàng: ${adminBankPayment.bankCode}\nSố tiền: ${adminBankPayment.amount.toLocaleString("vi-VN")} ₫\nNội dung: ${adminBankPayment.reference}`
+    }, [adminBankPayment])
 
     // Tính tổng tiền cần chuyển
     // Phải đặt trước useEffect để tuân thủ Rules of Hooks
     const totalPaymentAmount = useMemo(() => {
-        return bankTransferPayments.reduce((sum, p) => sum + p.amount, 0)
-    }, [bankTransferPayments])
+        if (adminBankPayment) return adminBankPayment.amount
+        return 0
+    }, [adminBankPayment])
 
     useEffect(() => {
         // QUAN TRỌNG: Reset tất cả state trước khi load dữ liệu mới
@@ -253,17 +223,6 @@ function PaymentContent() {
                             amount: p.amount,
                             createdAt: p.createdAt
                         })))
-                        console.log(`Expected enterpriseIds from orderItems:`, Array.from(enterpriseIdsInOrder))
-                        
-                        // Kiểm tra xem có đủ payments cho tất cả doanh nghiệp không
-                        const paymentEnterpriseIds = new Set(validPayments.map(p => p.enterpriseId).filter(Boolean))
-                        const missingEnterpriseIds = Array.from(enterpriseIdsInOrder).filter(id => !paymentEnterpriseIds.has(id))
-                        
-                        if (missingEnterpriseIds.length > 0) {
-                            console.warn(`⚠️ Missing payments for enterpriseIds:`, missingEnterpriseIds)
-                            console.warn(`⚠️ Backend may not have created payments for all enterprises`)
-                        }
-                        
                         // Sắp xếp payments theo createdAt giảm dần
                         const sortedPayments = validPayments.sort((a, b) => {
                             const dateA = new Date(a.createdAt).getTime()
@@ -298,7 +257,6 @@ function PaymentContent() {
                         })))
                         
                         // Set payments MỚI - thay thế hoàn toàn payments cũ
-                        // Hiển thị TẤT CẢ payments mới nhất được tạo (cho tất cả doanh nghiệp)
                         setPayments(latestPayments)
                     } catch (err) {
                         console.error("Failed to create payment:", err)
@@ -392,7 +350,7 @@ function PaymentContent() {
         )
     }
 
-    console.log("Final bankTransferPayments count:", bankTransferPayments.length, "enterpriseIdsInOrder:", Array.from(enterpriseIdsInOrder))
+    console.log("Final bankTransferPayments count:", bankTransferPayments.length, "amount:", totalPaymentAmount)
 
     return (
         <>
@@ -430,31 +388,39 @@ function PaymentContent() {
                         </div>
 
                         {/* Order Items Summary */}
-                        {order.orderItems && order.orderItems.length > 0 && (
+                        {(() => {
+                            const itemsToDisplay = orderItemsWithEnterprise.length > 0 ? orderItemsWithEnterprise : (order.orderItems || [])
+                            return itemsToDisplay
+                        })().length > 0 && (
                             <div className="mt-6 pt-6 border-t border-gray-200">
                                 <h3 className="text-lg font-semibold text-gray-900 mb-4">Sản phẩm trong đơn hàng</h3>
                                 <div className="space-y-3">
-                                    {order.orderItems.map((item) => (
+                                    {(orderItemsWithEnterprise.length > 0 ? orderItemsWithEnterprise : (order.orderItems || [])).map((item) => (
                                         <div key={item.id} className="flex items-center gap-4 p-3 bg-gray-50 rounded-lg">
                                             <div className="relative w-16 h-16 rounded-lg overflow-hidden bg-gray-200 flex-shrink-0">
-                                                <Image
-                                                    src={isValidImageUrl(item.productImageUrl) ? getImageUrl(item.productImageUrl, "/hero.jpg") : "/hero.jpg"}
-                                                    alt={item.productName || `Sản phẩm #${item.productId}`}
-                                                    fill
-                                                    className="object-cover"
-                                                    sizes="64px"
-                                                    {...getImageAttributes(item.productImageUrl)}
-                                                    onError={(e) => {
-                                                        const target = e.target as HTMLImageElement
-                                                        if (!target.src.includes('hero.jpg')) {
-                                                            target.src = '/hero.jpg'
-                                                        }
-                                                    }}
-                                                />
+                                                {loadingProducts ? (
+                                                    <div className="w-full h-full flex items-center justify-center">
+                                                        <div className="animate-spin rounded-full h-4 w-4 border-2 border-gray-300 border-t-gray-600"></div>
+                                                    </div>
+                                                ) : (
+                                                    <Image
+                                                        src={getProductImageUrl(item)}
+                                                        alt={getProductName(item)}
+                                                        fill
+                                                        className="object-cover"
+                                                        sizes="64px"
+                                                        onError={(e) => {
+                                                            const target = e.target as HTMLImageElement
+                                                            if (!target.src.includes('hero.jpg')) {
+                                                                target.src = '/hero.jpg'
+                                                            }
+                                                        }}
+                                                    />
+                                                )}
                                             </div>
                                             <div className="flex-1 min-w-0">
                                                 <h4 className="font-semibold text-gray-900 text-sm mb-1">
-                                                    {item.productName || `Sản phẩm #${item.productId}`}
+                                                    {getProductName(item)}
                                                 </h4>
                                                 {item.enterpriseName && (
                                                     <p className="text-xs text-gray-500 mb-1">Doanh nghiệp: {item.enterpriseName}</p>
@@ -507,177 +473,127 @@ function PaymentContent() {
                                 </div>
                             </div>
                         </div>
-                    ) : bankTransferPayments.length > 0 ? (
+                    ) : adminBankPayment ? (
                         <div className="bg-white rounded-lg shadow-sm border p-6">
                             <h2 className="text-xl font-bold text-gray-900 mb-6">Thanh toán qua chuyển khoản</h2>
+                            {/* Thông báo dùng tài khoản SystemAdmin */}
+                            <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 mb-6">
+                                <p className="text-sm text-blue-800 font-semibold">
+                                    Tất cả đơn hàng chuyển khoản sẽ thanh toán về <strong>tài khoản SystemAdmin (duy nhất)</strong>. Không sử dụng tài khoản của doanh nghiệp.
+                                </p>
+                            </div>
 
-                            {/* Info if multiple payments */}
-                            {bankTransferPayments.length > 1 && (
-                                <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4 mb-6">
-                                    <div className="flex items-start gap-3">
-                                        <svg className="w-5 h-5 text-yellow-600 flex-shrink-0 mt-0.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-                                        </svg>
-                                        <div className="text-sm text-yellow-800">
-                                            <p className="font-semibold mb-1">Lưu ý quan trọng:</p>
-                                            <p>Đơn hàng của bạn có sản phẩm từ <strong>{bankTransferPayments.length} doanh nghiệp</strong>.</p>
-                                            <p>Vui lòng chuyển khoản cho <strong>TẤT CẢ {bankTransferPayments.length} doanh nghiệp</strong> theo thông tin bên dưới.</p>
-                                            <p className="mt-2 font-semibold">Tổng số tiền cần chuyển: <span className="text-lg">{totalPaymentAmount.toLocaleString("vi-VN")} ₫</span></p>
-                                        </div>
-                                    </div>
+                            {/* Thông tin thanh toán duy nhất */}
+                            <div className="border-2 border-gray-200 rounded-lg p-6">
+                                <div className="mb-4 pb-4 border-b border-gray-200">
+                                    <h3 className="text-lg font-semibold text-gray-900">
+                                        Tài khoản nhận tiền (SystemAdmin)
+                                    </h3>
                                 </div>
-                            )}
 
-                            {/* List all payments */}
-                            <div className="space-y-6">
-                                {bankTransferPayments.map((payment, index) => {
-                                    // Lấy sản phẩm của enterprise này
-                                    const enterpriseItems = payment.enterpriseId 
-                                        ? (orderItemsByEnterprise.get(payment.enterpriseId) || [])
-                                        : []
-                                    
-                                    return (
-                                    <div key={payment.id} className="border-2 border-gray-200 rounded-lg p-6">
-                                        {/* Enterprise name if available */}
-                                        {payment.enterpriseName && (
-                                            <div className="mb-4 pb-4 border-b border-gray-200">
-                                                <h3 className="text-lg font-semibold text-gray-900">
-                                                    Doanh nghiệp: {payment.enterpriseName}
-                                                </h3>
-                                                {bankTransferPayments.length > 1 && (
-                                                    <p className="text-sm text-gray-600 mt-1">
-                                                        Thanh toán {index + 1} / {bankTransferPayments.length}
-                                                    </p>
-                                                )}
+                                <div className="bg-gray-50 rounded-lg p-6 mb-6">
+                                    <h3 className="text-sm font-semibold text-gray-900 mb-4">Thông tin chuyển khoản</h3>
+                                    <div className="space-y-3 text-sm">
+                                        {adminBankPayment.accountName && (
+                                            <div className="flex justify-between">
+                                                <span className="text-gray-600">Chủ tài khoản:</span>
+                                                <span className="font-semibold text-gray-900">{adminBankPayment.accountName}</span>
                                             </div>
                                         )}
-
-                                        {/* Products for this enterprise */}
-                                        {enterpriseItems.length > 0 && (
-                                            <div className="mb-6 pb-6 border-b border-gray-200">
-                                                <h4 className="text-sm font-semibold text-gray-900 mb-3">Sản phẩm cần thanh toán:</h4>
-                                                <div className="space-y-2">
-                                                    {enterpriseItems.map((item) => (
-                                                        <div key={item.id} className="flex items-center gap-3 p-2 bg-gray-50 rounded">
-                                                            <div className="relative w-12 h-12 rounded overflow-hidden bg-gray-200 flex-shrink-0">
-                                                                <Image
-                                                                    src={isValidImageUrl(item.productImageUrl) ? getImageUrl(item.productImageUrl, "/hero.jpg") : "/hero.jpg"}
-                                                                    alt={item.productName || `Sản phẩm #${item.productId}`}
-                                                                    fill
-                                                                    className="object-cover"
-                                                                    sizes="48px"
-                                                                    {...getImageAttributes(item.productImageUrl)}
-                                                                    onError={(e) => {
-                                                                        const target = e.target as HTMLImageElement
-                                                                        if (!target.src.includes('hero.jpg')) {
-                                                                            target.src = '/hero.jpg'
-                                                                        }
-                                                                    }}
-                                                                />
-                                                            </div>
-                                                            <div className="flex-1 min-w-0">
-                                                                <p className="text-sm font-medium text-gray-900 truncate">
-                                                                    {item.productName || `Sản phẩm #${item.productId}`}
-                                                                </p>
-                                                                <p className="text-xs text-gray-600">
-                                                                    {item.price.toLocaleString("vi-VN")}₫ x {item.quantity}
-                                                                </p>
-                                                            </div>
-                                                            <div className="text-sm font-semibold text-gray-900">
-                                                                {((item.price || 0) * (item.quantity || 0)).toLocaleString("vi-VN")}₫
-                                                            </div>
-                                                        </div>
-                                                    ))}
-                                                    <div className="flex justify-between items-center pt-2 mt-2 border-t border-gray-200">
-                                                        <span className="text-sm font-semibold text-gray-700">Tổng tiền doanh nghiệp này:</span>
-                                                        <span className="text-base font-bold text-indigo-600">
-                                                            {payment.amount.toLocaleString("vi-VN")} ₫
-                                                        </span>
-                                                    </div>
-                                                </div>
-                                            </div>
-                                        )}
-
-                                        {/* Bank Info */}
-                                        {payment.bankAccount && (
-                                            <div className="bg-gray-50 rounded-lg p-6 mb-6">
-                                                <h3 className="text-sm font-semibold text-gray-900 mb-4">Thông tin tài khoản ngân hàng</h3>
-                                                <div className="space-y-3 text-sm">
-                                                    {payment.accountName && (
-                                                        <div className="flex justify-between">
-                                                            <span className="text-gray-600">Chủ tài khoản:</span>
-                                                            <span className="font-semibold text-gray-900">{payment.accountName}</span>
-                                                        </div>
-                                                    )}
-                                                    {payment.bankCode && (
-                                                        <div className="flex justify-between">
-                                                            <span className="text-gray-600">Ngân hàng:</span>
-                                                            <span className="font-semibold text-gray-900">{payment.bankCode}</span>
-                                                        </div>
-                                                    )}
-                                                    <div className="flex justify-between">
-                                                        <span className="text-gray-600">Số tài khoản:</span>
-                                                        <span className="font-semibold text-gray-900 font-mono">{payment.bankAccount}</span>
-                                                    </div>
-                                                    <div className="flex justify-between">
-                                                        <span className="text-gray-600">Số tiền:</span>
-                                                        <span className="font-bold text-lg text-indigo-600">
-                                                            {payment.amount.toLocaleString("vi-VN")} ₫
-                                                        </span>
-                                                    </div>
-                                                    {payment.reference && (
-                                                        <div className="flex justify-between items-start">
-                                                            <span className="text-gray-600">Nội dung chuyển khoản:</span>
-                                                            <span className="font-semibold text-gray-900 font-mono text-right break-all">{payment.reference}</span>
-                                                        </div>
-                                                    )}
-                                                </div>
-                                            </div>
-                                        )}
-
-                                        {/* QR Code */}
-                                        {payment.qrCodeUrl && (
-                                            <div className="text-center mb-6">
-                                                <h3 className="text-sm font-semibold text-gray-900 mb-4">Quét mã QR để thanh toán</h3>
-                                                <div className="inline-block bg-white p-4 rounded-lg border-2 border-gray-200">
-                                                    <Image
-                                                        src={payment.qrCodeUrl}
-                                                        alt={`QR Code thanh toán - ${payment.enterpriseName || `Doanh nghiệp ${index + 1}`}`}
-                                                        width={300}
-                                                        height={300}
-                                                        className="w-64 h-64 object-contain"
-                                                        {...getImageAttributes(payment.qrCodeUrl)}
-                                                        onError={(e) => {
-                                                            const target = e.target as HTMLImageElement
-                                                            target.style.display = 'none'
-                                                        }}
-                                                    />
-                                                </div>
-                                                <p className="text-xs text-gray-500 mt-3">
-                                                    Quét mã QR bằng ứng dụng ngân hàng của bạn để thanh toán
-                                                </p>
+                                        {adminBankPayment.bankCode && (
+                                            <div className="flex justify-between">
+                                                <span className="text-gray-600">Ngân hàng:</span>
+                                                <span className="font-semibold text-gray-900">{adminBankPayment.bankCode}</span>
                                             </div>
                                         )}
                                     </div>
-                                )})}
+                                    <div className="flex justify-between mt-3">
+                                        <span className="text-gray-600">Số tài khoản:</span>
+                                        <span className="font-semibold text-gray-900 font-mono">{adminBankPayment.bankAccount || "Chưa cấu hình"}</span>
+                                    </div>
+                                    <div className="flex justify-between mt-3">
+                                        <span className="text-gray-600">Số tiền:</span>
+                                        <span className="font-bold text-lg text-indigo-600">
+                                            {adminBankPayment.amount.toLocaleString("vi-VN")} ₫
+                                        </span>
+                                    </div>
+                                    {adminBankPayment.reference && (
+                                        <div className="flex justify-between items-start mt-3">
+                                            <span className="text-gray-600">Nội dung chuyển khoản:</span>
+                                            <span className="font-semibold text-gray-900 font-mono text-right break-all">{adminBankPayment.reference}</span>
+                                        </div>
+                                    )}
+                                </div>
+
+                                {/* QR Code */}
+                                <div className="text-center mb-6">
+                                    <h3 className="text-sm font-semibold text-gray-900 mb-4">Quét mã QR để thanh toán</h3>
+                                    <div className="inline-block bg-white p-4 rounded-lg border-2 border-gray-200">
+                                        {adminBankPayment.qrCodeUrl ? (
+                                            // Ưu tiên 1: Nếu có URL QR code từ env, sử dụng image
+                                            <Image
+                                                src={adminBankPayment.qrCodeUrl}
+                                                alt={`QR Code thanh toán - SystemAdmin`}
+                                                width={300}
+                                                height={300}
+                                                className="w-64 h-64 object-contain"
+                                                {...getImageAttributes(adminBankPayment.qrCodeUrl)}
+                                                onError={(e) => {
+                                                    const target = e.target as HTMLImageElement
+                                                    target.style.display = 'none'
+                                                }}
+                                            />
+                                        ) : vietQRUrl ? (
+                                            // Ưu tiên 2: Sử dụng VietQR API để generate QR code đúng chuẩn EMV
+                                            <Image
+                                                src={vietQRUrl}
+                                                alt={`QR Code thanh toán - SystemAdmin`}
+                                                width={300}
+                                                height={300}
+                                                className="w-64 h-64 object-contain"
+                                                unoptimized
+                                                onError={(e) => {
+                                                    console.error("VietQR API error, falling back to generated QR")
+                                                    const target = e.target as HTMLImageElement
+                                                    target.style.display = 'none'
+                                                }}
+                                            />
+                                        ) : (
+                                            // Fallback: Generate QR code từ thông tin chuyển khoản
+                                            <div className="flex items-center justify-center">
+                                                <QRCodeSVG
+                                                    value={qrCodeData || `Chuyển khoản đến ${adminBankPayment.accountName}\nSố tài khoản: ${adminBankPayment.bankAccount}\nNgân hàng: ${adminBankPayment.bankCode}\nSố tiền: ${adminBankPayment.amount.toLocaleString("vi-VN")} ₫\nNội dung: ${adminBankPayment.reference}`}
+                                                    size={256}
+                                                    level="H"
+                                                    includeMargin={true}
+                                                    fgColor="#000000"
+                                                    bgColor="#FFFFFF"
+                                                />
+                                            </div>
+                                        )}
+                                    </div>
+                                    <p className="text-xs text-gray-500 mt-3">
+                                        Quét mã QR bằng ứng dụng ngân hàng của bạn để thanh toán
+                                    </p>
+                                    {vietQRUrl && (
+                                        <p className="text-xs text-gray-400 mt-2">
+                                            Mã QR theo chuẩn VietQR: {adminBankPayment.accountName} - {adminBankPayment.bankAccount}
+                                        </p>
+                                    )}
+                                    {!adminBankPayment.qrCodeUrl && !vietQRUrl && (
+                                        <p className="text-xs text-gray-400 mt-2">
+                                            Mã QR chứa thông tin: {adminBankPayment.accountName} - {adminBankPayment.bankAccount}
+                                        </p>
+                                    )}
+                                </div>
                             </div>
 
                             {/* Instructions */}
                             <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 mb-6 mt-6">
                                 <h4 className="text-sm font-semibold text-blue-900 mb-2">Hướng dẫn thanh toán:</h4>
                                 <ol className="text-sm text-blue-800 space-y-1 list-decimal list-inside">
-                                    {bankTransferPayments.length > 1 ? (
-                                        <>
-                                            <li>Đơn hàng có sản phẩm từ {bankTransferPayments.length} doanh nghiệp, bạn cần chuyển khoản cho TẤT CẢ các doanh nghiệp</li>
-                                            <li>Quét mã QR hoặc chuyển khoản theo thông tin tài khoản của từng doanh nghiệp bên trên</li>
-                                            <li>Nhập đúng nội dung chuyển khoản cho từng doanh nghiệp (ghi rõ trong thông tin tài khoản)</li>
-                                        </>
-                                    ) : (
-                                        <>
-                                            <li>Quét mã QR hoặc chuyển khoản theo thông tin tài khoản bên trên</li>
-                                            <li>Nhập đúng nội dung chuyển khoản: <strong>{bankTransferPayments[0].reference}</strong></li>
-                                        </>
-                                    )}
+                                    <li>Quét mã QR hoặc chuyển khoản theo thông tin tài khoản SystemAdmin bên trên</li>
+                                    <li>Nhập đúng nội dung chuyển khoản: <strong>{adminBankPayment.reference}</strong></li>
                                     <li>Sau khi chuyển khoản thành công, đơn hàng sẽ được xử lý</li>
                                     <li>Bạn có thể theo dõi trạng thái đơn hàng tại trang "Đơn hàng của tôi"</li>
                                 </ol>

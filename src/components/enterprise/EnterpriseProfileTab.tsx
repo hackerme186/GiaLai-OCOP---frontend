@@ -282,12 +282,12 @@ export default function EnterpriseProfileTab({ user }: EnterpriseProfileTabProps
         </div>
       )}
 
-      {/* Header Section */}
-      <div className="bg-gradient-to-r from-green-600 via-emerald-600 to-teal-600 rounded-2xl shadow-xl p-8 text-white">
-        <div>
-          <h2 className="text-3xl font-bold mb-2 drop-shadow-lg">🏢 Hồ sơ doanh nghiệp</h2>
-          <p className="text-white/90 text-lg">Quản lý thông tin và tài liệu của doanh nghiệp</p>
-        </div>
+
+      {/* Header */}
+      <div className="bg-gradient-to-r from-teal-600 via-cyan-600 to-blue-600 rounded-2xl shadow-xl p-8 text-white">
+        <h2 className="text-3xl font-bold mb-2 drop-shadow-lg">🏢 Hồ sơ doanh nghiệp</h2>
+        <p className="text-teal-100 text-lg">Quản lý thông tin và tài liệu của doanh nghiệp</p>
+
       </div>
 
       {/* Approval Status */}
