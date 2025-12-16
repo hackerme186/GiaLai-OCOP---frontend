@@ -156,7 +156,7 @@ async function request<TResponse>(
 
     // Handle 401 Unauthorized with a clear error message
     if (response.status === 401) {
-      // Clear invalid token
+      // Clear invalid token (always logout on 401, even in silent mode)
       if (typeof window !== "undefined") {
         try {
           const { logout } = require("@/lib/auth");
@@ -168,6 +168,16 @@ async function request<TResponse>(
       const authError = new Error("Phiên đăng nhập đã hết hạn hoặc không hợp lệ. Vui lòng đăng nhập lại.");
       (authError as any).status = 401;
       (authError as any).isAuthError = true;
+      (authError as any).silent = options.silent;
+      
+      // Suppress stack trace in console for silent errors
+      if (options.silent) {
+        authError.toString = () => authError.message;
+        if (Error.captureStackTrace) {
+          Error.captureStackTrace(authError, () => { });
+        }
+      }
+      
       throw authError;
     }
 
@@ -206,16 +216,31 @@ async function request<TResponse>(
     }
 
     // Thêm chi tiết nếu có (không hiển thị trực tiếp cho user, chỉ log)
-    if (bodyDetails && typeof bodyDetails === "string") {
+    if (bodyDetails && typeof bodyDetails === "string" && !options.silent) {
       console.warn("⚠️ [API] Error details:", bodyDetails);
     }
 
-    const error = new Error(message.trim());
+    // Ensure message is a valid string (defensive programming)
+    const errorMessage = (message && typeof message === 'string' ? message : "Đã xảy ra lỗi. Vui lòng thử lại.").trim();
+    
+    const error = new Error(errorMessage);
     (error as any).status = response.status;
     (error as any).response = data; // Lưu toàn bộ response data để debug
     (error as any).bodyMessage = bodyMessage;
     (error as any).bodyDetails = bodyDetails;
     (error as any).bodyError = bodyError;
+    (error as any).silent = options.silent; // Mark error as silent
+    
+    // Suppress stack trace in console for silent errors
+    if (options.silent) {
+      // Override toString to prevent stack trace display
+      error.toString = () => errorMessage;
+      // Prevent stack trace from being captured
+      if (Error.captureStackTrace) {
+        Error.captureStackTrace(error, () => { });
+      }
+    }
+    
     throw error;
   }
 
