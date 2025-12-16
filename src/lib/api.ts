@@ -3,12 +3,13 @@
 // - Local: .env.local → NEXT_PUBLIC_API_BASE=http://localhost:5003/api
 // - Production: .env.production → NEXT_PUBLIC_API_BASE=https://gialai-ocop-be.onrender.com/api
 // Hoặc set trực tiếp trên hosting platform (Render, Vercel, etc.)
-import { getAuthToken, getClaimsFromJwt } from "@/lib/auth"
+import { getAuthToken, getClaimsFromJwt } from "@/lib/auth";
 
 // API Base URL - lấy từ environment variable
 // Next.js tự động load .env.local (development) hoặc .env.production (production)
 // Fallback: production URL nếu không có env var
-export const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE || "https://gialai-ocop-be.onrender.com/api";
+export const API_BASE_URL =
+  process.env.NEXT_PUBLIC_API_BASE || "https://gialai-ocop-be.onrender.com/api";
 
 type Json = unknown;
 
@@ -22,7 +23,11 @@ const RETRY_DELAYS = [1000, 2000, 3000]; // 1s, 2s, 3s delays
 
 async function request<TResponse>(
   path: string,
-  options: RequestInit & { json?: Json; silent?: boolean; retries?: number } = {}
+  options: RequestInit & {
+    json?: Json;
+    silent?: boolean;
+    retries?: number;
+  } = {}
 ): Promise<TResponse> {
   const url = `${API_BASE_URL}${path}`;
   const retries = options.retries ?? 0;
@@ -54,49 +59,74 @@ async function request<TResponse>(
     response = await fetch(url, {
       method: options.method || "GET",
       headers,
-      body: options.json !== undefined ? JSON.stringify(options.json) : options.body,
+      body:
+        options.json !== undefined
+          ? JSON.stringify(options.json)
+          : options.body,
       // credentials: "include", // REMOVED: Causes CORS error with wildcard Access-Control-Allow-Origin
       credentials: "omit", // Don't send cookies - fixes CORS with wildcard origin
       cache: "no-store",
     });
 
     if (path.includes("/auth/login")) {
-      console.log("🌐 [API] Response status:", response.status, response.statusText);
-      console.log("🌐 [API] Response headers:", Object.fromEntries(response.headers.entries()));
+      console.log(
+        "🌐 [API] Response status:",
+        response.status,
+        response.statusText
+      );
+      console.log(
+        "🌐 [API] Response headers:",
+        Object.fromEntries(response.headers.entries())
+      );
     }
   } catch (fetchError) {
     // Network error - backend không available
-    const errorMsg = fetchError instanceof Error ? fetchError.message : 'Network error';
+    const errorMsg =
+      fetchError instanceof Error ? fetchError.message : "Network error";
 
     // Retry logic for cold start (only for GET requests and if retries not exhausted)
     const isGetRequest = !options.method || options.method === "GET";
-    const shouldRetry = isGetRequest && retries < MAX_RETRIES && !options.silent;
+    const shouldRetry =
+      isGetRequest && retries < MAX_RETRIES && !options.silent;
 
     if (shouldRetry) {
       const delay = RETRY_DELAYS[retries] || 3000;
-      console.info(`🔄 [API] Retry ${retries + 1}/${MAX_RETRIES} sau ${delay}ms (cold start?)...`);
+      console.info(
+        `🔄 [API] Retry ${
+          retries + 1
+        }/${MAX_RETRIES} sau ${delay}ms (cold start?)...`
+      );
 
-      await new Promise(resolve => setTimeout(resolve, delay));
+      await new Promise((resolve) => setTimeout(resolve, delay));
 
       // Retry with incremented retry count
       return request<TResponse>(path, {
         ...options,
-        retries: retries + 1
+        retries: retries + 1,
       });
     }
 
     // Only log error if not in silent mode and cooldown has passed
     const now = Date.now();
-    if (!options.silent && (now - lastErrorLogTime) > ERROR_LOG_COOLDOWN) {
+    if (!options.silent && now - lastErrorLogTime > ERROR_LOG_COOLDOWN) {
       // Use console.warn instead of console.error for network errors (less alarming)
-      console.warn(`⚠️ Backend API không khả dụng (${API_BASE_URL}):`, errorMsg);
-      console.info('💡 Backend có thể đang cold start. Render free tier sleep sau 15 phút không hoạt động.');
-      console.info('💡 Đợi 30-60 giây để backend khởi động, hoặc chạy local backend với: dotnet run');
+      console.warn(
+        `⚠️ Backend API không khả dụng (${API_BASE_URL}):`,
+        errorMsg
+      );
+      console.info(
+        "💡 Backend có thể đang cold start. Render free tier sleep sau 15 phút không hoạt động."
+      );
+      console.info(
+        "💡 Đợi 30-60 giây để backend khởi động, hoặc chạy local backend với: dotnet run"
+      );
       lastErrorLogTime = now;
     }
 
     // Create a custom error with more context
-    const apiError = new Error(`Lỗi kết nối. Vui lòng kiểm tra internet hoặc thử lại sau.`) as any;
+    const apiError = new Error(
+      `Lỗi kết nối. Vui lòng kiểm tra internet hoặc thử lại sau.`
+    ) as any;
     apiError.status = 0; // Network error
     apiError.isNetworkError = true;
     apiError.originalError = errorMsg;
@@ -111,13 +141,13 @@ async function request<TResponse>(
         isNetworkError: apiError.isNetworkError,
         originalError: apiError.originalError,
         silent: true,
-        name: 'NetworkError',
+        name: "NetworkError",
         // Override toString to prevent stack trace display
         toString: () => apiError.message,
       };
       // Prevent stack trace from being captured
       if (Error.captureStackTrace) {
-        Error.captureStackTrace(silentError, () => { });
+        Error.captureStackTrace(silentError, () => {});
       }
       throw silentError;
     }
@@ -146,11 +176,16 @@ async function request<TResponse>(
   }
 
   if (!response.ok) {
-    let bodyMessage = (isJson && data && typeof data === "object" && (data as any).message) || "";
-    let bodyDetails = (isJson && data && typeof data === "object" && (data as any).details) || "";
-    let bodyError = (isJson && data && typeof data === "object" && (data as any).error) || "";
+    let bodyMessage =
+      (isJson && data && typeof data === "object" && (data as any).message) ||
+      "";
+    let bodyDetails =
+      (isJson && data && typeof data === "object" && (data as any).details) ||
+      "";
+    let bodyError =
+      (isJson && data && typeof data === "object" && (data as any).error) || "";
 
-    if (!bodyMessage && !isJson && typeof data === 'string') {
+    if (!bodyMessage && !isJson && typeof data === "string") {
       bodyMessage = data as string;
     }
 
@@ -165,19 +200,21 @@ async function request<TResponse>(
           // ignore if logout not available
         }
       }
-      const authError = new Error("Phiên đăng nhập đã hết hạn hoặc không hợp lệ. Vui lòng đăng nhập lại.");
+      const authError = new Error(
+        "Phiên đăng nhập đã hết hạn hoặc không hợp lệ. Vui lòng đăng nhập lại."
+      );
       (authError as any).status = 401;
       (authError as any).isAuthError = true;
       (authError as any).silent = options.silent;
-      
+
       // Suppress stack trace in console for silent errors
       if (options.silent) {
         authError.toString = () => authError.message;
         if (Error.captureStackTrace) {
-          Error.captureStackTrace(authError, () => { });
+          Error.captureStackTrace(authError, () => {});
         }
       }
-      
+
       throw authError;
     }
 
@@ -221,8 +258,12 @@ async function request<TResponse>(
     }
 
     // Ensure message is a valid string (defensive programming)
-    const errorMessage = (message && typeof message === 'string' ? message : "Đã xảy ra lỗi. Vui lòng thử lại.").trim();
-    
+    const errorMessage = (
+      message && typeof message === "string"
+        ? message
+        : "Đã xảy ra lỗi. Vui lòng thử lại."
+    ).trim();
+
     const error = new Error(errorMessage);
     (error as any).status = response.status;
     (error as any).response = data; // Lưu toàn bộ response data để debug
@@ -230,17 +271,17 @@ async function request<TResponse>(
     (error as any).bodyDetails = bodyDetails;
     (error as any).bodyError = bodyError;
     (error as any).silent = options.silent; // Mark error as silent
-    
+
     // Suppress stack trace in console for silent errors
     if (options.silent) {
       // Override toString to prevent stack trace display
       error.toString = () => errorMessage;
       // Prevent stack trace from being captured
       if (Error.captureStackTrace) {
-        Error.captureStackTrace(error, () => { });
+        Error.captureStackTrace(error, () => {});
       }
     }
-    
+
     throw error;
   }
 
@@ -554,7 +595,13 @@ export interface CreateOrderDto {
 }
 
 export interface UpdateOrderStatusDto {
-  status: "Pending" | "Processing" | "Shipped" | "Completed" | "Cancelled" | "PendingCompletion";
+  status:
+    | "Pending"
+    | "Processing"
+    | "Shipped"
+    | "Completed"
+    | "Cancelled"
+    | "PendingCompletion";
   shippingAddress?: string;
 }
 
@@ -759,7 +806,9 @@ export interface RevenueByMonth {
 // ========================================
 
 // ------ AUTH ------
-export async function register(payload: RegisterPayload): Promise<AuthResponse> {
+export async function register(
+  payload: RegisterPayload
+): Promise<AuthResponse> {
   // Đăng ký đơn giản - chỉ gửi name, email, password
   // Backend tự động trả về JWT token (không cần OTP)
   return request<AuthResponse>("/auth/register", {
@@ -767,13 +816,16 @@ export async function register(payload: RegisterPayload): Promise<AuthResponse> 
     json: {
       name: payload.name,
       email: payload.email,
-      password: payload.password
+      password: payload.password,
     },
   });
 }
 
 export async function login(payload: LoginPayload): Promise<AuthResponse> {
-  console.log("🌐 [API] Login request:", { email: payload.email, url: `${API_BASE_URL}/auth/login` });
+  console.log("🌐 [API] Login request:", {
+    email: payload.email,
+    url: `${API_BASE_URL}/auth/login`,
+  });
   try {
     const result = await request<AuthResponse>("/auth/login", {
       method: "POST",
@@ -796,8 +848,12 @@ export interface GoogleLoginPayload {
   idToken: string;
 }
 
-export async function loginWithFacebook(payload: FacebookLoginPayload): Promise<AuthResponse> {
-  console.log("🌐 [API] Facebook login request:", { url: `${API_BASE_URL}/auth/facebook` });
+export async function loginWithFacebook(
+  payload: FacebookLoginPayload
+): Promise<AuthResponse> {
+  console.log("🌐 [API] Facebook login request:", {
+    url: `${API_BASE_URL}/auth/facebook`,
+  });
   try {
     // Backend expects AccessToken (PascalCase) - ASP.NET Core automatically maps camelCase to PascalCase
     const result = await request<AuthResponse>("/auth/facebook", {
@@ -812,8 +868,12 @@ export async function loginWithFacebook(payload: FacebookLoginPayload): Promise<
   }
 }
 
-export async function loginWithGoogle(payload: GoogleLoginPayload): Promise<AuthResponse> {
-  console.log("🌐 [API] Google login request:", { url: `${API_BASE_URL}/auth/google` });
+export async function loginWithGoogle(
+  payload: GoogleLoginPayload
+): Promise<AuthResponse> {
+  console.log("🌐 [API] Google login request:", {
+    url: `${API_BASE_URL}/auth/google`,
+  });
   try {
     // Backend expects IdToken (PascalCase) - ASP.NET Core automatically maps camelCase to PascalCase
     const result = await request<AuthResponse>("/auth/google", {
@@ -856,46 +916,64 @@ export interface ResendVerificationOtpDto {
   email: string;
 }
 
-export async function sendOtp(payload: SendOtpDto): Promise<{ message: string; otpCode?: string }> {
+export async function sendOtp(
+  payload: SendOtpDto
+): Promise<{ message: string; otpCode?: string }> {
   return request<{ message: string; otpCode?: string }>("/auth/send-otp", {
     method: "POST",
     json: payload,
   });
 }
 
-export async function verifyOtp(payload: VerifyOtpDto): Promise<{ message: string; verified: boolean }> {
+export async function verifyOtp(
+  payload: VerifyOtpDto
+): Promise<{ message: string; verified: boolean }> {
   return request<{ message: string; verified: boolean }>("/auth/verify-otp", {
     method: "POST",
     json: payload,
   });
 }
 
-export async function loginWithOtp(payload: LoginWithOtpDto): Promise<AuthResponse> {
+export async function loginWithOtp(
+  payload: LoginWithOtpDto
+): Promise<AuthResponse> {
   return request<AuthResponse>("/auth/login-with-otp", {
     method: "POST",
     json: payload,
   });
 }
 
-export async function registerWithOtp(payload: RegisterWithOtpDto): Promise<AuthResponse> {
+export async function registerWithOtp(
+  payload: RegisterWithOtpDto
+): Promise<AuthResponse> {
   return request<AuthResponse>("/auth/register-with-otp", {
     method: "POST",
     json: payload,
   });
 }
 
-export async function resendVerificationOtp(payload: ResendVerificationOtpDto): Promise<{ message: string; otpCode?: string }> {
-  return request<{ message: string; otpCode?: string }>("/auth/resend-verification-otp", {
-    method: "POST",
-    json: payload,
-  });
+export async function resendVerificationOtp(
+  payload: ResendVerificationOtpDto
+): Promise<{ message: string; otpCode?: string }> {
+  return request<{ message: string; otpCode?: string }>(
+    "/auth/resend-verification-otp",
+    {
+      method: "POST",
+      json: payload,
+    }
+  );
 }
 
-export async function verifyEmail(payload: VerifyOtpDto): Promise<{ message: string; isEmailVerified: boolean }> {
-  return request<{ message: string; isEmailVerified: boolean }>("/auth/verify-email", {
-    method: "POST",
-    json: payload,
-  });
+export async function verifyEmail(
+  payload: VerifyOtpDto
+): Promise<{ message: string; isEmailVerified: boolean }> {
+  return request<{ message: string; isEmailVerified: boolean }>(
+    "/auth/verify-email",
+    {
+      method: "POST",
+      json: payload,
+    }
+  );
 }
 
 // ------ USERS ------
@@ -926,7 +1004,10 @@ export async function getUser(id: number): Promise<User> {
   });
 }
 
-export async function updateUser(id: number, payload: UpdateUserDto): Promise<User> {
+export async function updateUser(
+  id: number,
+  payload: UpdateUserDto
+): Promise<User> {
   return request<User>(`/users/${id}`, {
     method: "PUT",
     json: payload,
@@ -942,7 +1023,10 @@ export async function deleteUser(id: number): Promise<void> {
 export async function updateCurrentUser(payload: UpdateUserDto): Promise<User> {
   // Log để debug
   if (typeof window !== "undefined") {
-    console.log("📤 [API] updateCurrentUser - Request payload:", JSON.stringify(payload, null, 2));
+    console.log(
+      "📤 [API] updateCurrentUser - Request payload:",
+      JSON.stringify(payload, null, 2)
+    );
   }
 
   const result = await request<User>("/users/me", {
@@ -952,13 +1036,17 @@ export async function updateCurrentUser(payload: UpdateUserDto): Promise<User> {
 
   // Log response để debug
   if (typeof window !== "undefined") {
-    console.log("📥 [API] updateCurrentUser - Response:", JSON.stringify(result, null, 2));
+    console.log(
+      "📥 [API] updateCurrentUser - Response:",
+      JSON.stringify(result, null, 2)
+    );
 
     // Kiểm tra dữ liệu có được cập nhật không
     const fieldsNotInResponse: string[] = [];
     const fieldsNotUpdated: string[] = [];
 
-    if (payload.name && result.name !== payload.name) fieldsNotUpdated.push("name");
+    if (payload.name && result.name !== payload.name)
+      fieldsNotUpdated.push("name");
 
     if (payload.phoneNumber) {
       if (!result.phoneNumber) {
@@ -988,7 +1076,10 @@ export async function updateCurrentUser(payload: UpdateUserDto): Promise<User> {
       }
     }
 
-    if (payload.shippingAddress && result.shippingAddress !== payload.shippingAddress) {
+    if (
+      payload.shippingAddress &&
+      result.shippingAddress !== payload.shippingAddress
+    ) {
       if (!result.shippingAddress) {
         fieldsNotInResponse.push("shippingAddress");
       } else {
@@ -1006,7 +1097,10 @@ export async function updateCurrentUser(payload: UpdateUserDto): Promise<User> {
     }
 
     if (fieldsNotUpdated.length > 0) {
-      console.warn("⚠️ [API] updateCurrentUser - Các trường sau không khớp với payload:", fieldsNotUpdated);
+      console.warn(
+        "⚠️ [API] updateCurrentUser - Các trường sau không khớp với payload:",
+        fieldsNotUpdated
+      );
     }
   }
 
@@ -1034,7 +1128,9 @@ export async function getWards(districtId: number): Promise<Ward[]> {
   });
 }
 
-export async function updateShippingAddressDetail(payload: UpdateShippingAddressDetailDto): Promise<User> {
+export async function updateShippingAddressDetail(
+  payload: UpdateShippingAddressDetailDto
+): Promise<User> {
   return request<User>("/users/update-shipping-address", {
     method: "PUT",
     json: payload,
@@ -1043,7 +1139,7 @@ export async function updateShippingAddressDetail(payload: UpdateShippingAddress
 
 // ------ CATEGORIES ------
 export async function getCategories(isActive?: boolean): Promise<Category[]> {
-  const query = isActive !== undefined ? `?isActive=${isActive}` : '';
+  const query = isActive !== undefined ? `?isActive=${isActive}` : "";
   return request<Category[]>(`/categories${query}`, {
     method: "GET",
   });
@@ -1055,14 +1151,19 @@ export async function getCategory(id: number): Promise<Category> {
   });
 }
 
-export async function createCategory(payload: CreateCategoryDto): Promise<Category> {
+export async function createCategory(
+  payload: CreateCategoryDto
+): Promise<Category> {
   return request<Category>("/categories", {
     method: "POST",
     json: payload,
   });
 }
 
-export async function updateCategory(id: number, payload: Partial<CreateCategoryDto>): Promise<Category> {
+export async function updateCategory(
+  id: number,
+  payload: Partial<CreateCategoryDto>
+): Promise<Category> {
   return request<Category>(`/categories/${id}`, {
     method: "PUT",
     json: payload,
@@ -1087,10 +1188,12 @@ export async function getProducts(params?: {
   silent?: boolean; // Silent mode to reduce console errors
 }): Promise<Product[]> {
   const searchParams = new URLSearchParams();
-  if (params?.page) searchParams.append('page', String(params.page));
-  if (params?.pageSize) searchParams.append('pageSize', String(params.pageSize));
-  if (params?.status) searchParams.append('status', params.status);
-  if (params?.categoryId) searchParams.append('categoryId', String(params.categoryId));
+  if (params?.page) searchParams.append("page", String(params.page));
+  if (params?.pageSize)
+    searchParams.append("pageSize", String(params.pageSize));
+  if (params?.status) searchParams.append("status", params.status);
+  if (params?.categoryId)
+    searchParams.append("categoryId", String(params.categoryId));
 
   // Support both 'search' and 'q' parameters (BE may use either)
   // If both are provided, prefer 'q', otherwise use whichever is provided
@@ -1098,43 +1201,52 @@ export async function getProducts(params?: {
   if (searchTerm) {
     // Try 'q' parameter first (more common in REST APIs)
     if (params?.q) {
-      searchParams.append('q', params.q);
+      searchParams.append("q", params.q);
     }
     // Also try 'search' if provided (some APIs use this)
     if (params?.search && !params?.q) {
-      searchParams.append('search', params.search);
+      searchParams.append("search", params.search);
     }
   }
-  if (params?.enterpriseId) searchParams.append('enterpriseId', String(params.enterpriseId));
+  if (params?.enterpriseId)
+    searchParams.append("enterpriseId", String(params.enterpriseId));
 
   const query = searchParams.toString();
-  const url = `/products${query ? '?' + query : ''}`;
+  const url = `/products${query ? "?" + query : ""}`;
 
   // Debug: Log the API call
   if (params?.search || params?.q) {
-    console.log('🔍 API Call:', {
+    console.log("🔍 API Call:", {
       fullUrl: `${API_BASE_URL}${url}`,
       searchTerm: params?.search || params?.q,
-      params: { q: params?.q, search: params?.search }
+      params: { q: params?.q, search: params?.search },
     });
   }
 
   try {
-    const response = await request<Product[] | { products?: Product[]; items?: Product[]; data?: Product[] }>(url, {
+    const response = await request<
+      Product[] | { products?: Product[]; items?: Product[]; data?: Product[] }
+    >(url, {
       method: "GET",
       silent: params?.silent, // Pass silent mode to request
     });
 
     // Debug: Log the response
     if (params?.search || params?.q) {
-      const resultCount = Array.isArray(response) ? response.length :
-        (response && typeof response === 'object' ?
-          ((response as any).products?.length || (response as any).items?.length || (response as any).data?.length || 0) : 0);
-      console.log('✅ API Response:', {
+      const resultCount = Array.isArray(response)
+        ? response.length
+        : response && typeof response === "object"
+        ? (response as any).products?.length ||
+          (response as any).items?.length ||
+          (response as any).data?.length ||
+          0
+        : 0;
+      console.log("✅ API Response:", {
         searchTerm: params?.search || params?.q,
         count: resultCount,
-        responseType: Array.isArray(response) ? 'array' : typeof response,
-        responseKeys: response && typeof response === 'object' ? Object.keys(response) : []
+        responseType: Array.isArray(response) ? "array" : typeof response,
+        responseKeys:
+          response && typeof response === "object" ? Object.keys(response) : [],
       });
     }
 
@@ -1143,7 +1255,7 @@ export async function getProducts(params?: {
       return response;
     }
 
-    if (response && typeof response === 'object') {
+    if (response && typeof response === "object") {
       const obj = response as any;
       if (Array.isArray(obj.products)) {
         return obj.products;
@@ -1157,32 +1269,43 @@ export async function getProducts(params?: {
     }
 
     // Fallback: return empty array if response format is unexpected
-    console.warn('⚠️ Unexpected products response format:', response);
+    console.warn("⚠️ Unexpected products response format:", response);
     return [];
   } catch (error) {
     // If silent mode and network error, return empty array instead of throwing
-    if (params?.silent && ((error as any)?.isNetworkError || (error as any)?.status === 0)) {
+    if (
+      params?.silent &&
+      ((error as any)?.isNetworkError || (error as any)?.status === 0)
+    ) {
       return [];
     }
     throw error;
   }
 }
 
-export async function getProduct(id: number, options?: { silent?: boolean }): Promise<Product> {
+export async function getProduct(
+  id: number,
+  options?: { silent?: boolean }
+): Promise<Product> {
   return request<Product>(`/products/${id}`, {
     method: "GET",
     silent: options?.silent,
   });
 }
 
-export async function createProduct(payload: CreateProductDto): Promise<Product> {
+export async function createProduct(
+  payload: CreateProductDto
+): Promise<Product> {
   return request<Product>("/products", {
     method: "POST",
     json: payload,
   });
 }
 
-export async function updateProduct(id: number, payload: Partial<CreateProductDto>): Promise<Product> {
+export async function updateProduct(
+  id: number,
+  payload: Partial<CreateProductDto>
+): Promise<Product> {
   return request<Product>(`/products/${id}`, {
     method: "PUT",
     json: payload,
@@ -1192,7 +1315,10 @@ export async function updateProduct(id: number, payload: Partial<CreateProductDt
 /// <summary>
 /// SystemAdmin: Cập nhật chỉ ảnh sản phẩm
 /// </summary>
-export async function updateProductImage(id: number, imageUrl: string): Promise<void> {
+export async function updateProductImage(
+  id: number,
+  imageUrl: string
+): Promise<void> {
   return request<void>(`/products/${id}/image`, {
     method: "PUT",
     json: { imageUrl },
@@ -1205,7 +1331,10 @@ export async function deleteProduct(id: number): Promise<void> {
   });
 }
 
-export async function updateProductStatus(id: number, payload: UpdateProductStatusDto): Promise<Product> {
+export async function updateProductStatus(
+  id: number,
+  payload: UpdateProductStatusDto
+): Promise<Product> {
   return request<Product>(`/products/${id}/status`, {
     method: "POST",
     json: payload,
@@ -1213,7 +1342,9 @@ export async function updateProductStatus(id: number, payload: UpdateProductStat
 }
 
 // ------ ENTERPRISE APPLICATIONS ------
-export async function createEnterpriseApplication(payload: CreateEnterpriseApplicationDto): Promise<EnterpriseApplication> {
+export async function createEnterpriseApplication(
+  payload: CreateEnterpriseApplicationDto
+): Promise<EnterpriseApplication> {
   return request<EnterpriseApplication>("/enterpriseapplications", {
     method: "POST",
     json: payload,
@@ -1226,14 +1357,18 @@ export async function getEnterpriseApplications(params?: {
   pageSize?: number;
 }): Promise<EnterpriseApplication[]> {
   const searchParams = new URLSearchParams();
-  if (params?.status) searchParams.append('status', params.status);
-  if (params?.page) searchParams.append('page', String(params.page));
-  if (params?.pageSize) searchParams.append('pageSize', String(params.pageSize));
+  if (params?.status) searchParams.append("status", params.status);
+  if (params?.page) searchParams.append("page", String(params.page));
+  if (params?.pageSize)
+    searchParams.append("pageSize", String(params.pageSize));
 
   const query = searchParams.toString();
-  return request<EnterpriseApplication[]>(`/enterpriseapplications${query ? '?' + query : ''}`, {
-    method: "GET",
-  });
+  return request<EnterpriseApplication[]>(
+    `/enterpriseapplications${query ? "?" + query : ""}`,
+    {
+      method: "GET",
+    }
+  );
 }
 
 export async function approveEnterpriseApplication(id: number): Promise<void> {
@@ -1242,7 +1377,10 @@ export async function approveEnterpriseApplication(id: number): Promise<void> {
   });
 }
 
-export async function rejectEnterpriseApplication(id: number, comment: string): Promise<void> {
+export async function rejectEnterpriseApplication(
+  id: number,
+  comment: string
+): Promise<void> {
   return request<void>(`/enterpriseapplications/${id}/reject`, {
     method: "PUT",
     json: comment,
@@ -1259,15 +1397,17 @@ export async function getEnterprises(params?: {
   businessField?: string;
 }): Promise<Enterprise[]> {
   const searchParams = new URLSearchParams();
-  if (params?.page) searchParams.append('page', String(params.page));
-  if (params?.pageSize) searchParams.append('pageSize', String(params.pageSize));
-  if (params?.search) searchParams.append('search', params.search);
-  if (params?.district) searchParams.append('district', params.district);
-  if (params?.province) searchParams.append('province', params.province);
-  if (params?.businessField) searchParams.append('businessField', params.businessField);
+  if (params?.page) searchParams.append("page", String(params.page));
+  if (params?.pageSize)
+    searchParams.append("pageSize", String(params.pageSize));
+  if (params?.search) searchParams.append("search", params.search);
+  if (params?.district) searchParams.append("district", params.district);
+  if (params?.province) searchParams.append("province", params.province);
+  if (params?.businessField)
+    searchParams.append("businessField", params.businessField);
 
   const query = searchParams.toString();
-  return request<Enterprise[]>(`/enterprises${query ? '?' + query : ''}`, {
+  return request<Enterprise[]>(`/enterprises${query ? "?" + query : ""}`, {
     method: "GET",
   });
 }
@@ -1278,7 +1418,10 @@ export async function getEnterprise(id: number): Promise<Enterprise> {
   });
 }
 
-export async function updateEnterprise(id: number, payload: Partial<Enterprise>): Promise<Enterprise> {
+export async function updateEnterprise(
+  id: number,
+  payload: Partial<Enterprise>
+): Promise<Enterprise> {
   return request<Enterprise>(`/enterprises/${id}`, {
     method: "PUT",
     json: payload,
@@ -1308,14 +1451,15 @@ export async function getOrders(params?: {
   pageSize?: number;
 }): Promise<OrdersResponse> {
   const searchParams = new URLSearchParams();
-  if (params?.status) searchParams.append('status', params.status);
-  if (params?.startDate) searchParams.append('startDate', params.startDate);
-  if (params?.endDate) searchParams.append('endDate', params.endDate);
-  if (params?.page) searchParams.append('page', String(params.page));
-  if (params?.pageSize) searchParams.append('pageSize', String(params.pageSize));
+  if (params?.status) searchParams.append("status", params.status);
+  if (params?.startDate) searchParams.append("startDate", params.startDate);
+  if (params?.endDate) searchParams.append("endDate", params.endDate);
+  if (params?.page) searchParams.append("page", String(params.page));
+  if (params?.pageSize)
+    searchParams.append("pageSize", String(params.pageSize));
 
   const query = searchParams.toString();
-  return request<OrdersResponse>(`/orders${query ? '?' + query : ''}`, {
+  return request<OrdersResponse>(`/orders${query ? "?" + query : ""}`, {
     method: "GET",
   });
 }
@@ -1333,7 +1477,10 @@ export async function createOrder(payload: CreateOrderDto): Promise<Order> {
   });
 }
 
-export async function updateOrderStatus(id: number, payload: UpdateOrderStatusDto): Promise<Order> {
+export async function updateOrderStatus(
+  id: number,
+  payload: UpdateOrderStatusDto
+): Promise<Order> {
   return request<Order>(`/orders/${id}/status`, {
     method: "PUT",
     json: payload,
@@ -1341,7 +1488,9 @@ export async function updateOrderStatus(id: number, payload: UpdateOrderStatusDt
 }
 
 // Request order completion approval (EnterpriseAdmin)
-export async function requestOrderCompletion(payload: RequestOrderCompletionDto): Promise<Order> {
+export async function requestOrderCompletion(
+  payload: RequestOrderCompletionDto
+): Promise<Order> {
   return request<Order>(`/orders/${payload.orderId}/request-completion`, {
     method: "POST",
     json: { notes: payload.notes },
@@ -1349,17 +1498,22 @@ export async function requestOrderCompletion(payload: RequestOrderCompletionDto)
 }
 
 // Approve/Reject order completion (SystemAdmin)
-export async function approveOrderCompletion(payload: ApproveOrderCompletionDto): Promise<Order> {
+export async function approveOrderCompletion(
+  payload: ApproveOrderCompletionDto
+): Promise<Order> {
   return request<Order>(`/orders/${payload.orderId}/approve-completion`, {
     method: "POST",
     json: {
       approved: payload.approved,
-      rejectionReason: payload.rejectionReason
+      rejectionReason: payload.rejectionReason,
     },
   });
 }
 
-export async function updateOrderShippingAddress(id: number, shippingAddress: string): Promise<void> {
+export async function updateOrderShippingAddress(
+  id: number,
+  shippingAddress: string
+): Promise<void> {
   return request<void>(`/orders/${id}/shipping-address`, {
     method: "PUT",
     json: { shippingAddress },
@@ -1373,7 +1527,9 @@ export async function deleteOrder(id: number): Promise<void> {
 }
 
 // ------ PAYMENTS ------
-export async function createPayment(payload: CreatePaymentDto): Promise<Payment[]> {
+export async function createPayment(
+  payload: CreatePaymentDto
+): Promise<Payment[]> {
   return request<Payment[]>("/payments", {
     method: "POST",
     json: payload,
@@ -1392,14 +1548,19 @@ export async function getPaymentsByOrder(orderId: number): Promise<Payment[]> {
   });
 }
 
-export async function updatePaymentStatus(id: number, payload: UpdatePaymentStatusDto): Promise<Payment> {
+export async function updatePaymentStatus(
+  id: number,
+  payload: UpdatePaymentStatusDto
+): Promise<Payment> {
   return request<Payment>(`/payments/${id}/status`, {
     method: "POST",
     json: payload,
   });
 }
 
-export async function confirmBankTransfer(payload: ConfirmBankTransferDto): Promise<Order> {
+export async function confirmBankTransfer(
+  payload: ConfirmBankTransferDto
+): Promise<Order> {
   return request<Order>(`/orders/${payload.orderId}/confirm-bank-transfer`, {
     method: "POST",
     json: payload,
@@ -1407,27 +1568,32 @@ export async function confirmBankTransfer(payload: ConfirmBankTransferDto): Prom
 }
 
 // ------ MAP API ------
-export async function searchMap(params: MapSearchParams): Promise<EnterpriseMapDto[]> {
+export async function searchMap(
+  params: MapSearchParams
+): Promise<EnterpriseMapDto[]> {
   const searchParams = new URLSearchParams();
-  if (params.keyword) searchParams.append('keyword', params.keyword);
-  if (params.latitude) searchParams.append('latitude', String(params.latitude));
-  if (params.longitude) searchParams.append('longitude', String(params.longitude));
-  if (params.radiusKm) searchParams.append('radiusKm', String(params.radiusKm));
-  if (params.minLat) searchParams.append('minLat', String(params.minLat));
-  if (params.maxLat) searchParams.append('maxLat', String(params.maxLat));
-  if (params.minLon) searchParams.append('minLon', String(params.minLon));
-  if (params.maxLon) searchParams.append('maxLon', String(params.maxLon));
-  if (params.district) searchParams.append('district', params.district);
-  if (params.province) searchParams.append('province', params.province);
-  if (params.businessField) searchParams.append('businessField', params.businessField);
-  if (params.ocopRating) searchParams.append('ocopRating', String(params.ocopRating));
-  if (params.sortBy) searchParams.append('sortBy', params.sortBy);
-  if (params.page) searchParams.append('page', String(params.page));
-  if (params.pageSize) searchParams.append('pageSize', String(params.pageSize));
+  if (params.keyword) searchParams.append("keyword", params.keyword);
+  if (params.latitude) searchParams.append("latitude", String(params.latitude));
+  if (params.longitude)
+    searchParams.append("longitude", String(params.longitude));
+  if (params.radiusKm) searchParams.append("radiusKm", String(params.radiusKm));
+  if (params.minLat) searchParams.append("minLat", String(params.minLat));
+  if (params.maxLat) searchParams.append("maxLat", String(params.maxLat));
+  if (params.minLon) searchParams.append("minLon", String(params.minLon));
+  if (params.maxLon) searchParams.append("maxLon", String(params.maxLon));
+  if (params.district) searchParams.append("district", params.district);
+  if (params.province) searchParams.append("province", params.province);
+  if (params.businessField)
+    searchParams.append("businessField", params.businessField);
+  if (params.ocopRating)
+    searchParams.append("ocopRating", String(params.ocopRating));
+  if (params.sortBy) searchParams.append("sortBy", params.sortBy);
+  if (params.page) searchParams.append("page", String(params.page));
+  if (params.pageSize) searchParams.append("pageSize", String(params.pageSize));
 
   // Nếu không có tham số nào, gọi endpoint không có query string
   const queryString = searchParams.toString();
-  const url = queryString ? `/map/search?${queryString}` : '/map/search';
+  const url = queryString ? `/map/search?${queryString}` : "/map/search";
 
   try {
     return await request<EnterpriseMapDto[]>(url, {
@@ -1436,7 +1602,10 @@ export async function searchMap(params: MapSearchParams): Promise<EnterpriseMapD
     });
   } catch (error) {
     // If silent mode and network error, return empty array instead of throwing
-    if (params?.silent && ((error as any)?.isNetworkError || (error as any)?.status === 0)) {
+    if (
+      params?.silent &&
+      ((error as any)?.isNetworkError || (error as any)?.status === 0)
+    ) {
       return [];
     }
     throw error;
@@ -1456,9 +1625,12 @@ export async function getMapBoundingBox(params: {
     maxLon: String(params.maxLon),
   });
 
-  return request<EnterpriseMapDto[]>(`/map/bounding-box?${searchParams.toString()}`, {
-    method: "GET",
-  });
+  return request<EnterpriseMapDto[]>(
+    `/map/bounding-box?${searchParams.toString()}`,
+    {
+      method: "GET",
+    }
+  );
 }
 
 export async function getMapNearby(params: {
@@ -1489,37 +1661,48 @@ export async function getMapEnterprise(id: number): Promise<EnterpriseMapDto> {
   });
 }
 
-export async function getMapEnterpriseProducts(id: number, params?: {
-  page?: number;
-  pageSize?: number;
-}): Promise<Product[]> {
+export async function getMapEnterpriseProducts(
+  id: number,
+  params?: {
+    page?: number;
+    pageSize?: number;
+  }
+): Promise<Product[]> {
   const searchParams = new URLSearchParams();
-  if (params?.page) searchParams.append('page', String(params.page));
-  if (params?.pageSize) searchParams.append('pageSize', String(params.pageSize));
+  if (params?.page) searchParams.append("page", String(params.page));
+  if (params?.pageSize)
+    searchParams.append("pageSize", String(params.pageSize));
 
   const query = searchParams.toString();
-  return request<Product[]>(`/map/enterprises/${id}/products${query ? '?' + query : ''}`, {
-    method: "GET",
-  });
+  return request<Product[]>(
+    `/map/enterprises/${id}/products${query ? "?" + query : ""}`,
+    {
+      method: "GET",
+    }
+  );
 }
 
 // Get products for a specific enterprise (for EnterpriseAdmin)
-export async function getEnterpriseProducts(enterpriseId: number, params?: {
-  page?: number;
-  pageSize?: number;
-  status?: string;
-}): Promise<Product[]> {
+export async function getEnterpriseProducts(
+  enterpriseId: number,
+  params?: {
+    page?: number;
+    pageSize?: number;
+    status?: string;
+  }
+): Promise<Product[]> {
   const searchParams = new URLSearchParams();
-  if (params?.page) searchParams.append('page', String(params.page));
-  if (params?.pageSize) searchParams.append('pageSize', String(params.pageSize));
-  if (params?.status) searchParams.append('status', params.status);
+  if (params?.page) searchParams.append("page", String(params.page));
+  if (params?.pageSize)
+    searchParams.append("pageSize", String(params.pageSize));
+  if (params?.status) searchParams.append("status", params.status);
 
   const query = searchParams.toString();
 
   // Try multiple endpoints in order until one works
   const endpoints = [
-    `/enterprises/${enterpriseId}/products${query ? '?' + query : ''}`,
-    `/products${query ? '?' + query : ''}?enterpriseId=${enterpriseId}`,
+    `/enterprises/${enterpriseId}/products${query ? "?" + query : ""}`,
+    `/products${query ? "?" + query : ""}?enterpriseId=${enterpriseId}`,
   ];
 
   let lastError: Error | null = null;
@@ -1533,7 +1716,10 @@ export async function getEnterpriseProducts(enterpriseId: number, params?: {
       console.log(`✅ Success! Got ${result.length} products from ${endpoint}`);
       return result;
     } catch (error) {
-      console.warn(`❌ Failed ${endpoint}:`, error instanceof Error ? error.message : error);
+      console.warn(
+        `❌ Failed ${endpoint}:`,
+        error instanceof Error ? error.message : error
+      );
       lastError = error as Error;
       // Continue to next endpoint
     }
@@ -1545,11 +1731,11 @@ export async function getEnterpriseProducts(enterpriseId: number, params?: {
   if (errorMsg.includes("403")) {
     throw new Error(
       "403 FORBIDDEN - Backend chưa cấu hình đúng cho EnterpriseAdmin.\n" +
-      "Backend cần:\n" +
-      "1. Thêm role 'EnterpriseAdmin' vào [Authorize] attribute\n" +
-      "2. Đảm bảo JWT token có claim 'EnterpriseId'\n" +
-      "3. Filter products theo enterpriseId của user\n" +
-      "Xem chi tiết: TROUBLESHOOTING_403.md"
+        "Backend cần:\n" +
+        "1. Thêm role 'EnterpriseAdmin' vào [Authorize] attribute\n" +
+        "2. Đảm bảo JWT token có claim 'EnterpriseId'\n" +
+        "3. Filter products theo enterpriseId của user\n" +
+        "Xem chi tiết: TROUBLESHOOTING_403.md"
     );
   }
 
@@ -1588,7 +1774,10 @@ export async function getShipperOrders(): Promise<Order[]> {
   });
 }
 
-export async function assignOrderToShipper(orderId: number, shipperId: number): Promise<{ message: string }> {
+export async function assignOrderToShipper(
+  orderId: number,
+  shipperId: number
+): Promise<{ message: string }> {
   return request<{ message: string }>(`/shippers/orders/${orderId}/assign`, {
     method: "POST",
     json: { shipperId },
@@ -1601,7 +1790,10 @@ export async function shipOrder(orderId: number): Promise<{ message: string }> {
   });
 }
 
-export async function deliverOrder(orderId: number, notes?: string): Promise<{ message: string }> {
+export async function deliverOrder(
+  orderId: number,
+  notes?: string
+): Promise<{ message: string }> {
   return request<{ message: string }>(`/shippers/orders/${orderId}/deliver`, {
     method: "POST",
     json: notes ? { notes } : undefined,
@@ -1623,19 +1815,26 @@ export async function getInventoryHistory(params?: {
   pageSize?: number;
 }): Promise<InventoryHistoryResponse> {
   const searchParams = new URLSearchParams();
-  if (params?.productId) searchParams.append("productId", String(params.productId));
+  if (params?.productId)
+    searchParams.append("productId", String(params.productId));
   if (params?.page) searchParams.append("page", String(params.page));
-  if (params?.pageSize) searchParams.append("pageSize", String(params.pageSize));
+  if (params?.pageSize)
+    searchParams.append("pageSize", String(params.pageSize));
 
   const query = searchParams.toString();
   try {
-    return request<InventoryHistoryResponse>(`/inventory/history${query ? "?" + query : ""}`, {
-      method: "GET",
-    });
+    return request<InventoryHistoryResponse>(
+      `/inventory/history${query ? "?" + query : ""}`,
+      {
+        method: "GET",
+      }
+    );
   } catch (error) {
     // Fallback to empty array if 404
     if (error instanceof Error && error.message.includes("404")) {
-      console.warn("Inventory history endpoint not found, returning empty array");
+      console.warn(
+        "Inventory history endpoint not found, returning empty array"
+      );
       return {
         items: [],
         page: 1,
@@ -1648,7 +1847,9 @@ export async function getInventoryHistory(params?: {
   }
 }
 
-export async function adjustInventory(payload: AdjustInventoryDto): Promise<InventoryHistory> {
+export async function adjustInventory(
+  payload: AdjustInventoryDto
+): Promise<InventoryHistory> {
   return request<InventoryHistory>("/inventory/adjust", {
     method: "POST",
     json: payload,
@@ -1666,9 +1867,12 @@ export async function getNotifications(params?: {
 
   const query = searchParams.toString();
   try {
-    return request<Notification[]>(`/notifications${query ? "?" + query : ""}`, {
-      method: "GET",
-    });
+    return request<Notification[]>(
+      `/notifications${query ? "?" + query : ""}`,
+      {
+        method: "GET",
+      }
+    );
   } catch (error) {
     // Fallback to empty array if 404
     if (error instanceof Error && error.message.includes("404")) {
@@ -1704,7 +1908,9 @@ export async function getEnterpriseSettings(): Promise<EnterpriseSettings> {
   });
 }
 
-export async function updateEnterpriseSettings(payload: EnterpriseSettings): Promise<EnterpriseSettings> {
+export async function updateEnterpriseSettings(
+  payload: EnterpriseSettings
+): Promise<EnterpriseSettings> {
   return request<EnterpriseSettings>("/enterprises/me/settings", {
     method: "PUT",
     json: payload,
@@ -1734,7 +1940,9 @@ export interface UpdateMyEnterpriseDto {
   imageUrl?: string;
 }
 
-export async function updateMyEnterprise(payload: UpdateMyEnterpriseDto): Promise<void> {
+export async function updateMyEnterprise(
+  payload: UpdateMyEnterpriseDto
+): Promise<void> {
   return request<void>("/enterprises/me", {
     method: "PUT",
     json: payload,
@@ -1752,7 +1960,10 @@ export interface UploadImageResponse {
   format?: string;
 }
 
-export async function uploadImage(file: File, folder?: string): Promise<UploadImageResponse> {
+export async function uploadImage(
+  file: File,
+  folder?: string
+): Promise<UploadImageResponse> {
   const formData = new FormData();
   formData.append("file", file);
   if (folder) {
@@ -1765,7 +1976,9 @@ export async function uploadImage(file: File, folder?: string): Promise<UploadIm
     headers["Authorization"] = `Bearer ${token}`;
   }
 
-  const url = `${API_BASE_URL}/fileupload/image${folder ? `?folder=${encodeURIComponent(folder)}` : ""}`;
+  const url = `${API_BASE_URL}/fileupload/image${
+    folder ? `?folder=${encodeURIComponent(folder)}` : ""
+  }`;
   const response = await fetch(url, {
     method: "POST",
     headers,
@@ -1813,14 +2026,30 @@ export async function getReview(id: number): Promise<Review> {
   });
 }
 
-export async function createReview(payload: Omit<Review, "id" | "createdAt" | "updatedAt" | "user" | "product">): Promise<Review> {
+export async function createReview(
+  payload: Omit<Review, "id" | "createdAt" | "updatedAt" | "user" | "product">
+): Promise<Review> {
   return request<Review>("/reviews", {
     method: "POST",
     json: payload,
   });
 }
 
-export async function updateReview(id: number, payload: Partial<Omit<Review, "id" | "userId" | "productId" | "createdAt" | "updatedAt" | "user" | "product">>): Promise<Review> {
+export async function updateReview(
+  id: number,
+  payload: Partial<
+    Omit<
+      Review,
+      | "id"
+      | "userId"
+      | "productId"
+      | "createdAt"
+      | "updatedAt"
+      | "user"
+      | "product"
+    >
+  >
+): Promise<Review> {
   return request<Review>(`/reviews/${id}`, {
     method: "PUT",
     json: payload,
@@ -1883,21 +2112,28 @@ export async function getShippingAddress(id: number): Promise<ShippingAddress> {
   });
 }
 
-export async function createShippingAddress(payload: CreateShippingAddressDto): Promise<ShippingAddress> {
+export async function createShippingAddress(
+  payload: CreateShippingAddressDto
+): Promise<ShippingAddress> {
   return request<ShippingAddress>("/shipping-addresses", {
     method: "POST",
     json: payload,
   });
 }
 
-export async function updateShippingAddress(id: number, payload: UpdateShippingAddressDto): Promise<ShippingAddress> {
+export async function updateShippingAddress(
+  id: number,
+  payload: UpdateShippingAddressDto
+): Promise<ShippingAddress> {
   return request<ShippingAddress>(`/shipping-addresses/${id}`, {
     method: "PUT",
     json: payload,
   });
 }
 
-export async function setDefaultShippingAddress(id: number): Promise<ShippingAddress> {
+export async function setDefaultShippingAddress(
+  id: number
+): Promise<ShippingAddress> {
   return request<ShippingAddress>(`/shipping-addresses/${id}/set-default`, {
     method: "PATCH",
   });
@@ -1971,7 +2207,10 @@ export async function updateAvatar(file: File): Promise<AvatarResponse> {
   return response.json();
 }
 
-export async function deleteAvatar(): Promise<{ success: boolean; message: string }> {
+export async function deleteAvatar(): Promise<{
+  success: boolean;
+  message: string;
+}> {
   return request<{ success: boolean; message: string }>("/profile/avatar", {
     method: "DELETE",
   });
@@ -1983,7 +2222,9 @@ export async function getAvatar(): Promise<AvatarResponse> {
   });
 }
 
-export async function uploadDocument(file: File): Promise<UploadDocumentResponse> {
+export async function uploadDocument(
+  file: File
+): Promise<UploadDocumentResponse> {
   const formData = new FormData();
   formData.append("file", file);
 
@@ -2016,7 +2257,9 @@ export interface ChangePasswordDto {
   confirmNewPassword: string;
 }
 
-export async function changePassword(payload: ChangePasswordDto): Promise<AuthResponse> {
+export async function changePassword(
+  payload: ChangePasswordDto
+): Promise<AuthResponse> {
   return request<AuthResponse>("/auth/change-password", {
     method: "PUT",
     json: {
@@ -2032,7 +2275,9 @@ export interface ForgotPasswordDto {
   email: string;
 }
 
-export async function forgotPassword(payload: ForgotPasswordDto): Promise<void> {
+export async function forgotPassword(
+  payload: ForgotPasswordDto
+): Promise<void> {
   return request<void>("/auth/forgot-password", {
     method: "POST",
     json: {
@@ -2049,7 +2294,9 @@ export interface CreateEnterpriseAdminDto {
   enterpriseId: number;
 }
 
-export async function createEnterpriseAdmin(payload: CreateEnterpriseAdminDto): Promise<User> {
+export async function createEnterpriseAdmin(
+  payload: CreateEnterpriseAdminDto
+): Promise<User> {
   return request<User>("/users/enterprise-admin", {
     method: "POST",
     json: payload,
@@ -2067,14 +2314,24 @@ export interface GpsAddressLookupDto {
   longitude: number;
 }
 
-export async function getAddressFromGps(lat: number, lng: number): Promise<GpsAddressLookupDto> {
-  return request<GpsAddressLookupDto>(`/shippingaddress/from-gps?lat=${lat}&lng=${lng}`, {
-    method: "GET",
-  });
+export async function getAddressFromGps(
+  lat: number,
+  lng: number
+): Promise<GpsAddressLookupDto> {
+  return request<GpsAddressLookupDto>(
+    `/shippingaddress/from-gps?lat=${lat}&lng=${lng}`,
+    {
+      method: "GET",
+    }
+  );
 }
 
 // ------ TRANSACTION HISTORY ------
-export type TransactionSort = "date_desc" | "date_asc" | "amount_desc" | "amount_asc";
+export type TransactionSort =
+  | "date_desc"
+  | "date_asc"
+  | "amount_desc"
+  | "amount_asc";
 
 export interface TransactionHistoryFilter {
   searchTerm?: string;
@@ -2178,7 +2435,8 @@ export async function getTransactionHistory(
 ): Promise<TransactionHistoryResponse> {
   const params = new URLSearchParams();
 
-  if (filter.searchTerm?.trim()) params.set("searchTerm", filter.searchTerm.trim());
+  if (filter.searchTerm?.trim())
+    params.set("searchTerm", filter.searchTerm.trim());
   const startDate = normalizeDateParam(filter.startDate);
   const endDate = normalizeDateParam(filter.endDate);
   if (startDate) params.set("startDate", startDate);
@@ -2191,9 +2449,12 @@ export async function getTransactionHistory(
   if (filter.pageSize) params.set("pageSize", filter.pageSize.toString());
 
   const query = params.toString();
-  const response = await request<TransactionHistoryResponse>(`/transactionhistory${query ? `?${query}` : ""}`, {
-    method: "GET",
-  });
+  const response = await request<TransactionHistoryResponse>(
+    `/transactionhistory${query ? `?${query}` : ""}`,
+    {
+      method: "GET",
+    }
+  );
 
   const itemsWithOrderId = (response.items || []).map((item) => ({
     ...item,
@@ -2206,14 +2467,18 @@ export async function getTransactionHistory(
   };
 }
 
-export async function getTransactionDetail(id: number): Promise<TransactionDetail> {
+export async function getTransactionDetail(
+  id: number
+): Promise<TransactionDetail> {
   return request<TransactionDetail>(`/transactionhistory/${id}`, {
     method: "GET",
   });
 }
 
 // Backward-compatible aliases
-export async function getTransactions(filter?: TransactionHistoryFilter): Promise<TransactionHistoryItem[]> {
+export async function getTransactions(
+  filter?: TransactionHistoryFilter
+): Promise<TransactionHistoryItem[]> {
   const res = await getTransactionHistory(filter);
   return res.items;
 }
@@ -2250,14 +2515,19 @@ export async function getLocation(id: number): Promise<Location> {
   });
 }
 
-export async function createLocation(payload: CreateLocationDto): Promise<Location> {
+export async function createLocation(
+  payload: CreateLocationDto
+): Promise<Location> {
   return request<Location>("/locations", {
     method: "POST",
     json: payload,
   });
 }
 
-export async function updateLocation(id: number, payload: CreateLocationDto): Promise<void> {
+export async function updateLocation(
+  id: number,
+  payload: CreateLocationDto
+): Promise<void> {
   return request<void>(`/locations/${id}`, {
     method: "PUT",
     json: payload,
@@ -2294,14 +2564,19 @@ export async function getProducer(id: number): Promise<Producer> {
   });
 }
 
-export async function createProducer(payload: CreateProducerDto): Promise<Producer> {
+export async function createProducer(
+  payload: CreateProducerDto
+): Promise<Producer> {
   return request<Producer>("/producers", {
     method: "POST",
     json: payload,
   });
 }
 
-export async function updateProducer(id: number, payload: CreateProducerDto): Promise<void> {
+export async function updateProducer(
+  id: number,
+  payload: CreateProducerDto
+): Promise<void> {
   return request<void>(`/producers/${id}`, {
     method: "PUT",
     json: payload,
@@ -2323,13 +2598,28 @@ export interface ProductImage {
   createdAt: string;
 }
 
-export async function getProductImages(productId: number): Promise<ProductImage[]> {
-  return request<ProductImage[]>(`/productimages/products/${productId}/images`, {
-    method: "GET",
-  });
+export async function getProductImages(
+  productId: number
+): Promise<ProductImage[]> {
+  return request<ProductImage[]>(
+    `/productimages/products/${productId}/images`,
+    {
+      method: "GET",
+    }
+  );
 }
 
-export async function uploadProductImage(productId: number, file: File): Promise<{ success: boolean; message: string; imageId: number; imageUrl: string; fileName: string; isApproved: boolean }> {
+export async function uploadProductImage(
+  productId: number,
+  file: File
+): Promise<{
+  success: boolean;
+  message: string;
+  imageId: number;
+  imageUrl: string;
+  fileName: string;
+  isApproved: boolean;
+}> {
   const formData = new FormData();
   formData.append("file", file);
 
@@ -2349,16 +2639,24 @@ export async function uploadProductImage(productId: number, file: File): Promise
 
   if (!response.ok) {
     const errorText = await response.text();
-    throw new Error(`Upload product image failed: ${response.status} ${errorText}`);
+    throw new Error(
+      `Upload product image failed: ${response.status} ${errorText}`
+    );
   }
 
   return response.json();
 }
 
-export async function deleteProductImage(productId: number, imageId: number): Promise<{ success: boolean; message: string }> {
-  return request<{ success: boolean; message: string }>(`/productimages/products/${productId}/images/${imageId}`, {
-    method: "DELETE",
-  });
+export async function deleteProductImage(
+  productId: number,
+  imageId: number
+): Promise<{ success: boolean; message: string }> {
+  return request<{ success: boolean; message: string }>(
+    `/productimages/products/${productId}/images/${imageId}`,
+    {
+      method: "DELETE",
+    }
+  );
 }
 
 // ------ ADMIN IMAGES (SystemAdmin) ------
@@ -2401,15 +2699,21 @@ export async function getAdminImages(params?: {
 }): Promise<AdminImagesResponse> {
   const searchParams = new URLSearchParams();
   if (params?.imageType) searchParams.append("imageType", params.imageType);
-  if (params?.isApproved !== undefined) searchParams.append("isApproved", String(params.isApproved));
-  if (params?.isActive !== undefined) searchParams.append("isActive", String(params.isActive));
+  if (params?.isApproved !== undefined)
+    searchParams.append("isApproved", String(params.isApproved));
+  if (params?.isActive !== undefined)
+    searchParams.append("isActive", String(params.isActive));
   if (params?.page) searchParams.append("page", String(params.page));
-  if (params?.pageSize) searchParams.append("pageSize", String(params.pageSize));
+  if (params?.pageSize)
+    searchParams.append("pageSize", String(params.pageSize));
 
   const query = searchParams.toString();
-  return request<AdminImagesResponse>(`/admin/images${query ? "?" + query : ""}`, {
-    method: "GET",
-  });
+  return request<AdminImagesResponse>(
+    `/admin/images${query ? "?" + query : ""}`,
+    {
+      method: "GET",
+    }
+  );
 }
 
 export async function getAdminImage(imageId: number): Promise<AdminImage> {
@@ -2418,22 +2722,37 @@ export async function getAdminImage(imageId: number): Promise<AdminImage> {
   });
 }
 
-export async function approveAdminImage(imageId: number): Promise<{ success: boolean; message: string }> {
-  return request<{ success: boolean; message: string }>(`/admin/images/${imageId}/approve`, {
-    method: "PUT",
-  });
+export async function approveAdminImage(
+  imageId: number
+): Promise<{ success: boolean; message: string }> {
+  return request<{ success: boolean; message: string }>(
+    `/admin/images/${imageId}/approve`,
+    {
+      method: "PUT",
+    }
+  );
 }
 
-export async function rejectAdminImage(imageId: number): Promise<{ success: boolean; message: string }> {
-  return request<{ success: boolean; message: string }>(`/admin/images/${imageId}/reject`, {
-    method: "PUT",
-  });
+export async function rejectAdminImage(
+  imageId: number
+): Promise<{ success: boolean; message: string }> {
+  return request<{ success: boolean; message: string }>(
+    `/admin/images/${imageId}/reject`,
+    {
+      method: "PUT",
+    }
+  );
 }
 
-export async function deleteAdminImage(imageId: number): Promise<{ success: boolean; message: string }> {
-  return request<{ success: boolean; message: string }>(`/admin/images/${imageId}`, {
-    method: "DELETE",
-  });
+export async function deleteAdminImage(
+  imageId: number
+): Promise<{ success: boolean; message: string }> {
+  return request<{ success: boolean; message: string }>(
+    `/admin/images/${imageId}`,
+    {
+      method: "DELETE",
+    }
+  );
 }
 
 export interface AdminImageStats {
@@ -2458,25 +2777,40 @@ export async function getAdminImageStats(): Promise<AdminImageStats> {
 // ------ MAP FILTER (Enhanced) ------
 // Note: getMapFilterOptions is already defined above (line 1166), so we don't duplicate it here
 
-export async function filterMapEnterprises(params: MapSearchParams): Promise<{ data: EnterpriseMapDto[]; total: number; page: number; pageSize: number }> {
+export async function filterMapEnterprises(params: MapSearchParams): Promise<{
+  data: EnterpriseMapDto[];
+  total: number;
+  page: number;
+  pageSize: number;
+}> {
   const searchParams = new URLSearchParams();
   if (params.keyword) searchParams.append("keyword", params.keyword);
   if (params.district) searchParams.append("district", params.district);
   if (params.province) searchParams.append("province", params.province);
-  if (params.businessField) searchParams.append("businessField", params.businessField);
-  if (params.ocopRating) searchParams.append("ocopRating", String(params.ocopRating));
+  if (params.businessField)
+    searchParams.append("businessField", params.businessField);
+  if (params.ocopRating)
+    searchParams.append("ocopRating", String(params.ocopRating));
   if (params.minLat) searchParams.append("minLatitude", String(params.minLat));
   if (params.maxLat) searchParams.append("maxLatitude", String(params.maxLat));
   if (params.minLon) searchParams.append("minLongitude", String(params.minLon));
   if (params.maxLon) searchParams.append("maxLongitude", String(params.maxLon));
-  if (params.latitude) searchParams.append("userLatitude", String(params.latitude));
-  if (params.longitude) searchParams.append("userLongitude", String(params.longitude));
-  if (params.radiusKm) searchParams.append("maxDistance", String(params.radiusKm));
+  if (params.latitude)
+    searchParams.append("userLatitude", String(params.latitude));
+  if (params.longitude)
+    searchParams.append("userLongitude", String(params.longitude));
+  if (params.radiusKm)
+    searchParams.append("maxDistance", String(params.radiusKm));
   if (params.sortBy) searchParams.append("sortBy", params.sortBy);
   if (params.page) searchParams.append("page", String(params.page));
   if (params.pageSize) searchParams.append("pageSize", String(params.pageSize));
 
-  return request<{ data: EnterpriseMapDto[]; total: number; page: number; pageSize: number }>(`/map/filter?${searchParams.toString()}`, {
+  return request<{
+    data: EnterpriseMapDto[];
+    total: number;
+    page: number;
+    pageSize: number;
+  }>(`/map/filter?${searchParams.toString()}`, {
     method: "GET",
   });
 }
@@ -2487,7 +2821,10 @@ export interface ShippingAddressWithGps extends ShippingAddress {
   longitude?: number;
 }
 
-export async function getAddressFromGpsForShipping(lat: number, lng: number): Promise<GpsAddressLookupDto> {
+export async function getAddressFromGpsForShipping(
+  lat: number,
+  lng: number
+): Promise<GpsAddressLookupDto> {
   return getAddressFromGps(lat, lng);
 }
 
@@ -2585,37 +2922,49 @@ export async function getWalletTransactions(params?: {
   pageSize?: number;
 }): Promise<WalletTransaction[]> {
   const searchParams = new URLSearchParams();
-  if (params?.page) searchParams.append('page', String(params.page));
-  if (params?.pageSize) searchParams.append('pageSize', String(params.pageSize));
+  if (params?.page) searchParams.append("page", String(params.page));
+  if (params?.pageSize)
+    searchParams.append("pageSize", String(params.pageSize));
 
   const query = searchParams.toString();
-  return request<WalletTransaction[]>(`/wallet/transactions${query ? '?' + query : ''}`, {
-    method: "GET",
-  });
+  return request<WalletTransaction[]>(
+    `/wallet/transactions${query ? "?" + query : ""}`,
+    {
+      method: "GET",
+    }
+  );
 }
 
-export async function depositToWallet(payload: DepositRequest): Promise<DepositResponse> {
+export async function depositToWallet(
+  payload: DepositRequest
+): Promise<DepositResponse> {
   return request<DepositResponse>("/wallet/deposit", {
     method: "POST",
     json: payload,
   });
 }
 
-export async function payOrderWithWallet(payload: PayOrderRequest): Promise<WalletTransaction> {
+export async function payOrderWithWallet(
+  payload: PayOrderRequest
+): Promise<WalletTransaction> {
   return request<WalletTransaction>("/wallet/pay", {
     method: "POST",
     json: payload,
   });
 }
 
-export async function refundOrder(payload: RefundRequest): Promise<WalletTransaction> {
+export async function refundOrder(
+  payload: RefundRequest
+): Promise<WalletTransaction> {
   return request<WalletTransaction>("/wallet/refund", {
     method: "POST",
     json: payload,
   });
 }
 
-export async function withdrawFromWallet(payload: WithdrawRequest): Promise<WalletTransaction> {
+export async function withdrawFromWallet(
+  payload: WithdrawRequest
+): Promise<WalletTransaction> {
   return request<WalletTransaction>("/wallet/withdraw", {
     method: "POST",
     json: payload,
@@ -2662,7 +3011,9 @@ export interface WalletRequestResponse {
   request: WalletRequest;
 }
 
-export async function createWalletRequest(payload: CreateWalletRequestDto): Promise<WalletRequest> {
+export async function createWalletRequest(
+  payload: CreateWalletRequestDto
+): Promise<WalletRequest> {
   return request<WalletRequest>("/walletrequest", {
     method: "POST",
     json: payload,
@@ -2676,13 +3027,14 @@ export async function getWalletRequests(params?: {
   pageSize?: number;
 }): Promise<WalletRequest[]> {
   const searchParams = new URLSearchParams();
-  if (params?.type) searchParams.append('type', params.type);
-  if (params?.status) searchParams.append('status', params.status);
-  if (params?.page) searchParams.append('page', String(params.page));
-  if (params?.pageSize) searchParams.append('pageSize', String(params.pageSize));
+  if (params?.type) searchParams.append("type", params.type);
+  if (params?.status) searchParams.append("status", params.status);
+  if (params?.page) searchParams.append("page", String(params.page));
+  if (params?.pageSize)
+    searchParams.append("pageSize", String(params.pageSize));
 
   const query = searchParams.toString();
-  return request<WalletRequest[]>(`/walletrequest${query ? '?' + query : ''}`, {
+  return request<WalletRequest[]>(`/walletrequest${query ? "?" + query : ""}`, {
     method: "GET",
   });
 }
@@ -2693,13 +3045,18 @@ export async function getWalletRequest(id: number): Promise<WalletRequest> {
   });
 }
 
-export async function getPendingWalletRequestsCount(): Promise<{ count: number }> {
+export async function getPendingWalletRequestsCount(): Promise<{
+  count: number;
+}> {
   return request<{ count: number }>("/walletrequest/pending/count", {
     method: "GET",
   });
 }
 
-export async function processWalletRequest(id: number, payload: ProcessWalletRequestDto): Promise<WalletRequestResponse> {
+export async function processWalletRequest(
+  id: number,
+  payload: ProcessWalletRequestDto
+): Promise<WalletRequestResponse> {
   return request<WalletRequestResponse>(`/walletrequest/${id}/process`, {
     method: "POST",
     json: payload,
@@ -2759,14 +3116,19 @@ export async function getDefaultBankAccount(): Promise<BankAccount> {
   });
 }
 
-export async function createBankAccount(payload: CreateBankAccountDto): Promise<BankAccount> {
+export async function createBankAccount(
+  payload: CreateBankAccountDto
+): Promise<BankAccount> {
   return request<BankAccount>("/bankaccount", {
     method: "POST",
     json: payload,
   });
 }
 
-export async function updateBankAccount(id: number, payload: UpdateBankAccountDto): Promise<BankAccount> {
+export async function updateBankAccount(
+  id: number,
+  payload: UpdateBankAccountDto
+): Promise<BankAccount> {
   return request<BankAccount>(`/bankaccount/${id}`, {
     method: "PUT",
     json: payload,
@@ -2821,6 +3183,11 @@ export interface UpdateUserBalanceResponse {
   transaction: WalletTransaction;
 }
 
+export interface EnsureAllWalletsResponse {
+  message: string;
+  createdWalletsCount: number;
+}
+
 export async function getSystemWalletSummary(): Promise<SystemWalletSummary> {
   return request<SystemWalletSummary>("/wallet/system/summary", {
     method: "GET",
@@ -2832,13 +3199,17 @@ export async function getAllUserWallets(params?: {
   pageSize?: number;
 }): Promise<UserWalletInfo[]> {
   const searchParams = new URLSearchParams();
-  if (params?.page) searchParams.append('page', String(params.page));
-  if (params?.pageSize) searchParams.append('pageSize', String(params.pageSize));
+  if (params?.page) searchParams.append("page", String(params.page));
+  if (params?.pageSize)
+    searchParams.append("pageSize", String(params.pageSize));
 
   const query = searchParams.toString();
-  return request<UserWalletInfo[]>(`/wallet/system/users${query ? '?' + query : ''}`, {
-    method: "GET",
-  });
+  return request<UserWalletInfo[]>(
+    `/wallet/system/users${query ? "?" + query : ""}`,
+    {
+      method: "GET",
+    }
+  );
 }
 
 export async function getUserWallet(userId: number): Promise<Wallet> {
@@ -2847,11 +3218,23 @@ export async function getUserWallet(userId: number): Promise<Wallet> {
   });
 }
 
-export async function updateUserBalance(userId: number, payload: UpdateUserBalanceDto): Promise<UpdateUserBalanceResponse> {
+export async function updateUserBalance(
+  userId: number,
+  payload: UpdateUserBalanceDto
+): Promise<UpdateUserBalanceResponse> {
   return request<UpdateUserBalanceResponse>(`/wallet/user/${userId}/balance`, {
     method: "PUT",
     json: payload,
   });
+}
+
+export async function ensureAllUserWallets(): Promise<EnsureAllWalletsResponse> {
+  return request<EnsureAllWalletsResponse>(
+    "/wallet/system/ensure-all-wallets",
+    {
+      method: "POST",
+    }
+  );
 }
 
 // Legacy compatibility exports

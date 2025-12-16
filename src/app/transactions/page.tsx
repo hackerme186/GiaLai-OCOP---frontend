@@ -24,23 +24,35 @@ const formatDateTime = (value?: string) => {
   return new Date(value).toLocaleString("vi-VN");
 };
 
+const mapToBaseStatus = (status: string) => {
+  const s = status.toLowerCase();
+  if (s.includes("cancel") || s.includes("fail") || s.includes("reject"))
+    return "Cancelled";
+  if (s.includes("pendingcompletion")) return "Completed"; // gộp về Completed
+  if (s.includes("ship") || s.includes("giao") || s.includes("deliver"))
+    return "Shipped";
+  if (s.includes("process")) return "Processing";
+  if (s.includes("pending")) return "Pending";
+  if (s.includes("success") || s.includes("complete") || s.includes("paid"))
+    return "Completed";
+  return "Pending";
+};
+
 const statusBadgeClass = (status: string) => {
-  const normalized = status.toLowerCase();
-  if (
-    normalized.includes("completed") ||
-    normalized === "success" ||
-    normalized === "paid"
-  ) {
+  const normalized = mapToBaseStatus(status).toLowerCase();
+  if (normalized === "completed") {
     return "bg-emerald-50 text-emerald-700 border-emerald-200";
   }
-  if (normalized.includes("pending") || normalized.includes("processing")) {
+  if (normalized === "pending") {
     return "bg-amber-50 text-amber-700 border-amber-200";
   }
-  if (
-    normalized.includes("cancel") ||
-    normalized.includes("failed") ||
-    normalized.includes("rejected")
-  ) {
+  if (normalized === "processing") {
+    return "bg-indigo-50 text-indigo-700 border-indigo-200";
+  }
+  if (normalized === "shipped") {
+    return "bg-sky-50 text-sky-700 border-sky-200";
+  }
+  if (normalized === "cancelled") {
     return "bg-red-50 text-red-700 border-red-200";
   }
   return "bg-gray-50 text-gray-700 border-gray-200";
@@ -127,23 +139,7 @@ export default function TransactionsPage() {
     setAppliedSearch(searchInput);
   };
 
-  const uniqueStatuses = useMemo(
-    () =>
-      Array.from(new Set(transactions.map((t) => t.status))).filter(Boolean),
-    [transactions]
-  );
-
   const baseStatuses = ["Pending", "Processing", "Shipped", "Completed"];
-  const extraStatuses = useMemo(
-    () =>
-      uniqueStatuses.filter(
-        (status) =>
-          !baseStatuses.some(
-            (b) => b.toLowerCase() === (status || "").toLowerCase()
-          )
-      ),
-    [uniqueStatuses]
-  );
   const paymentOptions = useMemo(() => ["BankTransfer", "COD"], []);
 
   const paginationItems = useMemo(() => {
@@ -180,28 +176,22 @@ export default function TransactionsPage() {
   const statusSteps = ["Đặt hàng", "Xử lý", "Đang giao", "Đã nhận"];
 
   const statusStepIndex = (status: string) => {
-    const s = status.toLowerCase();
-    if (s.includes("cancel") || s.includes("fail") || s.includes("reject"))
-      return -1;
-    if (s.includes("pending")) return 0; // chỉ mới đặt hàng
-    if (s.includes("process")) return 1; // đang xử lý
-    if (s.includes("ship") || s.includes("giao") || s.includes("deliver"))
-      return 2;
-    if (s.includes("success") || s.includes("paid") || s.includes("complete"))
-      return 3;
+    const base = mapToBaseStatus(status).toLowerCase();
+    if (base === "cancelled") return -1;
+    if (base === "pending") return 0;
+    if (base === "processing") return 1;
+    if (base === "shipped") return 2;
+    if (base === "completed") return 3;
     return 0;
   };
 
   const statusIcon = (status: string) => {
-    const s = status.toLowerCase();
-    if (s.includes("success") || s.includes("complete") || s.includes("paid"))
-      return "✅"; // Completed
-    if (s.includes("pending")) return "🕒"; // Pending
-    if (s.includes("process")) return "⚙️"; // Processing
-    if (s.includes("ship") || s.includes("giao") || s.includes("deliver"))
-      return "🚚"; // Shipped / Delivering
-    if (s.includes("cancel") || s.includes("fail") || s.includes("reject"))
-      return "❌";
+    const base = mapToBaseStatus(status).toLowerCase();
+    if (base === "completed") return "✅"; // Completed
+    if (base === "pending") return "🕒"; // Pending
+    if (base === "processing") return "⚙️"; // Processing
+    if (base === "shipped") return "🚚"; // Shipped / Delivering
+    if (base === "cancelled") return "❌";
     return "ℹ️";
   };
 
@@ -276,11 +266,6 @@ export default function TransactionsPage() {
               >
                 <option value="all">Tất cả</option>
                 {baseStatuses.map((status) => (
-                  <option key={status} value={status}>
-                    {status}
-                  </option>
-                ))}
-                {extraStatuses.map((status) => (
                   <option key={status} value={status}>
                     {status}
                   </option>
@@ -373,7 +358,7 @@ export default function TransactionsPage() {
                         )}`}
                       >
                         <span>{statusIcon(tx.status)}</span>
-                        {tx.status}
+                        {mapToBaseStatus(tx.status)}
                       </span>
                     </div>
 
@@ -408,7 +393,7 @@ export default function TransactionsPage() {
                         Lộ trình giao hàng
                         {tx.status && (
                           <span className="text-xs font-medium text-gray-500">
-                            ({tx.status})
+                            ({mapToBaseStatus(tx.status)})
                           </span>
                         )}
                       </div>
