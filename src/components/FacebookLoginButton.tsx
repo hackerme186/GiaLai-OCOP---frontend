@@ -150,7 +150,7 @@ export default function FacebookLoginButton({ onError }: FacebookLoginButtonProp
             onError?.("Đăng nhập Facebook đã bị hủy. Vui lòng thử lại nếu muốn tiếp tục.")
           }
         },
-        { scope: "email,public_profile" }
+        { scope: "public_profile" }
       )
     } catch (error: any) {
       console.error("❌ [FacebookLogin] Error calling FB.login:", error)
