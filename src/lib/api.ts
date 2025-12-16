@@ -572,6 +572,12 @@ export interface UpdatePaymentStatusDto {
   status: "Paid" | "Cancelled";
 }
 
+export interface ConfirmBankTransferDto {
+  orderId: number;
+  confirmed: boolean;
+  rejectionReason?: string;
+}
+
 // Shipper
 export interface Shipper {
   id: number;
@@ -1363,6 +1369,13 @@ export async function getPaymentsByOrder(orderId: number): Promise<Payment[]> {
 
 export async function updatePaymentStatus(id: number, payload: UpdatePaymentStatusDto): Promise<Payment> {
   return request<Payment>(`/payments/${id}/status`, {
+    method: "POST",
+    json: payload,
+  });
+}
+
+export async function confirmBankTransfer(payload: ConfirmBankTransferDto): Promise<Order> {
+  return request<Order>(`/orders/${payload.orderId}/confirm-bank-transfer`, {
     method: "POST",
     json: payload,
   });
