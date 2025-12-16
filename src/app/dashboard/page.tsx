@@ -1,7 +1,9 @@
 'use client';
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
+
 import { getCurrentUser, logout, isAuthenticated, type User } from '@/lib/auth';
+
 
 export default function DashboardPage() {
     const router = useRouter();
@@ -146,7 +148,7 @@ export default function DashboardPage() {
                 {/* Debug Info (Development only) */}
                 {process.env.NODE_ENV === 'development' && (
                     <div className="mt-6 bg-gray-800 text-white rounded-lg p-6">
-                        <h3 className="text-lg font-semibold mb-4">🔧 Debug Info</h3>
+                        <h3 className="text-lg font-semibold mb-4">🐛 Debug Info</h3>
                         <pre className="text-xs overflow-auto">
                             {JSON.stringify(user, null, 2)}
                         </pre>
