@@ -96,115 +96,139 @@ export default function ProvinceReportTab() {
   ]
 
   return (
-    <div>
-      <div className="flex justify-between items-center mb-6">
-        <h2 className="text-2xl font-semibold text-gray-900">Báo cáo toàn tỉnh</h2>
-        <button
-          onClick={loadReport}
-          disabled={loading}
-          className="inline-flex items-center gap-2 px-6 py-3 bg-gradient-to-r from-emerald-500 via-teal-500 to-cyan-600 text-white rounded-lg shadow-lg hover:shadow-xl hover:from-emerald-600 hover:via-teal-600 hover:to-cyan-700 text-sm font-semibold transition-all duration-200 transform hover:scale-105 active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed disabled:transform-none"
-        >
-          <svg 
-            className={`w-5 h-5 ${loading ? 'animate-spin' : ''}`} 
-            fill="none" 
-            stroke="currentColor" 
-            viewBox="0 0 24 24"
+    <div className="space-y-6">
+      {/* Header */}
+      <div className="bg-gradient-to-r from-emerald-600 via-teal-600 to-cyan-600 rounded-2xl shadow-xl p-8 text-white">
+        <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
+          <div>
+            <h2 className="text-3xl font-bold mb-2 drop-shadow-lg">📊 Báo cáo toàn tỉnh</h2>
+            <p className="text-white/90 text-lg">Tổng hợp và phân tích dữ liệu toàn tỉnh Gia Lai</p>
+          </div>
+          <button
+            onClick={loadReport}
+            disabled={loading}
+            className="inline-flex items-center gap-2 px-6 py-3 bg-white/20 backdrop-blur-sm text-white rounded-xl hover:bg-white/30 transition-all shadow-lg hover:shadow-xl transform hover:-translate-y-0.5 font-semibold disabled:opacity-50 disabled:cursor-not-allowed disabled:transform-none"
           >
-            <path 
-              strokeLinecap="round" 
-              strokeLinejoin="round" 
-              strokeWidth={2} 
-              d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" 
-            />
-          </svg>
-          {loading ? 'Đang tải...' : 'Làm mới'}
-        </button>
+            <svg 
+              className={`w-5 h-5 ${loading ? 'animate-spin' : ''}`} 
+              fill="none" 
+              stroke="currentColor" 
+              viewBox="0 0 24 24"
+            >
+              <path 
+                strokeLinecap="round" 
+                strokeLinejoin="round" 
+                strokeWidth={2} 
+                d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" 
+              />
+            </svg>
+            {loading ? 'Đang tải...' : 'Làm mới'}
+          </button>
+        </div>
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 mb-8">
-        {summaryCards.map((card) => (
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+        {summaryCards.map((card, index) => (
           <div
             key={card.label}
-            className={`bg-gradient-to-br ${card.accent} rounded-lg p-6 border`}
+            className={`bg-gradient-to-br ${card.accent} rounded-2xl p-6 border-2 shadow-lg hover:shadow-xl transition-all transform hover:-translate-y-1`}
+            style={{
+              animation: `fadeInUp 0.4s ease-out ${index * 0.1}s both`
+            }}
           >
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-sm font-medium text-gray-700">{card.label}</p>
-                <p className="text-3xl font-bold mt-2">{card.value}</p>
+                <p className="text-sm font-bold uppercase tracking-wide mb-2">{card.label}</p>
+                <p className="text-4xl font-extrabold">{card.value}</p>
               </div>
-              <div className="text-4xl">{card.icon}</div>
+              <div className="text-5xl">{card.icon}</div>
             </div>
           </div>
         ))}
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-8">
-        <div className="bg-white border rounded-lg p-6">
-          <h3 className="text-lg font-semibold text-gray-900 mb-4">
-            Trạng thái sản phẩm
-          </h3>
-          <div className="space-y-3 text-sm">
-            <div className="flex justify-between">
-              <span className="text-gray-600">Đã duyệt</span>
-              <span className="font-semibold text-green-600">
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        <div className="bg-gradient-to-br from-green-50 to-emerald-50 border-2 border-green-200 rounded-2xl p-6 shadow-lg">
+          <div className="flex items-center gap-3 mb-5 pb-4 border-b-2 border-green-200">
+            <div className="w-12 h-12 rounded-xl bg-green-500 flex items-center justify-center shadow-md">
+              <span className="text-2xl">📦</span>
+            </div>
+            <h3 className="text-xl font-bold text-green-800">
+              Trạng thái sản phẩm
+            </h3>
+          </div>
+          <div className="space-y-4">
+            <div className="flex justify-between items-center p-3 bg-white rounded-xl border border-green-200">
+              <span className="text-sm font-semibold text-gray-700">✅ Đã duyệt</span>
+              <span className="text-lg font-bold text-green-600">
                 {summary.approvedProducts}
               </span>
             </div>
-            <div className="flex justify-between">
-              <span className="text-gray-600">Chờ duyệt</span>
-              <span className="font-semibold text-yellow-600">
+            <div className="flex justify-between items-center p-3 bg-white rounded-xl border border-yellow-200">
+              <span className="text-sm font-semibold text-gray-700">⏳ Chờ duyệt</span>
+              <span className="text-lg font-bold text-yellow-600">
                 {summary.pendingProducts}
               </span>
             </div>
-            <div className="flex justify-between">
-              <span className="text-gray-600">Đã từ chối</span>
-              <span className="font-semibold text-red-600">
+            <div className="flex justify-between items-center p-3 bg-white rounded-xl border border-red-200">
+              <span className="text-sm font-semibold text-gray-700">❌ Đã từ chối</span>
+              <span className="text-lg font-bold text-red-600">
                 {summary.rejectedProducts}
               </span>
             </div>
           </div>
         </div>
 
-        <div className="bg-white border rounded-lg p-6">
-          <h3 className="text-lg font-semibold text-gray-900 mb-4">
-            Người dùng & vai trò
-          </h3>
-          <div className="space-y-3 text-sm">
-            <div className="flex justify-between">
-              <span className="text-gray-600">Khách hàng</span>
-              <span className="font-semibold text-indigo-600">
+        <div className="bg-gradient-to-br from-indigo-50 to-purple-50 border-2 border-indigo-200 rounded-2xl p-6 shadow-lg">
+          <div className="flex items-center gap-3 mb-5 pb-4 border-b-2 border-indigo-200">
+            <div className="w-12 h-12 rounded-xl bg-indigo-500 flex items-center justify-center shadow-md">
+              <span className="text-2xl">👥</span>
+            </div>
+            <h3 className="text-xl font-bold text-indigo-800">
+              Người dùng & vai trò
+            </h3>
+          </div>
+          <div className="space-y-4">
+            <div className="flex justify-between items-center p-3 bg-white rounded-xl border border-indigo-200">
+              <span className="text-sm font-semibold text-gray-700">🛒 Khách hàng</span>
+              <span className="text-lg font-bold text-indigo-600">
                 {summary.totalCustomers}
               </span>
             </div>
-            <div className="flex justify-between">
-              <span className="text-gray-600">Enterprise Admin</span>
-              <span className="font-semibold text-indigo-600">
+            <div className="flex justify-between items-center p-3 bg-white rounded-xl border border-indigo-200">
+              <span className="text-sm font-semibold text-gray-700">🏢 Enterprise Admin</span>
+              <span className="text-lg font-bold text-indigo-600">
                 {summary.totalEnterpriseAdmins}
               </span>
             </div>
-            <div className="flex justify-between">
-              <span className="text-gray-600">Thanh toán</span>
-              <span className="font-semibold text-indigo-600">
+            <div className="flex justify-between items-center p-3 bg-white rounded-xl border border-indigo-200">
+              <span className="text-sm font-semibold text-gray-700">💳 Thanh toán</span>
+              <span className="text-lg font-bold text-indigo-600">
                 {summary.totalPayments}
               </span>
             </div>
           </div>
         </div>
 
-        <div className="bg-white border rounded-lg p-6">
-          <h3 className="text-lg font-semibold text-gray-900 mb-4">
-            Doanh thu thanh toán
-          </h3>
-          <div className="space-y-3 text-sm">
-            <div className="flex justify-between">
-              <span className="text-gray-600">Đã thanh toán</span>
-              <span className="font-semibold text-green-600">
+        <div className="bg-gradient-to-br from-amber-50 to-yellow-50 border-2 border-amber-200 rounded-2xl p-6 shadow-lg">
+          <div className="flex items-center gap-3 mb-5 pb-4 border-b-2 border-amber-200">
+            <div className="w-12 h-12 rounded-xl bg-amber-500 flex items-center justify-center shadow-md">
+              <span className="text-2xl">💰</span>
+            </div>
+            <h3 className="text-xl font-bold text-amber-800">
+              Doanh thu thanh toán
+            </h3>
+          </div>
+          <div className="space-y-4">
+            <div className="flex justify-between items-center p-3 bg-white rounded-xl border border-green-200">
+              <span className="text-sm font-semibold text-gray-700">✅ Đã thanh toán</span>
+              <span className="text-lg font-bold text-green-600">
                 {summary.paidPaymentsAmount.toLocaleString("vi-VN")} ₫
               </span>
             </div>
-            <div className="flex justify-between">
-              <span className="text-gray-600">Đang chờ chuyển khoản</span>
-              <span className="font-semibold text-yellow-600">
+            <div className="flex justify-between items-center p-3 bg-white rounded-xl border border-yellow-200">
+              <span className="text-sm font-semibold text-gray-700">⏳ Đang chờ</span>
+              <span className="text-lg font-bold text-yellow-600">
                 {summary.awaitingTransferAmount.toLocaleString("vi-VN")} ₫
               </span>
             </div>

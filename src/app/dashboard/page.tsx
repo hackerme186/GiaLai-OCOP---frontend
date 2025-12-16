@@ -1,8 +1,7 @@
-﻿'use client';
+'use client';
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { getCurrentUser, type User } from '@/lib/api';
-import { logout, isLoggedIn as isAuthenticated } from '@/lib/auth';
+import { getCurrentUser, logout, isAuthenticated, type User } from '@/lib/api';
 
 export default function DashboardPage() {
     const router = useRouter();
@@ -10,30 +9,25 @@ export default function DashboardPage() {
     const [loading, setLoading] = useState(true);
 
     useEffect(() => {
-        const checkAuth = async () => {
-            // Check authentication
-            const authenticated = await isAuthenticated();
-            if (!authenticated) {
-                router.push('/login');
-                return;
-            }
+        // Check authentication
+        if (!isAuthenticated()) {
+            router.push('/login');
+            return;
+        }
 
-            // Get user data
-            const userData = await getCurrentUser();
-            if (!userData) {
-                router.push('/login');
-                return;
-            }
+        // Get user data
+        const userData = getCurrentUser();
+        if (!userData) {
+            router.push('/login');
+            return;
+        }
 
-            setUser(userData);
-            setLoading(false);
-        };
-        
-        checkAuth();
+        setUser(userData);
+        setLoading(false);
     }, [router]);
 
     const handleLogout = () => {
-        if (confirm('Bß║ín c├│ chß║»c muß╗æn ─æ─âng xuß║Ñt?')) {
+        if (confirm('Bạn có chắc muốn đăng xuất?')) {
             logout();
         }
     };
@@ -46,7 +40,7 @@ export default function DashboardPage() {
                         <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
                         <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
                     </svg>
-                    <p className="text-gray-600">─Éang tß║úi...</p>
+                    <p className="text-gray-600">Đang tải...</p>
                 </div>
             </div>
         );
@@ -71,7 +65,7 @@ export default function DashboardPage() {
                             onClick={handleLogout}
                             className="px-4 py-2 bg-red-500 text-white rounded-lg hover:bg-red-600 transition-colors"
                         >
-                            ─É─âng xuß║Ñt
+                            Đăng xuất
                         </button>
                     </div>
                 </div>
@@ -91,7 +85,7 @@ export default function DashboardPage() {
                         )}
                         <div>
                             <h2 className="text-2xl font-bold text-gray-900">
-                                Xin ch├áo, {user.name}!
+                                Xin chào, {user.name}!
                             </h2>
                             <p className="text-gray-600">{user.email}</p>
                             <div className="flex items-center gap-2 mt-2">
@@ -100,7 +94,7 @@ export default function DashboardPage() {
                                 </span>
                                 {user.isEmailVerified && (
                                     <span className="inline-flex items-center px-3 py-1 rounded-full text-sm font-medium bg-green-100 text-green-800">
-                                        Γ£ô Email ─æ├ú x├íc thß╗▒c
+                                        ✓ Email đã xác thực
                                     </span>
                                 )}
                             </div>
@@ -111,7 +105,7 @@ export default function DashboardPage() {
                 {/* User Info Card */}
                 <div className="bg-white rounded-lg shadow p-6">
                     <h3 className="text-lg font-semibold mb-4 text-gray-900">
-                        Th├┤ng tin t├ái khoß║ún
+                        Thông tin tài khoản
                     </h3>
                     <dl className="grid grid-cols-1 gap-4 sm:grid-cols-2">
                         <div>
@@ -123,20 +117,20 @@ export default function DashboardPage() {
                             <dd className="mt-1 text-sm text-gray-900">{user.email}</dd>
                         </div>
                         <div>
-                            <dt className="text-sm font-medium text-gray-500">Hß╗ì t├¬n</dt>
+                            <dt className="text-sm font-medium text-gray-500">Họ tên</dt>
                             <dd className="mt-1 text-sm text-gray-900">{user.name}</dd>
                         </div>
                         <div>
-                            <dt className="text-sm font-medium text-gray-500">Vai tr├▓</dt>
+                            <dt className="text-sm font-medium text-gray-500">Vai trò</dt>
                             <dd className="mt-1 text-sm text-gray-900">{user.role}</dd>
                         </div>
                         <div>
-                            <dt className="text-sm font-medium text-gray-500">Trß║íng th├íi</dt>
+                            <dt className="text-sm font-medium text-gray-500">Trạng thái</dt>
                             <dd className="mt-1 text-sm text-gray-900">
                                 {user.isActive ? (
-                                    <span className="text-green-600">Γ£ô ─Éang hoß║ít ─æß╗Öng</span>
+                                    <span className="text-green-600">✓ Đang hoạt động</span>
                                 ) : (
-                                    <span className="text-red-600">Γ£ù Bß╗ï v├┤ hiß╗çu h├│a</span>
+                                    <span className="text-red-600">✗ Bị vô hiệu hóa</span>
                                 )}
                             </dd>
                         </div>

@@ -37,9 +37,9 @@ const UserDropdown = ({ profile, isAdmin, isEnterpriseAdmin }: UserDropdownProps
         }
       }
     }
-    
+
     loadAvatar()
-    
+
     // Listen for profile updates
     if (typeof window !== "undefined") {
       window.addEventListener("profileUpdated", loadAvatar)
@@ -100,10 +100,10 @@ const UserDropdown = ({ profile, isAdmin, isEnterpriseAdmin }: UserDropdownProps
       >
         <div className="w-9 h-9 rounded-full overflow-hidden bg-gradient-to-br from-orange-400 to-orange-500 flex items-center justify-center ring-2 ring-orange-200 shadow-md hover:ring-orange-300 hover:shadow-lg transition-all duration-200">
           {avatarUrl ? (
-            <Image 
-              src={avatarUrl} 
-              alt={profile.name || 'avatar'} 
-              width={36} 
+            <Image
+              src={avatarUrl}
+              alt={profile.name || 'avatar'}
+              width={36}
               height={36}
               className="object-cover w-full h-full"
               onError={() => {
@@ -118,7 +118,7 @@ const UserDropdown = ({ profile, isAdmin, isEnterpriseAdmin }: UserDropdownProps
           )}
         </div>
         <span className="text-sm font-medium max-w-[120px] md:max-w-[160px] truncate">
-          {profile.name || 'Account'}
+          {profile.name || 'Tài khoản'}
         </span>
         {/* Dropdown arrow */}
         <svg
@@ -138,7 +138,7 @@ const UserDropdown = ({ profile, isAdmin, isEnterpriseAdmin }: UserDropdownProps
             {/* User info header */}
             <div className="px-4 py-3 border-b border-gray-100">
               <p className="text-sm font-medium text-gray-900 truncate">
-                {profile.name || 'User'}
+                {profile.name || 'Người dùng'}
               </p>
               <p className="text-xs text-gray-500 truncate mt-0.5">
                 {profile.email || ''}
@@ -173,6 +173,19 @@ const UserDropdown = ({ profile, isAdmin, isEnterpriseAdmin }: UserDropdownProps
                 Đơn hàng của tôi
               </Link>
 
+              {/* Lịch sử giao dịch */}
+              <Link
+                href="/transactions"
+                className="flex items-center px-4 py-2 text-sm text-gray-700 hover:bg-indigo-50 hover:text-indigo-700 transition-colors"
+                role="menuitem"
+                onClick={() => setIsOpen(false)}
+              >
+                <svg className="w-5 h-5 mr-3 text-amber-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m4-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+                </svg>
+                Lịch sử giao dịch
+              </Link>
+
               {/* Enterprise Admin Dashboard (nếu có) */}
               {isEnterpriseAdmin && (
                 <Link
@@ -200,7 +213,7 @@ const UserDropdown = ({ profile, isAdmin, isEnterpriseAdmin }: UserDropdownProps
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" />
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
                   </svg>
-                  Admin Dashboard
+                  Bảng điều khiển Admin
                 </Link>
               )}
 

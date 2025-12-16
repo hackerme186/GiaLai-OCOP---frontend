@@ -9,7 +9,7 @@ import {
   type ShippingAddress,
   type CreateShippingAddressDto,
 } from "@/lib/api"
-import { getProvinces, getDistricts, getWards, getAddressFromGpsForShipping, type Province, type District, type Ward } from "@/lib/api"
+import { getProvinces, getDistricts, getWards, type Province, type District, type Ward } from "@/lib/api"
 
 interface ShippingAddressesManagerProps {
   onSelect?: (address: ShippingAddress) => void
@@ -39,7 +39,6 @@ export default function ShippingAddressesManager({ onSelect, showSelectButton = 
   const [wards, setWards] = useState<Ward[]>([])
   const [selectedProvinceId, setSelectedProvinceId] = useState<number | null>(null)
   const [selectedDistrictId, setSelectedDistrictId] = useState<number | null>(null)
-  const [loadingGps, setLoadingGps] = useState(false)
 
   useEffect(() => {
     loadAddresses()
@@ -218,88 +217,6 @@ export default function ShippingAddressesManager({ onSelect, showSelectButton = 
     }
   }
 
-  const handleGetGpsAddress = async () => {
-    if (!navigator.geolocation) {
-      setError("Trình duyệt của bạn không hỗ trợ GPS")
-      return
-    }
-
-    setLoadingGps(true)
-    setError(null)
-
-    try {
-      const position = await new Promise<GeolocationPosition>((resolve, reject) => {
-        navigator.geolocation.getCurrentPosition(resolve, reject, {
-          enableHighAccuracy: true,
-          timeout: 10000,
-          maximumAge: 0,
-        })
-      })
-
-      const { latitude, longitude } = position.coords
-
-      // Get address from GPS
-      const addressData = await getAddressFromGpsForShipping(latitude, longitude)
-
-      // Fill form with GPS data
-      if (addressData.addressLine) {
-        setAddressLine(addressData.addressLine)
-      }
-      if (addressData.province) {
-        setProvince(addressData.province)
-        // Try to find province ID from name
-        const foundProvince = provinces.find(p => 
-          p.name.toLowerCase().includes(addressData.province.toLowerCase()) ||
-          addressData.province.toLowerCase().includes(p.name.toLowerCase())
-        )
-        if (foundProvince) {
-          setSelectedProvinceId(foundProvince.id)
-          await loadDistricts(foundProvince.id)
-        }
-      }
-      if (addressData.district) {
-        setDistrict(addressData.district)
-        // Try to find district ID from name (after provinces are loaded)
-        if (selectedProvinceId) {
-          const foundDistrict = districts.find(d => 
-            d.name.toLowerCase().includes(addressData.district.toLowerCase()) ||
-            addressData.district.toLowerCase().includes(d.name.toLowerCase())
-          )
-          if (foundDistrict) {
-            setSelectedDistrictId(foundDistrict.id)
-            await loadWards(foundDistrict.id)
-          }
-        }
-      }
-      if (addressData.ward) {
-        setWard(addressData.ward)
-        // Try to find ward ID from name (after districts are loaded)
-        if (selectedDistrictId) {
-          const foundWard = wards.find(w => 
-            w.name.toLowerCase().includes(addressData.ward.toLowerCase()) ||
-            addressData.ward.toLowerCase().includes(w.name.toLowerCase())
-          )
-          // Ward is already set as text, no need to set ID
-        }
-      }
-    } catch (err) {
-      if (err instanceof GeolocationPositionError) {
-        if (err.code === err.PERMISSION_DENIED) {
-          setError("Bạn đã từ chối quyền truy cập vị trí. Vui lòng cấp quyền trong cài đặt trình duyệt.")
-        } else if (err.code === err.POSITION_UNAVAILABLE) {
-          setError("Không thể lấy vị trí. Vui lòng kiểm tra GPS của thiết bị.")
-        } else if (err.code === err.TIMEOUT) {
-          setError("Hết thời gian chờ lấy vị trí. Vui lòng thử lại.")
-        } else {
-          setError("Không thể lấy vị trí: " + err.message)
-        }
-      } else {
-        setError(err instanceof Error ? err.message : "Không thể lấy địa chỉ từ GPS")
-      }
-    } finally {
-      setLoadingGps(false)
-    }
-  }
 
   if (loading) {
     return (
@@ -457,35 +374,9 @@ export default function ShippingAddressesManager({ onSelect, showSelectButton = 
 
             {/* Address Line */}
             <div className="md:col-span-2">
-              <div className="flex items-center justify-between mb-2">
-                <label className="block text-sm font-medium text-gray-700">
-                  Địa chỉ chi tiết *
-                </label>
-                <button
-                  type="button"
-                  onClick={handleGetGpsAddress}
-                  disabled={loadingGps}
-                  className="inline-flex items-center gap-2 px-3 py-1.5 text-sm font-medium text-indigo-600 bg-indigo-50 rounded-lg hover:bg-indigo-100 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-                >
-                  {loadingGps ? (
-                    <>
-                      <svg className="animate-spin h-4 w-4" fill="none" viewBox="0 0 24 24">
-                        <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-                        <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-                      </svg>
-                      Đang lấy...
-                    </>
-                  ) : (
-                    <>
-                      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" />
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" />
-                      </svg>
-                      Lấy từ GPS
-                    </>
-                  )}
-                </button>
-              </div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                Địa chỉ chi tiết *
+              </label>
               <input
                 type="text"
                 required

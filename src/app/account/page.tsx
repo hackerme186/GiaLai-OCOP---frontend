@@ -6,7 +6,6 @@ import { getUserProfile, isLoggedIn } from "@/lib/auth"
 import { getCurrentUser, getEnterprise, updateCurrentUser, changePassword, verifyEmail, resendVerificationOtp, type Enterprise, type User, type UpdateUserDto } from "@/lib/api"
 import Header from "@/components/layout/Header"
 import { useRouter } from "next/navigation"
-import { getCurrentAddress } from "@/lib/geolocation"
 import {
   getSavedShippingAddresses,
   addShippingAddress,
@@ -17,8 +16,11 @@ import {
   type SavedShippingAddress
 } from "@/lib/shipping-addresses"
 import NewAddressForm, { type AddressFormData } from "@/components/address/NewAddressForm"
+import dynamic from "next/dynamic"
 import ImageUploader from "@/components/upload/ImageUploader"
 import Image from "next/image"
+
+const AddressMapModal = dynamic(() => import("@/components/address/AddressMapModal"), { ssr: false })
 
 type NotificationItem = {
   id: number
@@ -37,6 +39,7 @@ export default function AccountPage() {
   const [error, setError] = useState<string | null>(null)
   const [success, setSuccess] = useState<string | null>(null)
   const [isEditingAddress, setIsEditingAddress] = useState(false)
+  const [showAddressMapModal, setShowAddressMapModal] = useState(false)
   const [isEditingProfile, setIsEditingProfile] = useState(false)
   const [shippingAddress, setShippingAddress] = useState("")
   const [name, setName] = useState("")
@@ -44,7 +47,6 @@ export default function AccountPage() {
   const [phoneNumber, setPhoneNumber] = useState("")
   const [gender, setGender] = useState<string>("female")
   const [dateOfBirth, setDateOfBirth] = useState<{ day: string; month: string; year: string }>({ day: "", month: "", year: "" })
-  const [loadingAddress, setLoadingAddress] = useState(false)
   const [saving, setSaving] = useState(false)
   const [savingProfile, setSavingProfile] = useState(false)
   const [savedAddresses, setSavedAddresses] = useState<SavedShippingAddress[]>([])
@@ -303,20 +305,6 @@ export default function AccountPage() {
     }
   }, [user?.role])
 
-  const handleGetCurrentLocation = async () => {
-    setLoadingAddress(true)
-    setError(null)
-    try {
-      const addressResult = await getCurrentAddress()
-      setShippingAddress(addressResult.address)
-      setSuccess("Đã lấy địa chỉ từ GPS thành công!")
-      setTimeout(() => setSuccess(null), 3000)
-    } catch (err) {
-      setError(err instanceof Error ? err.message : "Không thể lấy địa chỉ từ GPS")
-    } finally {
-      setLoadingAddress(false)
-    }
-  }
 
   const handleSaveAddress = async () => {
     if (!shippingAddress.trim()) {
@@ -517,7 +505,7 @@ export default function AccountPage() {
       setIsEditingProfile(false)
       setSuccess("Đã cập nhật thông tin hồ sơ thành công!")
       setTimeout(() => setSuccess(null), 3000)
-      
+
       // Trigger window event để các component khác có thể reload avatar
       if (typeof window !== "undefined") {
         window.dispatchEvent(new Event("profileUpdated"))
@@ -650,56 +638,123 @@ export default function AccountPage() {
   }
 
   const handleChangePassword = async () => {
+    // Reset errors
+    setError(null)
+    setSuccess(null)
+
+    // Validation - khớp với BE
     if (!currentPassword.trim()) {
-      setError("Vui lòng nhập mật khẩu hiện tại")
+      setError("Mật khẩu hiện tại là bắt buộc.")
       return
     }
+
     if (!newPassword.trim()) {
-      setError("Vui lòng nhập mật khẩu mới")
+      setError("Mật khẩu mới là bắt buộc.")
       return
     }
-    if (newPassword.length < 6) {
-      setError("Mật khẩu mới phải có ít nhất 6 ký tự")
+
+    // Kiểm tra độ dài: 6-100 ký tự (khớp với BE)
+    if (newPassword.length < 6 || newPassword.length > 100) {
+      setError("Mật khẩu mới phải có từ 6 đến 100 ký tự.")
       return
     }
+
+    // Kiểm tra regex: phải có chữ hoa, chữ thường và số (khớp với BE)
+    const passwordRegex = /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d).*$/
+    if (!passwordRegex.test(newPassword)) {
+      setError("Mật khẩu mới phải chứa ít nhất một chữ hoa, một chữ thường và một số.")
+      return
+    }
+
+    // Kiểm tra xác nhận mật khẩu
+    if (!confirmPassword.trim()) {
+      setError("Vui lòng xác nhận mật khẩu mới.")
+      return
+    }
+
     if (newPassword !== confirmPassword) {
-      setError("Mật khẩu xác nhận không khớp")
+      setError("Mật khẩu xác nhận không khớp với mật khẩu mới.")
       return
     }
+
+    // Kiểm tra mật khẩu mới phải khác mật khẩu hiện tại (BE sẽ kiểm tra lại, nhưng validate sớm ở FE)
     if (currentPassword === newPassword) {
-      setError("Mật khẩu mới phải khác mật khẩu hiện tại")
+      setError("Mật khẩu mới phải khác mật khẩu hiện tại.")
       return
     }
 
     setChangingPassword(true)
-    setError(null)
-    setSuccess(null)
 
     try {
-      await changePassword({
+      const response = await changePassword({
         currentPassword: currentPassword.trim(),
         newPassword: newPassword.trim(),
         confirmNewPassword: confirmPassword.trim(),
       })
 
+      // Lưu token mới từ response (BE trả về AuthResponse với Token mới)
+      const newToken = response.Token || response.token
+      if (newToken) {
+        const { setAuthToken } = await import("@/lib/auth")
+        setAuthToken(newToken)
+      }
+
+      // Reset form
       setCurrentPassword("")
       setNewPassword("")
       setConfirmPassword("")
-      setSuccess("Đã đổi mật khẩu thành công!")
-      setTimeout(() => setSuccess(null), 3000)
+      setShowPassword({ current: false, new: false, confirm: false })
+
+      // Hiển thị thông báo thành công
+      const successMessage = response.Message || response.message || "Đổi mật khẩu thành công. Vui lòng lưu token mới để tiếp tục sử dụng."
+      setSuccess(successMessage)
+      setTimeout(() => setSuccess(null), 5000)
     } catch (err) {
-      let errorMessage = "Không thể đổi mật khẩu"
+      let errorMessage = "Đã xảy ra lỗi khi đổi mật khẩu. Vui lòng thử lại sau."
 
       if (err instanceof Error) {
-        errorMessage = err.message
+        const errMsg = err.message
 
-        // Hiển thị thông báo rõ ràng hơn nếu endpoint không tồn tại
-        if (errorMessage.includes("404") || errorMessage.includes("Not Found")) {
+        // Parse error message từ BE
+        // BE trả về: "Mật khẩu hiện tại không đúng" (BadRequest)
+        if (errMsg.includes("Mật khẩu hiện tại không đúng") || errMsg.includes("401") || errMsg.includes("Unauthorized")) {
+          errorMessage = "Mật khẩu hiện tại không đúng"
+        }
+        // BE trả về: "Mật khẩu xác nhận không khớp với mật khẩu mới" (BadRequest)
+        else if (errMsg.includes("Mật khẩu xác nhận không khớp") || errMsg.includes("không khớp")) {
+          errorMessage = "Mật khẩu xác nhận không khớp với mật khẩu mới"
+        }
+        // BE trả về: "Mật khẩu mới phải có từ 6 đến 100 ký tự" (BadRequest)
+        else if (errMsg.includes("6 đến 100 ký tự") || errMsg.includes("6-100")) {
+          errorMessage = "Mật khẩu mới phải có từ 6 đến 100 ký tự"
+        }
+        // BE trả về: "Mật khẩu mới phải chứa ít nhất một chữ hoa, một chữ thường và một số" (BadRequest)
+        else if (errMsg.includes("chữ hoa") || errMsg.includes("chữ thường") || errMsg.includes("số")) {
+          errorMessage = "Mật khẩu mới phải chứa ít nhất một chữ hoa, một chữ thường và một số"
+        }
+        // BE trả về: "Mật khẩu mới phải khác mật khẩu hiện tại" (BadRequest)
+        else if (errMsg.includes("Mật khẩu mới phải khác mật khẩu hiện tại")) {
+          errorMessage = "Mật khẩu mới phải khác mật khẩu hiện tại"
+        }
+        // BE trả về: "Không tìm thấy thông tin người dùng. Vui lòng đăng nhập lại." (Unauthorized)
+        else if (errMsg.includes("Không tìm thấy thông tin người dùng") || errMsg.includes("đăng nhập lại")) {
+          errorMessage = "Không tìm thấy thông tin người dùng. Vui lòng đăng nhập lại."
+          // Redirect to login after 1.5s
+          setTimeout(() => {
+            router.push("/login?redirect=/account")
+          }, 1500)
+        }
+        // 404 - endpoint không tồn tại
+        else if (errMsg.includes("404") || errMsg.includes("Not Found")) {
           errorMessage = "Backend chưa hỗ trợ đổi mật khẩu. Endpoint /auth/change-password không tồn tại. Vui lòng liên hệ quản trị viên để được hỗ trợ."
-        } else if (errorMessage.includes("401") || errorMessage.includes("Unauthorized")) {
-          errorMessage = "Mật khẩu hiện tại không đúng. Vui lòng kiểm tra lại."
-        } else if (errorMessage.includes("403") || errorMessage.includes("Forbidden")) {
+        }
+        // 403 - Forbidden
+        else if (errMsg.includes("403") || errMsg.includes("Forbidden")) {
           errorMessage = "Bạn không có quyền thực hiện thao tác này. Vui lòng đăng nhập lại."
+        }
+        // Nếu error message từ BE có format rõ ràng, dùng luôn
+        else if (errMsg && !errMsg.includes("400") && !errMsg.includes("500")) {
+          errorMessage = errMsg
         }
       }
 
@@ -772,16 +827,16 @@ export default function AccountPage() {
       if (result.isEmailVerified) {
         setSuccess("Xác thực email thành công!")
         setTimeout(() => setSuccess(null), 3000)
-        
+
         // Reload user data
         const updatedUser = await getCurrentUser()
         setUser(updatedUser)
-        
+
         // Reset form
         setOtpSent(false)
         setOtpCode("")
         setOtpCountdown(0)
-        
+
         // Switch back to profile
         setTimeout(() => setActiveMenu("profile"), 2000)
       }
@@ -970,20 +1025,6 @@ export default function AccountPage() {
                         Hồ Sơ
                       </Link>
                       <Link
-                        href="/account/bank"
-                        onClick={(e) => {
-                          e.preventDefault()
-                          setActiveMenu("bank")
-                        }}
-                        className={`flex items-center gap-3 px-4 py-2.5 text-sm transition-colors ${activeMenu === "bank"
-                          ? "text-orange-500 bg-orange-50 border-l-2 border-orange-500"
-                          : "text-gray-600 hover:bg-gray-100"
-                          }`}
-                      >
-                        <span className="w-1.5 h-1.5 rounded-full bg-current ml-2"></span>
-                        Ngân Hàng
-                      </Link>
-                      <Link
                         href="/account/address"
                         onClick={(e) => {
                           e.preventDefault()
@@ -1010,6 +1051,13 @@ export default function AccountPage() {
                       >
                         <span className="w-1.5 h-1.5 rounded-full bg-current ml-2"></span>
                         Đổi Mật Khẩu
+                      </Link>
+                      <Link
+                        href="/wallet"
+                        className="flex items-center gap-3 px-4 py-2.5 text-sm transition-colors text-gray-600 hover:bg-gray-100"
+                      >
+                        <span className="w-1.5 h-1.5 rounded-full bg-current ml-2"></span>
+                        Ví của tôi
                       </Link>
                       {!user?.isEmailVerified && (
                         <Link
@@ -1467,11 +1515,34 @@ export default function AccountPage() {
                             Chỉnh sửa
                           </button>
                           <button
-                            onClick={handleGetCurrentLocation}
-                            disabled={loadingAddress}
-                            className="inline-flex items-center justify-center px-4 py-2 rounded-lg border border-orange-200 text-orange-600 font-medium hover:bg-orange-50 transition-colors disabled:opacity-50"
+                            onClick={() => setShowAddressMapModal(true)}
+                            className="inline-flex items-center justify-center gap-2 px-4 py-2 rounded-lg border border-orange-200 text-orange-600 font-medium hover:bg-orange-50 transition-colors"
+                            title="Chọn địa chỉ trên bản đồ"
                           >
-                            {loadingAddress ? "Đang lấy vị trí..." : "Lấy từ GPS"}
+                            <svg className="w-5 h-5" viewBox="0 0 24 24" fill="none">
+                              {/* Folded map - main shape */}
+                              <path d="M4 5.5C4 4.67 4.67 4 5.5 4h6.09c.28 0 .55.08.78.23L16 6.5l3.63-2.27c.23-.15.5-.23.78-.23H21.5c.83 0 1.5.67 1.5 1.5v13c0 .83-.67 1.5-1.5 1.5h-6.09c-.28 0-.55-.08-.78-.23L12 16.5l-3.63 2.27c-.23.15-.5.23-.78.23H5.5C4.67 19 4 18.33 4 17.5V5.5z"
+                                stroke="currentColor"
+                                strokeWidth="1.5"
+                                fill="none"
+                                strokeLinecap="round"
+                                strokeLinejoin="round" />
+                              {/* Map fold line */}
+                              <path d="M12 4v16M4 5.5h8m0 0h8"
+                                stroke="currentColor"
+                                strokeWidth="1"
+                                opacity="0.3"
+                                strokeLinecap="round" />
+                              {/* Location pin - positioned on the map */}
+                              <path d="M16 9.5c0 1.38-1.12 2.5-2.5 2.5S11 10.88 11 9.5 12.12 7 13.5 7 16 8.12 16 9.5z"
+                                fill="currentColor" />
+                              <circle cx="13.5" cy="9.5" r="1.5" fill="white" />
+                              <path d="M13.5 11v3"
+                                stroke="currentColor"
+                                strokeWidth="1.5"
+                                strokeLinecap="round" />
+                            </svg>
+                            <span>Chọn trên bản đồ</span>
                           </button>
                         </>
                       )}
@@ -1727,7 +1798,7 @@ export default function AccountPage() {
                           value={newPassword}
                           onChange={(e) => setNewPassword(e.target.value)}
                           className="w-full rounded-lg border border-gray-300 px-4 py-2.5 pr-12 focus:ring-2 focus:ring-orange-400 focus:border-orange-400"
-                          placeholder="Tối thiểu 6 ký tự"
+                          placeholder="6-100 ký tự, có chữ hoa, chữ thường và số"
                         />
                         <button
                           type="button"
@@ -1761,11 +1832,13 @@ export default function AccountPage() {
                   </div>
 
                   <div className="rounded-lg bg-gray-50 border border-gray-200 px-4 py-3 text-sm text-gray-600">
-                    <p className="font-semibold text-gray-800 mb-1">Gợi ý:</p>
+                    <p className="font-semibold text-gray-800 mb-1">Yêu cầu mật khẩu mới:</p>
                     <ul className="list-disc list-inside space-y-1">
-                      <li>Sử dụng cả chữ hoa, chữ thường, số và ký tự đặc biệt.</li>
-                      <li>Tránh dùng mật khẩu giống với các tài khoản khác.</li>
-                      <li>Không chia sẻ mật khẩu cho bất kỳ ai.</li>
+                      <li>Độ dài từ 6 đến 100 ký tự</li>
+                      <li>Phải chứa ít nhất một chữ hoa (A-Z)</li>
+                      <li>Phải chứa ít nhất một chữ thường (a-z)</li>
+                      <li>Phải chứa ít nhất một số (0-9)</li>
+                      <li>Mật khẩu mới phải khác mật khẩu hiện tại</li>
                     </ul>
                   </div>
 
@@ -1871,6 +1944,18 @@ export default function AccountPage() {
           </div>
         </div>
       </main>
+
+      {/* Address Map Modal */}
+      <AddressMapModal
+        isOpen={showAddressMapModal}
+        onClose={() => setShowAddressMapModal(false)}
+        onSelect={(address) => {
+          setShippingAddress(address)
+          setIsEditingAddress(true)
+          setShowAddressMapModal(false)
+        }}
+        initialAddress={shippingAddress}
+      />
     </div>
   )
 }

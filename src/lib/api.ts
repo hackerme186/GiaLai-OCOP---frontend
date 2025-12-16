@@ -1,10 +1,13 @@
 // Backend API Integration for GiaLai OCOP
-// Backend API runs at: https://gialai-ocop-be.onrender.com/api (production)
-// Or https://localhost:5001/api (local development)
+// API URL được lấy từ environment variable:
+// - Local: .env.local → NEXT_PUBLIC_API_BASE=http://localhost:5003/api
+// - Production: .env.production → NEXT_PUBLIC_API_BASE=https://gialai-ocop-be.onrender.com/api
+// Hoặc set trực tiếp trên hosting platform (Render, Vercel, etc.)
 import { getAuthToken, getClaimsFromJwt } from "@/lib/auth"
 
-// API Base URL - có thể override qua environment variable
-// Default to production backend on Render
+// API Base URL - lấy từ environment variable
+// Next.js tự động load .env.local (development) hoặc .env.production (production)
+// Fallback: production URL nếu không có env var
 export const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE || "https://gialai-ocop-be.onrender.com/api";
 
 type Json = unknown;
@@ -13,11 +16,16 @@ type Json = unknown;
 let lastErrorLogTime = 0;
 const ERROR_LOG_COOLDOWN = 30000; // 30 seconds
 
+// Retry configuration for cold start
+const MAX_RETRIES = 3;
+const RETRY_DELAYS = [1000, 2000, 3000]; // 1s, 2s, 3s delays
+
 async function request<TResponse>(
   path: string,
-  options: RequestInit & { json?: Json; silent?: boolean } = {}
+  options: RequestInit & { json?: Json; silent?: boolean; retries?: number } = {}
 ): Promise<TResponse> {
   const url = `${API_BASE_URL}${path}`;
+  const retries = options.retries ?? 0;
 
   const headers: HeadersInit = {
     "Content-Type": "application/json",
@@ -36,6 +44,13 @@ async function request<TResponse>(
 
   let response: Response;
   try {
+    // Debug logging for login requests
+    if (path.includes("/auth/login")) {
+      console.log("🌐 [API] Fetching:", url);
+      console.log("🌐 [API] Method:", options.method || "GET");
+      console.log("🌐 [API] Headers:", headers);
+    }
+
     response = await fetch(url, {
       method: options.method || "GET",
       headers,
@@ -44,20 +59,70 @@ async function request<TResponse>(
       credentials: "omit", // Don't send cookies - fixes CORS with wildcard origin
       cache: "no-store",
     });
+
+    if (path.includes("/auth/login")) {
+      console.log("🌐 [API] Response status:", response.status, response.statusText);
+      console.log("🌐 [API] Response headers:", Object.fromEntries(response.headers.entries()));
+    }
   } catch (fetchError) {
     // Network error - backend không available
     const errorMsg = fetchError instanceof Error ? fetchError.message : 'Network error';
 
+    // Retry logic for cold start (only for GET requests and if retries not exhausted)
+    const isGetRequest = !options.method || options.method === "GET";
+    const shouldRetry = isGetRequest && retries < MAX_RETRIES && !options.silent;
+
+    if (shouldRetry) {
+      const delay = RETRY_DELAYS[retries] || 3000;
+      console.info(`🔄 [API] Retry ${retries + 1}/${MAX_RETRIES} sau ${delay}ms (cold start?)...`);
+
+      await new Promise(resolve => setTimeout(resolve, delay));
+
+      // Retry with incremented retry count
+      return request<TResponse>(path, {
+        ...options,
+        retries: retries + 1
+      });
+    }
+
     // Only log error if not in silent mode and cooldown has passed
     const now = Date.now();
     if (!options.silent && (now - lastErrorLogTime) > ERROR_LOG_COOLDOWN) {
-      console.error(`❌ Backend API không khả dụng (${API_BASE_URL}):`, errorMsg);
+      // Use console.warn instead of console.error for network errors (less alarming)
+      console.warn(`⚠️ Backend API không khả dụng (${API_BASE_URL}):`, errorMsg);
       console.info('💡 Backend có thể đang cold start. Render free tier sleep sau 15 phút không hoạt động.');
       console.info('💡 Đợi 30-60 giây để backend khởi động, hoặc chạy local backend với: dotnet run');
       lastErrorLogTime = now;
     }
 
-    throw new Error(`Backend API không khả dụng. Vui lòng khởi động backend server. (${errorMsg})`);
+    // Create a custom error with more context
+    const apiError = new Error(`Lỗi kết nối. Vui lòng kiểm tra internet hoặc thử lại sau.`) as any;
+    apiError.status = 0; // Network error
+    apiError.isNetworkError = true;
+    apiError.originalError = errorMsg;
+    apiError.silent = options.silent; // Mark error as silent
+
+    // Suppress stack trace in console for silent errors
+    if (options.silent) {
+      // Create a minimal error object without stack trace to reduce console noise
+      const silentError: any = {
+        message: apiError.message,
+        status: apiError.status,
+        isNetworkError: apiError.isNetworkError,
+        originalError: apiError.originalError,
+        silent: true,
+        name: 'NetworkError',
+        // Override toString to prevent stack trace display
+        toString: () => apiError.message,
+      };
+      // Prevent stack trace from being captured
+      if (Error.captureStackTrace) {
+        Error.captureStackTrace(silentError, () => { });
+      }
+      throw silentError;
+    }
+
+    throw apiError;
   }
 
   const contentType = response.headers.get("content-type") || "";
@@ -66,15 +131,25 @@ async function request<TResponse>(
   if (isJson) {
     try {
       data = await response.json();
-    } catch {
+      if (path.includes("/auth/login")) {
+        console.log("🌐 [API] Parsed JSON response:", data);
+      }
+    } catch (parseError) {
+      console.error("🌐 [API] JSON parse error:", parseError);
       data = null;
     }
   } else {
     data = await response.text();
+    if (path.includes("/auth/login")) {
+      console.log("🌐 [API] Text response:", data);
+    }
   }
 
   if (!response.ok) {
     let bodyMessage = (isJson && data && typeof data === "object" && (data as any).message) || "";
+    let bodyDetails = (isJson && data && typeof data === "object" && (data as any).details) || "";
+    let bodyError = (isJson && data && typeof data === "object" && (data as any).error) || "";
+
     if (!bodyMessage && !isJson && typeof data === 'string') {
       bodyMessage = data as string;
     }
@@ -96,8 +171,52 @@ async function request<TResponse>(
       throw authError;
     }
 
-    const message = `${response.status} ${response.statusText} ${bodyMessage ? "- " + bodyMessage : ""}`.trim();
-    throw new Error(message);
+    // Tạo error message thân thiện với người dùng (không hiển thị mã HTTP)
+    let message = "";
+
+    // Ưu tiên sử dụng message từ backend
+    if (bodyMessage) {
+      message = bodyMessage;
+    } else if (bodyError) {
+      message = bodyError;
+    } else {
+      // Fallback: Map HTTP status codes to user-friendly messages
+      switch (response.status) {
+        case 400:
+          message = "Thông tin không hợp lệ. Vui lòng kiểm tra lại.";
+          break;
+        case 403:
+          message = "Bạn không có quyền thực hiện thao tác này.";
+          break;
+        case 404:
+          message = "Không tìm thấy dữ liệu. Vui lòng thử lại.";
+          break;
+        case 409:
+          message = "Dữ liệu đã tồn tại. Vui lòng kiểm tra lại.";
+          break;
+        case 500:
+        case 502:
+        case 503:
+        case 504:
+          message = "Lỗi server. Vui lòng thử lại sau.";
+          break;
+        default:
+          message = "Đã xảy ra lỗi. Vui lòng thử lại.";
+      }
+    }
+
+    // Thêm chi tiết nếu có (không hiển thị trực tiếp cho user, chỉ log)
+    if (bodyDetails && typeof bodyDetails === "string") {
+      console.warn("⚠️ [API] Error details:", bodyDetails);
+    }
+
+    const error = new Error(message.trim());
+    (error as any).status = response.status;
+    (error as any).response = data; // Lưu toàn bộ response data để debug
+    (error as any).bodyMessage = bodyMessage;
+    (error as any).bodyDetails = bodyDetails;
+    (error as any).bodyError = bodyError;
+    throw error;
   }
 
   return data as TResponse;
@@ -138,6 +257,11 @@ export interface User {
   email: string;
   role: string; // "Customer" | "EnterpriseAdmin" | "SystemAdmin"
   enterpriseId?: number;
+  enterprise?: {
+    id: number;
+    name: string;
+    description?: string;
+  };
   shippingAddress?: string;
   createdAt?: string;
   phoneNumber?: string;
@@ -149,15 +273,25 @@ export interface User {
   wardId?: number;
   addressDetail?: string;
   isEmailVerified?: boolean;
+  isActive?: boolean;
 }
 
 export interface UpdateUserDto {
   name?: string;
-  shippingAddress?: string;
+  email?: string;
+  role?: string;
+  enterpriseId?: number;
   phoneNumber?: string;
   gender?: string;
   dateOfBirth?: string;
+  shippingAddress?: string;
   avatarUrl?: string;
+  isActive?: boolean;
+  isEmailVerified?: boolean;
+  provinceId?: number;
+  districtId?: number;
+  wardId?: number;
+  addressDetail?: string;
 }
 
 // Address
@@ -230,6 +364,7 @@ export interface CreateProductDto {
   ocopRating?: number;
   stockStatus?: string;
   categoryId?: number;
+  enterpriseId?: number; // Optional: để SystemAdmin có thể tạo product cho enterprise khác
 }
 
 export interface UpdateProductStatusDto {
@@ -346,6 +481,16 @@ export interface OrderItem {
   total?: number;
   enterpriseId?: number;
   enterpriseName?: string;
+  enterpriseImageUrl?: string; // URL ảnh enterprise từ backend
+}
+
+export interface CustomerInfo {
+  id: number;
+  name: string;
+  email: string;
+  phoneNumber?: string;
+  avatarUrl?: string;
+  address?: string;
 }
 
 export interface Order {
@@ -353,8 +498,13 @@ export interface Order {
   userId: number;
   orderDate: string;
   shippingAddress?: string;
+  shippingAddressId?: number;
   totalAmount: number;
-  status: string; // "Pending" | "Processing" | "Shipped" | "Completed" | "Cancelled"
+  status: string; // "Pending" | "Processing" | "Shipped" | "Completed" | "Cancelled" | "PendingCompletion"
+  completionRequestedAt?: string; // Thời gian EnterpriseAdmin yêu cầu xác nhận hoàn thành
+  completionApprovedAt?: string; // Thời gian SystemAdmin xác nhận hoàn thành
+  completionRejectedAt?: string; // Thời gian SystemAdmin từ chối
+  completionRejectionReason?: string; // Lý do từ chối
   paymentMethod: string;
   paymentStatus: string;
   paymentReference?: string;
@@ -362,6 +512,10 @@ export interface Order {
   payments?: Payment[];
   enterpriseApprovalStatus?: string;
   shipperId?: number;
+  shippedAt?: string;
+  deliveredAt?: string;
+  deliveryNotes?: string;
+  customer?: CustomerInfo; // Customer info for EnterpriseAdmin
 }
 
 export interface CreateOrderDto {
@@ -375,8 +529,19 @@ export interface CreateOrderDto {
 }
 
 export interface UpdateOrderStatusDto {
-  status: "Pending" | "Processing" | "Shipped" | "Completed" | "Cancelled";
+  status: "Pending" | "Processing" | "Shipped" | "Completed" | "Cancelled" | "PendingCompletion";
   shippingAddress?: string;
+}
+
+export interface RequestOrderCompletionDto {
+  orderId: number;
+  notes?: string;
+}
+
+export interface ApproveOrderCompletionDto {
+  orderId: number;
+  approved: boolean;
+  rejectionReason?: string;
 }
 
 // Payment
@@ -502,6 +667,7 @@ export interface EnterpriseMapDto {
 }
 
 export interface MapSearchParams {
+  silent?: boolean; // Silent mode to reduce console errors
   keyword?: string;
   latitude?: number;
   longitude?: number;
@@ -576,10 +742,59 @@ export async function register(payload: RegisterPayload): Promise<AuthResponse> 
 }
 
 export async function login(payload: LoginPayload): Promise<AuthResponse> {
-  return request<AuthResponse>("/auth/login", {
-    method: "POST",
-    json: payload,
-  });
+  console.log("🌐 [API] Login request:", { email: payload.email, url: `${API_BASE_URL}/auth/login` });
+  try {
+    const result = await request<AuthResponse>("/auth/login", {
+      method: "POST",
+      json: payload,
+    });
+    console.log("🌐 [API] Login response:", result);
+    return result;
+  } catch (error) {
+    console.error("🌐 [API] Login error:", error);
+    throw error;
+  }
+}
+
+// Social Login
+export interface FacebookLoginPayload {
+  accessToken: string;
+}
+
+export interface GoogleLoginPayload {
+  idToken: string;
+}
+
+export async function loginWithFacebook(payload: FacebookLoginPayload): Promise<AuthResponse> {
+  console.log("🌐 [API] Facebook login request:", { url: `${API_BASE_URL}/auth/facebook` });
+  try {
+    // Backend expects AccessToken (PascalCase) - ASP.NET Core automatically maps camelCase to PascalCase
+    const result = await request<AuthResponse>("/auth/facebook", {
+      method: "POST",
+      json: { accessToken: payload.accessToken },
+    });
+    console.log("🌐 [API] Facebook login response:", result);
+    return result;
+  } catch (error) {
+    console.error("🌐 [API] Facebook login error:", error);
+    throw error;
+  }
+}
+
+export async function loginWithGoogle(payload: GoogleLoginPayload): Promise<AuthResponse> {
+  console.log("🌐 [API] Google login request:", { url: `${API_BASE_URL}/auth/google` });
+  try {
+    // Backend expects IdToken (PascalCase) - ASP.NET Core automatically maps camelCase to PascalCase
+    const result = await request<AuthResponse>("/auth/google", {
+      method: "POST",
+      json: { idToken: payload.idToken },
+    });
+    console.log("🌐 [API] Google login response:", result);
+    return result;
+  } catch (error) {
+    console.error("🌐 [API] Google login error:", error);
+    throw error;
+  }
 }
 
 // OTP Login
@@ -684,6 +899,12 @@ export async function updateUser(id: number, payload: UpdateUserDto): Promise<Us
   return request<User>(`/users/${id}`, {
     method: "PUT",
     json: payload,
+  });
+}
+
+export async function deleteUser(id: number): Promise<void> {
+  return request<void>(`/users/${id}`, {
+    method: "DELETE",
   });
 }
 
@@ -832,6 +1053,7 @@ export async function getProducts(params?: {
   search?: string;
   q?: string; // Alternative search parameter
   enterpriseId?: number;
+  silent?: boolean; // Silent mode to reduce console errors
 }): Promise<Product[]> {
   const searchParams = new URLSearchParams();
   if (params?.page) searchParams.append('page', String(params.page));
@@ -866,44 +1088,53 @@ export async function getProducts(params?: {
     });
   }
 
-  const response = await request<Product[] | { products?: Product[]; items?: Product[]; data?: Product[] }>(url, {
-    method: "GET",
-  });
-
-  // Debug: Log the response
-  if (params?.search || params?.q) {
-    const resultCount = Array.isArray(response) ? response.length :
-      (response && typeof response === 'object' ?
-        ((response as any).products?.length || (response as any).items?.length || (response as any).data?.length || 0) : 0);
-    console.log('✅ API Response:', {
-      searchTerm: params?.search || params?.q,
-      count: resultCount,
-      responseType: Array.isArray(response) ? 'array' : typeof response,
-      responseKeys: response && typeof response === 'object' ? Object.keys(response) : []
+  try {
+    const response = await request<Product[] | { products?: Product[]; items?: Product[]; data?: Product[] }>(url, {
+      method: "GET",
+      silent: params?.silent, // Pass silent mode to request
     });
-  }
 
-  // Normalize response: handle both array and object formats
-  if (Array.isArray(response)) {
-    return response;
-  }
+    // Debug: Log the response
+    if (params?.search || params?.q) {
+      const resultCount = Array.isArray(response) ? response.length :
+        (response && typeof response === 'object' ?
+          ((response as any).products?.length || (response as any).items?.length || (response as any).data?.length || 0) : 0);
+      console.log('✅ API Response:', {
+        searchTerm: params?.search || params?.q,
+        count: resultCount,
+        responseType: Array.isArray(response) ? 'array' : typeof response,
+        responseKeys: response && typeof response === 'object' ? Object.keys(response) : []
+      });
+    }
 
-  if (response && typeof response === 'object') {
-    const obj = response as any;
-    if (Array.isArray(obj.products)) {
-      return obj.products;
+    // Normalize response: handle both array and object formats
+    if (Array.isArray(response)) {
+      return response;
     }
-    if (Array.isArray(obj.items)) {
-      return obj.items;
-    }
-    if (Array.isArray(obj.data)) {
-      return obj.data;
-    }
-  }
 
-  // Fallback: return empty array if response format is unexpected
-  console.warn('⚠️ Unexpected products response format:', response);
-  return [];
+    if (response && typeof response === 'object') {
+      const obj = response as any;
+      if (Array.isArray(obj.products)) {
+        return obj.products;
+      }
+      if (Array.isArray(obj.items)) {
+        return obj.items;
+      }
+      if (Array.isArray(obj.data)) {
+        return obj.data;
+      }
+    }
+
+    // Fallback: return empty array if response format is unexpected
+    console.warn('⚠️ Unexpected products response format:', response);
+    return [];
+  } catch (error) {
+    // If silent mode and network error, return empty array instead of throwing
+    if (params?.silent && ((error as any)?.isNetworkError || (error as any)?.status === 0)) {
+      return [];
+    }
+    throw error;
+  }
 }
 
 export async function getProduct(id: number, options?: { silent?: boolean }): Promise<Product> {
@@ -1030,18 +1261,30 @@ export async function deleteEnterprise(id: number): Promise<void> {
 }
 
 // ------ ORDERS ------
+export interface OrdersResponse {
+  items: Order[];
+  page: number;
+  pageSize: number;
+  totalItems: number;
+  totalPages: number;
+}
+
 export async function getOrders(params?: {
   status?: string;
+  startDate?: string;
+  endDate?: string;
   page?: number;
   pageSize?: number;
-}): Promise<Order[]> {
+}): Promise<OrdersResponse> {
   const searchParams = new URLSearchParams();
   if (params?.status) searchParams.append('status', params.status);
+  if (params?.startDate) searchParams.append('startDate', params.startDate);
+  if (params?.endDate) searchParams.append('endDate', params.endDate);
   if (params?.page) searchParams.append('page', String(params.page));
   if (params?.pageSize) searchParams.append('pageSize', String(params.pageSize));
 
   const query = searchParams.toString();
-  return request<Order[]>(`/orders${query ? '?' + query : ''}`, {
+  return request<OrdersResponse>(`/orders${query ? '?' + query : ''}`, {
     method: "GET",
   });
 }
@@ -1063,6 +1306,25 @@ export async function updateOrderStatus(id: number, payload: UpdateOrderStatusDt
   return request<Order>(`/orders/${id}/status`, {
     method: "PUT",
     json: payload,
+  });
+}
+
+// Request order completion approval (EnterpriseAdmin)
+export async function requestOrderCompletion(payload: RequestOrderCompletionDto): Promise<Order> {
+  return request<Order>(`/orders/${payload.orderId}/request-completion`, {
+    method: "POST",
+    json: { notes: payload.notes },
+  });
+}
+
+// Approve/Reject order completion (SystemAdmin)
+export async function approveOrderCompletion(payload: ApproveOrderCompletionDto): Promise<Order> {
+  return request<Order>(`/orders/${payload.orderId}/approve-completion`, {
+    method: "POST",
+    json: {
+      approved: payload.approved,
+      rejectionReason: payload.rejectionReason
+    },
   });
 }
 
@@ -1125,9 +1387,22 @@ export async function searchMap(params: MapSearchParams): Promise<EnterpriseMapD
   if (params.page) searchParams.append('page', String(params.page));
   if (params.pageSize) searchParams.append('pageSize', String(params.pageSize));
 
-  return request<EnterpriseMapDto[]>(`/map/search?${searchParams.toString()}`, {
-    method: "GET",
-  });
+  // Nếu không có tham số nào, gọi endpoint không có query string
+  const queryString = searchParams.toString();
+  const url = queryString ? `/map/search?${queryString}` : '/map/search';
+
+  try {
+    return await request<EnterpriseMapDto[]>(url, {
+      method: "GET",
+      silent: params?.silent, // Pass silent mode to request
+    });
+  } catch (error) {
+    // If silent mode and network error, return empty array instead of throwing
+    if (params?.silent && ((error as any)?.isNetworkError || (error as any)?.status === 0)) {
+      return [];
+    }
+    throw error;
+  }
 }
 
 export async function getMapBoundingBox(params: {
@@ -1703,13 +1978,27 @@ export interface ChangePasswordDto {
   confirmNewPassword: string;
 }
 
-export async function changePassword(payload: ChangePasswordDto): Promise<{ message: string }> {
-  return request<{ message: string }>("/auth/change-password", {
+export async function changePassword(payload: ChangePasswordDto): Promise<AuthResponse> {
+  return request<AuthResponse>("/auth/change-password", {
     method: "PUT",
     json: {
       currentPassword: payload.currentPassword,
       newPassword: payload.newPassword,
       confirmNewPassword: payload.confirmNewPassword,
+    },
+  });
+}
+
+// ------ FORGOT PASSWORD (Auth) ------
+export interface ForgotPasswordDto {
+  email: string;
+}
+
+export async function forgotPassword(payload: ForgotPasswordDto): Promise<void> {
+  return request<void>("/auth/forgot-password", {
+    method: "POST",
+    json: {
+      email: payload.email,
     },
   });
 }
@@ -1746,35 +2035,153 @@ export async function getAddressFromGps(lat: number, lng: number): Promise<GpsAd
   });
 }
 
-// ------ TRANSACTIONS ------
-export interface Transaction {
-  id: number;
-  orderId?: number;
-  userId?: number;
+// ------ TRANSACTION HISTORY ------
+export type TransactionSort = "date_desc" | "date_asc" | "amount_desc" | "amount_asc";
+
+export interface TransactionHistoryFilter {
+  searchTerm?: string;
+  startDate?: string | Date;
+  endDate?: string | Date;
+  status?: string;
+  paymentMethod?: string;
+  type?: string;
+  sortBy?: TransactionSort;
+  page?: number;
+  pageSize?: number;
+}
+
+export interface TransactionHistoryItem {
+  transactionCode: string;
+  orderCode?: string;
+  transactionDate: string;
   amount: number;
-  type: string;
+  paymentMethod: string;
   status: string;
-  createdAt?: string;
-  updatedAt?: string;
+  type: string;
+  description?: string;
+  orderId?: number; // derived from code for easy navigation
 }
 
-export async function getTransactions(): Promise<Transaction[]> {
-  return request<Transaction[]>("/transactions", {
+export interface TransactionHistoryResponse {
+  items: TransactionHistoryItem[];
+  page: number;
+  pageSize: number;
+  totalItems: number;
+  totalPages: number;
+}
+
+export interface TransactionCustomerInfo {
+  id: number;
+  name: string;
+  email: string;
+  phoneNumber?: string;
+  avatarUrl?: string;
+  address?: string;
+}
+
+export interface TransactionOrderItem {
+  id: number;
+  productId: number;
+  productName: string;
+  quantity: number;
+  price: number;
+  subtotal: number;
+  productImage?: string;
+}
+
+export interface TransactionPaymentInfo {
+  method: string;
+  status: string;
+  reference: string;
+  maskedBankAccount?: string;
+  bankName?: string;
+  paidAt?: string;
+}
+
+export interface TransactionShippingInfo {
+  shipperName?: string;
+  trackingNumber?: string;
+  status: string;
+  shippedAt?: string;
+  deliveredAt?: string;
+  deliveryNotes?: string;
+  shippingAddress?: string;
+}
+
+export interface TransactionDetail {
+  id: number;
+  transactionCode: string;
+  transactionDate: string;
+  status: string;
+  type: string;
+  totalAmount: number;
+  customer?: TransactionCustomerInfo;
+  orderItems?: TransactionOrderItem[];
+  payments?: TransactionPaymentInfo[];
+  shippingInfo?: TransactionShippingInfo;
+}
+
+const extractOrderId = (code?: string): number | undefined => {
+  if (!code) return undefined;
+  const match = code.match(/(\d+)/);
+  if (!match) return undefined;
+  const id = Number(match[1]);
+  return Number.isNaN(id) ? undefined : id;
+};
+
+const normalizeDateParam = (value?: string | Date): string | undefined => {
+  if (!value) return undefined;
+  const date = typeof value === "string" ? new Date(value) : value;
+  return Number.isNaN(date.getTime()) ? undefined : date.toISOString();
+};
+
+export async function getTransactionHistory(
+  filter: TransactionHistoryFilter = {}
+): Promise<TransactionHistoryResponse> {
+  const params = new URLSearchParams();
+
+  if (filter.searchTerm?.trim()) params.set("searchTerm", filter.searchTerm.trim());
+  const startDate = normalizeDateParam(filter.startDate);
+  const endDate = normalizeDateParam(filter.endDate);
+  if (startDate) params.set("startDate", startDate);
+  if (endDate) params.set("endDate", endDate);
+  if (filter.status) params.set("status", filter.status);
+  if (filter.paymentMethod) params.set("paymentMethod", filter.paymentMethod);
+  if (filter.type) params.set("type", filter.type);
+  if (filter.sortBy) params.set("sortBy", filter.sortBy);
+  if (filter.page) params.set("page", filter.page.toString());
+  if (filter.pageSize) params.set("pageSize", filter.pageSize.toString());
+
+  const query = params.toString();
+  const response = await request<TransactionHistoryResponse>(`/transactionhistory${query ? `?${query}` : ""}`, {
+    method: "GET",
+  });
+
+  const itemsWithOrderId = (response.items || []).map((item) => ({
+    ...item,
+    orderId: extractOrderId(item.orderCode || item.transactionCode),
+  }));
+
+  return {
+    ...response,
+    items: itemsWithOrderId,
+  };
+}
+
+export async function getTransactionDetail(id: number): Promise<TransactionDetail> {
+  return request<TransactionDetail>(`/transactionhistory/${id}`, {
     method: "GET",
   });
 }
 
-export async function getTransaction(id: number): Promise<Transaction> {
-  return request<Transaction>(`/transactions/${id}`, {
-    method: "GET",
-  });
+// Backward-compatible aliases
+export async function getTransactions(filter?: TransactionHistoryFilter): Promise<TransactionHistoryItem[]> {
+  const res = await getTransactionHistory(filter);
+  return res.items;
 }
 
-export async function createTransaction(payload: Omit<Transaction, "id" | "createdAt" | "updatedAt">): Promise<Transaction> {
-  return request<Transaction>("/transactions", {
-    method: "POST",
-    json: payload,
-  });
+export async function getTransaction(id: number): Promise<TransactionDetail> {
+  return getTransactionDetail(id);
 }
 
 // ------ LOCATIONS (SystemAdmin) ------
@@ -2074,6 +2481,339 @@ function extractUserIdFromToken(): number | null {
   } catch {
     return null;
   }
+}
+
+// ------ WALLET ------
+export interface Wallet {
+  id: number;
+  userId: number;
+  balance: number;
+  currency: string;
+  createdAt: string;
+}
+
+export interface WalletTransaction {
+  id: number;
+  walletId: number;
+  type: "deposit" | "withdraw" | "payment" | "refund";
+  amount: number;
+  balanceAfter: number;
+  description: string;
+  status: "pending" | "success" | "failed";
+  createdAt: string;
+  orderId?: number;
+  paymentGatewayTransactionId?: string;
+  paymentGateway?: string;
+}
+
+export interface DepositRequest {
+  amount: number;
+  description?: string;
+}
+
+export interface DepositResponse {
+  paymentUrl: string;
+  transactionId: string;
+  amount: number;
+  paymentGateway: string;
+  description: string;
+  reference: string;
+}
+
+export interface PayOrderRequest {
+  orderId: number;
+  description?: string;
+}
+
+export interface RefundRequest {
+  orderId: number;
+  amount: number;
+  description?: string;
+}
+
+export interface WithdrawRequest {
+  amount: number;
+  description?: string;
+}
+
+export async function getWallet(): Promise<Wallet> {
+  return request<Wallet>("/wallet", {
+    method: "GET",
+  });
+}
+
+export async function getWalletTransactions(params?: {
+  page?: number;
+  pageSize?: number;
+}): Promise<WalletTransaction[]> {
+  const searchParams = new URLSearchParams();
+  if (params?.page) searchParams.append('page', String(params.page));
+  if (params?.pageSize) searchParams.append('pageSize', String(params.pageSize));
+
+  const query = searchParams.toString();
+  return request<WalletTransaction[]>(`/wallet/transactions${query ? '?' + query : ''}`, {
+    method: "GET",
+  });
+}
+
+export async function depositToWallet(payload: DepositRequest): Promise<DepositResponse> {
+  return request<DepositResponse>("/wallet/deposit", {
+    method: "POST",
+    json: payload,
+  });
+}
+
+export async function payOrderWithWallet(payload: PayOrderRequest): Promise<WalletTransaction> {
+  return request<WalletTransaction>("/wallet/pay", {
+    method: "POST",
+    json: payload,
+  });
+}
+
+export async function refundOrder(payload: RefundRequest): Promise<WalletTransaction> {
+  return request<WalletTransaction>("/wallet/refund", {
+    method: "POST",
+    json: payload,
+  });
+}
+
+export async function withdrawFromWallet(payload: WithdrawRequest): Promise<WalletTransaction> {
+  return request<WalletTransaction>("/wallet/withdraw", {
+    method: "POST",
+    json: payload,
+  });
+}
+
+// ------ WALLET REQUEST ------
+export interface WalletRequest {
+  id: number;
+  userId: number;
+  userName?: string;
+  userEmail?: string;
+  userRole?: string;
+  walletId: number;
+  currentBalance: number;
+  type: "deposit" | "withdraw";
+  amount: number;
+  description: string;
+  status: "pending" | "approved" | "rejected" | "completed";
+  rejectionReason?: string;
+  processedBy?: number;
+  processedByName?: string;
+  processedAt?: string;
+  createdAt: string;
+  updatedAt?: string;
+  bankAccountId?: number;
+  bankAccount?: BankAccount;
+}
+
+export interface CreateWalletRequestDto {
+  type: "deposit" | "withdraw";
+  amount: number;
+  description?: string;
+  bankAccountId?: number; // Required when type = "withdraw"
+}
+
+export interface ProcessWalletRequestDto {
+  action: "approve" | "reject";
+  rejectionReason?: string;
+}
+
+export interface WalletRequestResponse {
+  message: string;
+  request: WalletRequest;
+}
+
+export async function createWalletRequest(payload: CreateWalletRequestDto): Promise<WalletRequest> {
+  return request<WalletRequest>("/walletrequest", {
+    method: "POST",
+    json: payload,
+  });
+}
+
+export async function getWalletRequests(params?: {
+  type?: "deposit" | "withdraw";
+  status?: "pending" | "approved" | "rejected" | "completed";
+  page?: number;
+  pageSize?: number;
+}): Promise<WalletRequest[]> {
+  const searchParams = new URLSearchParams();
+  if (params?.type) searchParams.append('type', params.type);
+  if (params?.status) searchParams.append('status', params.status);
+  if (params?.page) searchParams.append('page', String(params.page));
+  if (params?.pageSize) searchParams.append('pageSize', String(params.pageSize));
+
+  const query = searchParams.toString();
+  return request<WalletRequest[]>(`/walletrequest${query ? '?' + query : ''}`, {
+    method: "GET",
+  });
+}
+
+export async function getWalletRequest(id: number): Promise<WalletRequest> {
+  return request<WalletRequest>(`/walletrequest/${id}`, {
+    method: "GET",
+  });
+}
+
+export async function getPendingWalletRequestsCount(): Promise<{ count: number }> {
+  return request<{ count: number }>("/walletrequest/pending/count", {
+    method: "GET",
+  });
+}
+
+export async function processWalletRequest(id: number, payload: ProcessWalletRequestDto): Promise<WalletRequestResponse> {
+  return request<WalletRequestResponse>(`/walletrequest/${id}/process`, {
+    method: "POST",
+    json: payload,
+  });
+}
+
+// ------ BANK ACCOUNT ------
+export interface BankAccount {
+  id: number;
+  userId: number;
+  bankCode: string;
+  bankName: string;
+  accountNumber: string;
+  accountName: string;
+  branch?: string;
+  isDefault: boolean;
+  isActive: boolean;
+  createdAt: string;
+  updatedAt?: string;
+  qrCodeUrl?: string;
+}
+
+export interface CreateBankAccountDto {
+  bankCode: string;
+  bankName: string;
+  accountNumber: string;
+  accountName: string;
+  branch?: string;
+  isDefault?: boolean;
+}
+
+export interface UpdateBankAccountDto {
+  bankCode?: string;
+  bankName?: string;
+  accountNumber?: string;
+  accountName?: string;
+  branch?: string;
+  isDefault?: boolean;
+  isActive?: boolean;
+}
+
+export async function getBankAccounts(): Promise<BankAccount[]> {
+  return request<BankAccount[]>("/bankaccount", {
+    method: "GET",
+  });
+}
+
+export async function getBankAccount(id: number): Promise<BankAccount> {
+  return request<BankAccount>(`/bankaccount/${id}`, {
+    method: "GET",
+  });
+}
+
+export async function getDefaultBankAccount(): Promise<BankAccount> {
+  return request<BankAccount>("/bankaccount/default", {
+    method: "GET",
+  });
+}
+
+export async function createBankAccount(payload: CreateBankAccountDto): Promise<BankAccount> {
+  return request<BankAccount>("/bankaccount", {
+    method: "POST",
+    json: payload,
+  });
+}
+
+export async function updateBankAccount(id: number, payload: UpdateBankAccountDto): Promise<BankAccount> {
+  return request<BankAccount>(`/bankaccount/${id}`, {
+    method: "PUT",
+    json: payload,
+  });
+}
+
+export async function deleteBankAccount(id: number): Promise<void> {
+  return request<void>(`/bankaccount/${id}`, {
+    method: "DELETE",
+  });
+}
+
+export async function setDefaultBankAccount(id: number): Promise<BankAccount> {
+  return request<BankAccount>(`/bankaccount/${id}/set-default`, {
+    method: "POST",
+  });
+}
+
+// ------ SYSTEM ADMIN WALLET MANAGEMENT ------
+export interface SystemWalletSummary {
+  totalSystemBalance: number;
+  systemAdminBalance: number;
+  allUsersBalance: number;
+  totalUsers: number;
+  totalCustomers: number;
+  totalEnterpriseAdmins: number;
+  breakdown: {
+    customersBalance: number;
+    enterpriseAdminsBalance: number;
+  };
+}
+
+export interface UserWalletInfo {
+  userId: number;
+  userName: string;
+  userEmail: string;
+  userRole: string;
+  walletId: number;
+  balance: number;
+  currency: string;
+  walletCreatedAt: string;
+  totalTransactions: number;
+}
+
+export interface UpdateUserBalanceDto {
+  amount: number; // Positive = add, Negative = subtract
+  description: string;
+}
+
+export interface UpdateUserBalanceResponse {
+  message: string;
+  transaction: WalletTransaction;
+}
+
+export async function getSystemWalletSummary(): Promise<SystemWalletSummary> {
+  return request<SystemWalletSummary>("/wallet/system/summary", {
+    method: "GET",
+  });
+}
+
+export async function getAllUserWallets(params?: {
+  page?: number;
+  pageSize?: number;
+}): Promise<UserWalletInfo[]> {
+  const searchParams = new URLSearchParams();
+  if (params?.page) searchParams.append('page', String(params.page));
+  if (params?.pageSize) searchParams.append('pageSize', String(params.pageSize));
+
+  const query = searchParams.toString();
+  return request<UserWalletInfo[]>(`/wallet/system/users${query ? '?' + query : ''}`, {
+    method: "GET",
+  });
+}
+
+export async function getUserWallet(userId: number): Promise<Wallet> {
+  return request<Wallet>(`/wallet/user/${userId}`, {
+    method: "GET",
+  });
+}
+
+export async function updateUserBalance(userId: number, payload: UpdateUserBalanceDto): Promise<UpdateUserBalanceResponse> {
+  return request<UpdateUserBalanceResponse>(`/wallet/user/${userId}/balance`, {
+    method: "PUT",
+    json: payload,
+  });
 }
 
 // Legacy compatibility exports
