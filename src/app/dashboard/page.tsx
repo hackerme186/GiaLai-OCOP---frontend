@@ -137,7 +137,7 @@ export default function DashboardPage() {
                         <div>
                             <dt className="text-sm font-medium text-gray-500">Enterprise ID</dt>
                             <dd className="mt-1 text-sm text-gray-900">
-                                {user.enterpriseId || 'Chưa liên kết'}
+                                {user.enterpriseId || 'Ch╞░a li├¬n kß║┐t'}
                             </dd>
                         </div>
                     </dl>
@@ -146,7 +146,7 @@ export default function DashboardPage() {
                 {/* Debug Info (Development only) */}
                 {process.env.NODE_ENV === 'development' && (
                     <div className="mt-6 bg-gray-800 text-white rounded-lg p-6">
-                        <h3 className="text-lg font-semibold mb-4">🔧 Debug Info</h3>
+                        <h3 className="text-lg font-semibold mb-4">≡ƒöº Debug Info</h3>
                         <pre className="text-xs overflow-auto">
                             {JSON.stringify(user, null, 2)}
                         </pre>
