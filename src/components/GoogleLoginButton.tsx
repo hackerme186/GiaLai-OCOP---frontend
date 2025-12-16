@@ -216,126 +216,249 @@ export default function GoogleLoginButton({ onError }: GoogleLoginButtonProps) {
 
   const [isSDKLoaded, setIsSDKLoaded] = useState(false)
   const [isInitialized, setIsInitialized] = useState(false)
+  const scriptLoadedRef = useRef(false)
 
-  // Load and initialize Google Identity Services SDK
+  const initializeGoogleSDK = useCallback(() => {
+    if (!window.google?.accounts?.id) {
+      console.warn("⚠️ [GoogleLogin] window.google.accounts.id chưa sẵn sàng")
+      return false
+    }
+
+    if (!buttonRef.current) {
+      console.warn("⚠️ [GoogleLogin] buttonRef.current chưa sẵn sàng")
+      return false
+    }
+
+    if (isInitialized) {
+      return true // Already initialized
+    }
+
+    try {
+      console.log("🔧 [GoogleLogin] Đang khởi tạo Google SDK...")
+      
+      // Initialize Google SDK
+      window.google.accounts.id.initialize({
+        client_id: GOOGLE_CLIENT_ID,
+        callback: handleGoogleSuccess,
+      })
+      
+      console.log("🔧 [GoogleLogin] Đang render Google button...")
+      
+      // Render hidden Google button
+      window.google.accounts.id.renderButton(buttonRef.current, {
+        theme: "outline",
+        size: "large",
+        text: "signin_with",
+        width: "100%",
+        type: "standard",
+      })
+      
+      // Hide the Google button - use multiple attempts to ensure it's hidden
+      const hideButton = () => {
+        if (buttonRef.current) {
+          const googleButton = buttonRef.current.querySelector('div[role="button"]') as HTMLElement
+          if (googleButton) {
+            googleButton.style.display = 'none'
+            googleButton.style.visibility = 'hidden'
+            googleButton.style.position = 'absolute'
+            googleButton.style.opacity = '0'
+            googleButton.style.width = '0'
+            googleButton.style.height = '0'
+            googleButton.style.pointerEvents = 'none'
+            return true
+          }
+        }
+        return false
+      }
+
+      // Try to hide immediately
+      if (!hideButton()) {
+        // If not found, try again after a short delay
+        setTimeout(() => {
+          hideButton()
+        }, 50)
+        
+        // And again after longer delay for production
+        setTimeout(() => {
+          hideButton()
+        }, 300)
+        
+        // Final attempt
+        setTimeout(() => {
+          hideButton()
+        }, 1000)
+      }
+      
+      setIsSDKLoaded(true)
+      setIsInitialized(true)
+      console.log("✅ [GoogleLogin] Google SDK đã được khởi tạo thành công")
+      return true
+    } catch (error: any) {
+      console.error("❌ [GoogleLogin] Lỗi khởi tạo Google SDK:", error)
+      onErrorRef.current?.("Không thể khởi tạo Google login. Vui lòng thử lại sau.")
+      return false
+    }
+  }, [GOOGLE_CLIENT_ID, handleGoogleSuccess, isInitialized])
+
+  // Load Google SDK script
   useEffect(() => {
+    // Only run on client side
+    if (typeof window === 'undefined') {
+      return
+    }
+
     if (!GOOGLE_CLIENT_ID) {
       console.warn("⚠️ [GoogleLogin] NEXT_PUBLIC_GOOGLE_CLIENT_ID chưa được cấu hình")
       return
     }
 
-    const initializeGoogleSDK = () => {
-      if (!window.google?.accounts?.id) {
-        return false
-      }
-
-      if (!buttonRef.current) {
-        return false
-      }
-
-      try {
-        // Initialize Google SDK
-        window.google.accounts.id.initialize({
-          client_id: GOOGLE_CLIENT_ID,
-          callback: handleGoogleSuccess,
-        })
-        
-        // Render hidden Google button
-        window.google.accounts.id.renderButton(buttonRef.current, {
-          theme: "outline",
-          size: "large",
-          text: "signin_with",
-          width: "100%",
-          type: "standard",
-        })
-        
-        // Hide the Google button - use multiple attempts to ensure it's hidden
-        const hideButton = () => {
-          if (buttonRef.current) {
-            const googleButton = buttonRef.current.querySelector('div[role="button"]') as HTMLElement
-            if (googleButton) {
-              googleButton.style.display = 'none'
-              googleButton.style.visibility = 'hidden'
-              googleButton.style.position = 'absolute'
-              googleButton.style.opacity = '0'
-              googleButton.style.width = '0'
-              googleButton.style.height = '0'
-              return true
-            }
-          }
-          return false
-        }
-
-        // Try to hide immediately
-        if (!hideButton()) {
-          // If not found, try again after a short delay
-          setTimeout(() => {
-            hideButton()
-          }, 50)
-          
-          // And again after longer delay for production
-          setTimeout(() => {
-            hideButton()
-          }, 300)
-        }
-        
-        setIsSDKLoaded(true)
-        setIsInitialized(true)
-        return true
-      } catch (error: any) {
-        console.error("❌ [GoogleLogin] Lỗi khởi tạo Google SDK:", error)
-        onErrorRef.current?.("Không thể khởi tạo Google login. Vui lòng thử lại sau.")
-        return false
-      }
-    }
-
     // Check if SDK is already loaded
     if (window.google?.accounts?.id) {
-      initializeGoogleSDK()
+      console.log("✅ [GoogleLogin] Google SDK đã được load sẵn")
+      setTimeout(() => {
+        initializeGoogleSDK()
+      }, 100)
       return
     }
 
-    // Check if script is already being loaded
-    const existingScript = document.querySelector('script[src="https://accounts.google.com/gsi/client"]')
+    // Check if script is already in DOM
+    const existingScript = document.querySelector('script[src*="accounts.google.com/gsi/client"]')
     if (existingScript) {
-      // Wait for it to load
-      existingScript.addEventListener('load', () => {
-        setTimeout(() => {
+      console.log("📝 [GoogleLogin] Script đã tồn tại trong DOM, đợi load...")
+      
+      const checkSDK = setInterval(() => {
+        if (window.google?.accounts?.id) {
+          clearInterval(checkSDK)
           initializeGoogleSDK()
-        }, 100)
-      })
+        }
+      }, 100)
+
+      const timeout = setTimeout(() => {
+        clearInterval(checkSDK)
+      }, 10000)
+
+      return () => {
+        clearInterval(checkSDK)
+        clearTimeout(timeout)
+      }
+    }
+
+    // Prevent multiple script loads
+    if (scriptLoadedRef.current) {
       return
     }
 
-    // Load Google Identity Services script
+    console.log("📥 [GoogleLogin] Bắt đầu load Google SDK script...")
+    scriptLoadedRef.current = true
+
+    // Create and load script
     const script = document.createElement("script")
     script.src = "https://accounts.google.com/gsi/client"
     script.async = true
     script.defer = true
-    script.crossOrigin = "anonymous"
+    script.id = "google-gsi-script"
+    
+    // Remove crossOrigin to avoid CORS issues
+    // script.crossOrigin = "anonymous"
+    
+    let loadTimeout: NodeJS.Timeout | null = null
     
     script.onload = () => {
-      // Wait a bit for SDK to be fully available
-      setTimeout(() => {
-        if (!initializeGoogleSDK()) {
-          console.error("❌ [GoogleLogin] Google SDK đã load nhưng không thể khởi tạo")
-          onErrorRef.current?.("Không thể khởi tạo Google login. Vui lòng thử lại sau.")
+      if (loadTimeout) {
+        clearTimeout(loadTimeout)
+      }
+      console.log("✅ [GoogleLogin] Google SDK script đã load thành công")
+      setIsSDKLoaded(true)
+      
+      // Wait for SDK to be available
+      const checkSDK = setInterval(() => {
+        if (window.google?.accounts?.id) {
+          clearInterval(checkSDK)
+          console.log("✅ [GoogleLogin] window.google.accounts.id đã sẵn sàng")
+          setTimeout(() => {
+            initializeGoogleSDK()
+          }, 100)
         }
-      }, 100)
+      }, 50)
+
+      // Timeout after 5 seconds
+      setTimeout(() => {
+        clearInterval(checkSDK)
+        if (!window.google?.accounts?.id) {
+          console.error("❌ [GoogleLogin] Script đã load nhưng window.google.accounts.id không có sau 5 giây")
+          onErrorRef.current?.("Google SDK đã load nhưng không khởi tạo được. Vui lòng refresh trang.")
+        }
+      }, 5000)
     }
     
-    script.onerror = () => {
-      console.error("❌ [GoogleLogin] Không thể tải Google Identity Services SDK")
-      onErrorRef.current?.("Không thể tải Google SDK. Vui lòng kiểm tra kết nối internet.")
+    script.onerror = (error) => {
+      if (loadTimeout) {
+        clearTimeout(loadTimeout)
+      }
+      scriptLoadedRef.current = false
+      console.error("❌ [GoogleLogin] Lỗi load Google SDK script:", error)
+      console.error("❌ [GoogleLogin] Script src:", script.src)
+      console.error("❌ [GoogleLogin] Script parent:", script.parentNode)
+      
+      // Try to diagnose the issue
+      fetch("https://accounts.google.com/gsi/client", { method: 'HEAD', mode: 'no-cors' })
+        .then(() => {
+          console.log("✅ [GoogleLogin] Có thể fetch Google URL (no-cors)")
+        })
+        .catch((err) => {
+          console.error("❌ [GoogleLogin] Không thể fetch Google URL:", err)
+        })
+      
+      onErrorRef.current?.("Không thể tải Google SDK. Vui lòng kiểm tra kết nối internet hoặc thử refresh trang.")
     }
     
-    document.head.appendChild(script)
+    // Set timeout
+    loadTimeout = setTimeout(() => {
+      if (!window.google?.accounts?.id) {
+        console.warn("⚠️ [GoogleLogin] Script load timeout sau 15 giây")
+        script.onerror?.(new Event('timeout') as any)
+      }
+    }, 15000)
+    
+    // Append script to DOM
+    try {
+      // Wait for DOM to be ready
+      const appendScript = () => {
+        try {
+          if (document.head) {
+            document.head.appendChild(script)
+            console.log("✅ [GoogleLogin] Script đã được thêm vào <head>")
+          } else if (document.body) {
+            document.body.appendChild(script)
+            console.log("✅ [GoogleLogin] Script đã được thêm vào <body>")
+          } else {
+            console.error("❌ [GoogleLogin] Không tìm thấy <head> hoặc <body>")
+          }
+        } catch (error) {
+          console.error("❌ [GoogleLogin] Lỗi khi thêm script vào DOM:", error)
+          scriptLoadedRef.current = false
+          onErrorRef.current?.("Không thể thêm Google SDK script. Vui lòng thử lại.")
+        }
+      }
+
+      if (document.readyState === 'loading') {
+        document.addEventListener('DOMContentLoaded', appendScript, { once: true })
+      } else {
+        appendScript()
+      }
+    } catch (error) {
+      console.error("❌ [GoogleLogin] Lỗi khi setup script:", error)
+      scriptLoadedRef.current = false
+      onErrorRef.current?.("Không thể setup Google SDK. Vui lòng thử lại.")
+    }
 
     return () => {
-      // Don't remove script on cleanup as it might be used by other components
+      if (loadTimeout) {
+        clearTimeout(loadTimeout)
+      }
+      // Don't remove script on cleanup
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [GOOGLE_CLIENT_ID])
+  }, [GOOGLE_CLIENT_ID, initializeGoogleSDK])
 
   const handleGoogleClick = () => {
     if (!window.google?.accounts?.id) {
