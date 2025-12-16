@@ -10,6 +10,8 @@ export const authOptions: NextAuthOptions = {
       clientSecret: process.env.GOOGLE_CLIENT_SECRET || "",
     }),
   ],
+  // ⚠️ PRODUCTION: Must set NEXTAUTH_SECRET environment variable!
+  // Generate with: openssl rand -base64 32
   secret: process.env.NEXTAUTH_SECRET || "fallback-secret-key-change-in-production",
   callbacks: {
     async jwt({ token, account, profile }) {
