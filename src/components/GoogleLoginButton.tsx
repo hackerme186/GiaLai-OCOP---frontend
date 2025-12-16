@@ -1,5 +1,5 @@
 "use client"
-import { useState, useEffect, useRef } from "react"
+import { useState, useEffect, useRef, useCallback } from "react"
 import { loginWithGoogle } from "@/lib/api"
 import { setAuthToken, getRoleFromToken, setUserProfile } from "@/lib/auth"
 import { getCurrentUser } from "@/lib/api"
@@ -39,12 +39,20 @@ export default function GoogleLoginButton({ onError }: GoogleLoginButtonProps) {
   const router = useRouter()
   const [isLoading, setIsLoading] = useState(false)
   const buttonRef = useRef<HTMLDivElement>(null)
+  const onErrorRef = useRef(onError)
+  const routerRef = useRef(router)
   const GOOGLE_CLIENT_ID = process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID || ""
 
-  const handleGoogleSuccess = async (credentialResponse: any) => {
+  // Keep refs updated
+  useEffect(() => {
+    onErrorRef.current = onError
+    routerRef.current = router
+  }, [onError, router])
+
+  const handleGoogleSuccess = useCallback(async (credentialResponse: any) => {
     if (!credentialResponse.credential) {
       console.error("❌ [GoogleLogin] Không nhận được credential từ Google")
-      onError?.("Đăng nhập Google thất bại. Vui lòng thử lại.")
+      onErrorRef.current?.("Đăng nhập Google thất bại. Vui lòng thử lại.")
       return
     }
 
@@ -156,13 +164,13 @@ export default function GoogleLoginButton({ onError }: GoogleLoginButtonProps) {
       console.log("🔀 [GoogleLogin] Đang redirect...")
       if (isSystemAdmin || isAdmin) {
         console.log("🔀 [GoogleLogin] Redirecting to /admin")
-        router.replace("/admin")
+        routerRef.current.replace("/admin")
       } else if (isEnterpriseAdmin) {
         console.log("🔀 [GoogleLogin] Redirecting to /enterprise-admin")
-        router.replace("/enterprise-admin")
+        routerRef.current.replace("/enterprise-admin")
       } else {
         console.log("🔀 [GoogleLogin] Redirecting to /home")
-        router.replace("/home")
+        routerRef.current.replace("/home")
       }
 
       console.log("✅ [GoogleLogin] Đăng nhập thành công!")
@@ -200,11 +208,14 @@ export default function GoogleLoginButton({ onError }: GoogleLoginButtonProps) {
       
       // Chuyển đổi error thành thông báo dễ hiểu cho người dùng
       const errorMessage = getUserFriendlyError(err)
-      onError?.(errorMessage)
+      onErrorRef.current?.(errorMessage)
     } finally {
       setIsLoading(false)
     }
-  }
+  }, [])
+
+  const [isSDKLoaded, setIsSDKLoaded] = useState(false)
+  const [isInitialized, setIsInitialized] = useState(false)
 
   // Load and initialize Google Identity Services SDK
   useEffect(() => {
@@ -213,12 +224,15 @@ export default function GoogleLoginButton({ onError }: GoogleLoginButtonProps) {
       return
     }
 
-    if (!buttonRef.current) {
-      return
-    }
+    const initializeGoogleSDK = () => {
+      if (!window.google?.accounts?.id) {
+        return false
+      }
 
-    // Check if SDK is already loaded
-    if (window.google?.accounts?.id) {
+      if (!buttonRef.current) {
+        return false
+      }
+
       try {
         // Initialize Google SDK
         window.google.accounts.id.initialize({
@@ -226,7 +240,7 @@ export default function GoogleLoginButton({ onError }: GoogleLoginButtonProps) {
           callback: handleGoogleSuccess,
         })
         
-        // Render Google button
+        // Render hidden Google button
         window.google.accounts.id.renderButton(buttonRef.current, {
           theme: "outline",
           size: "large",
@@ -234,10 +248,62 @@ export default function GoogleLoginButton({ onError }: GoogleLoginButtonProps) {
           width: "100%",
           type: "standard",
         })
+        
+        // Hide the Google button - use multiple attempts to ensure it's hidden
+        const hideButton = () => {
+          if (buttonRef.current) {
+            const googleButton = buttonRef.current.querySelector('div[role="button"]') as HTMLElement
+            if (googleButton) {
+              googleButton.style.display = 'none'
+              googleButton.style.visibility = 'hidden'
+              googleButton.style.position = 'absolute'
+              googleButton.style.opacity = '0'
+              googleButton.style.width = '0'
+              googleButton.style.height = '0'
+              return true
+            }
+          }
+          return false
+        }
+
+        // Try to hide immediately
+        if (!hideButton()) {
+          // If not found, try again after a short delay
+          setTimeout(() => {
+            hideButton()
+          }, 50)
+          
+          // And again after longer delay for production
+          setTimeout(() => {
+            hideButton()
+          }, 300)
+        }
+        
+        setIsSDKLoaded(true)
+        setIsInitialized(true)
+        return true
       } catch (error: any) {
         console.error("❌ [GoogleLogin] Lỗi khởi tạo Google SDK:", error)
-        onError?.("Không thể khởi tạo Google login. Vui lòng thử lại sau.")
+        onErrorRef.current?.("Không thể khởi tạo Google login. Vui lòng thử lại sau.")
+        return false
       }
+    }
+
+    // Check if SDK is already loaded
+    if (window.google?.accounts?.id) {
+      initializeGoogleSDK()
+      return
+    }
+
+    // Check if script is already being loaded
+    const existingScript = document.querySelector('script[src="https://accounts.google.com/gsi/client"]')
+    if (existingScript) {
+      // Wait for it to load
+      existingScript.addEventListener('load', () => {
+        setTimeout(() => {
+          initializeGoogleSDK()
+        }, 100)
+      })
       return
     }
 
@@ -246,52 +312,160 @@ export default function GoogleLoginButton({ onError }: GoogleLoginButtonProps) {
     script.src = "https://accounts.google.com/gsi/client"
     script.async = true
     script.defer = true
+    script.crossOrigin = "anonymous"
+    
     script.onload = () => {
-      if (window.google?.accounts?.id && buttonRef.current) {
-        try {
-          // Initialize Google SDK
-          window.google.accounts.id.initialize({
-            client_id: GOOGLE_CLIENT_ID,
-            callback: handleGoogleSuccess,
-          })
-          
-          // Render Google button
-          window.google.accounts.id.renderButton(buttonRef.current, {
-            theme: "outline",
-            size: "large",
-            text: "signin_with",
-            width: "100%",
-            type: "standard",
-          })
-        } catch (error: any) {
-          console.error("❌ [GoogleLogin] Lỗi khởi tạo Google SDK:", error)
-          onError?.("Không thể khởi tạo Google login. Vui lòng thử lại sau.")
+      // Wait a bit for SDK to be fully available
+      setTimeout(() => {
+        if (!initializeGoogleSDK()) {
+          console.error("❌ [GoogleLogin] Google SDK đã load nhưng không thể khởi tạo")
+          onErrorRef.current?.("Không thể khởi tạo Google login. Vui lòng thử lại sau.")
         }
-      } else {
-        console.error("❌ [GoogleLogin] Google SDK đã load nhưng không có window.google.accounts.id")
-        onError?.("Không thể khởi tạo Google login. Vui lòng thử lại sau.")
-      }
+      }, 100)
     }
+    
     script.onerror = () => {
       console.error("❌ [GoogleLogin] Không thể tải Google Identity Services SDK")
-      onError?.("Không thể tải Google SDK. Vui lòng kiểm tra kết nối internet.")
+      onErrorRef.current?.("Không thể tải Google SDK. Vui lòng kiểm tra kết nối internet.")
     }
-    document.body.appendChild(script)
+    
+    document.head.appendChild(script)
 
     return () => {
-      // Cleanup if needed
-      if (script.parentNode) {
-        script.parentNode.removeChild(script)
-      }
+      // Don't remove script on cleanup as it might be used by other components
     }
-  }, [GOOGLE_CLIENT_ID, onError])
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [GOOGLE_CLIENT_ID])
+
+  const handleGoogleClick = () => {
+    if (!window.google?.accounts?.id) {
+      console.error("❌ [GoogleLogin] Google SDK chưa được tải")
+      onErrorRef.current?.("Google SDK chưa sẵn sàng. Vui lòng thử lại sau.")
+      return
+    }
+
+    if (!isInitialized) {
+      console.error("❌ [GoogleLogin] Google SDK chưa được khởi tạo")
+      onErrorRef.current?.("Google login chưa sẵn sàng. Vui lòng thử lại sau.")
+      return
+    }
+
+    if (!buttonRef.current) {
+      console.error("❌ [GoogleLogin] Button ref không tồn tại")
+      onErrorRef.current?.("Không thể khởi động Google login. Vui lòng thử lại.")
+      return
+    }
+
+    setIsLoading(true)
+    
+    // Try multiple ways to find and trigger the Google button
+    const triggerGoogleButton = () => {
+      // Method 1: Find by role="button"
+      let googleButton = buttonRef.current?.querySelector('div[role="button"]') as HTMLElement
+      
+      // Method 2: Find by iframe
+      if (!googleButton) {
+        const iframe = buttonRef.current?.querySelector('iframe')
+        if (iframe) {
+          googleButton = iframe as HTMLElement
+        }
+      }
+      
+      // Method 3: Find any clickable element
+      if (!googleButton) {
+        const clickable = buttonRef.current?.querySelector('[tabindex="0"]') as HTMLElement
+        if (clickable) {
+          googleButton = clickable
+        }
+      }
+
+      if (googleButton) {
+        // Try click first
+        googleButton.click()
+        
+        // If that doesn't work, try dispatching events
+        setTimeout(() => {
+          const clickEvent = new MouseEvent('click', {
+            bubbles: true,
+            cancelable: true,
+            view: window
+          })
+          googleButton?.dispatchEvent(clickEvent)
+        }, 50)
+        
+        return true
+      }
+      
+      return false
+    }
+
+    // Try to trigger immediately
+    if (!triggerGoogleButton()) {
+      // If not found, wait a bit and try again (for production delays)
+      setTimeout(() => {
+        if (!triggerGoogleButton()) {
+          console.error("❌ [GoogleLogin] Không tìm thấy Google button")
+          onErrorRef.current?.("Không thể khởi động Google login. Vui lòng thử lại.")
+          setIsLoading(false)
+        }
+      }, 200)
+    }
+  }
 
   return (
-    <div className="w-full">
-      <div ref={buttonRef} className="w-full"></div>
+    <div className="flex flex-col items-center">
+      <button
+        type="button"
+        onClick={handleGoogleClick}
+        disabled={isLoading || !isSDKLoaded || !isInitialized || !GOOGLE_CLIENT_ID}
+        className="w-14 h-14 rounded-full bg-[#DB4437] text-white flex items-center justify-center hover:bg-[#C23321] transition-colors disabled:opacity-60 disabled:cursor-not-allowed shadow-lg hover:shadow-xl relative"
+        title={!isInitialized ? "Đang tải Google login..." : "Đăng nhập bằng Google"}
+      >
+        {isLoading ? (
+          <svg
+            className="animate-spin h-6 w-6 text-white"
+            xmlns="http://www.w3.org/2000/svg"
+            fill="none"
+            viewBox="0 0 24 24"
+          >
+            <circle
+              className="opacity-25"
+              cx="12"
+              cy="12"
+              r="10"
+              stroke="currentColor"
+              strokeWidth="4"
+            ></circle>
+            <path
+              className="opacity-75"
+              fill="currentColor"
+              d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
+            ></path>
+          </svg>
+        ) : (
+          <svg
+            width="24"
+            height="24"
+            viewBox="0 0 24 24"
+            fill="currentColor"
+            className="flex-shrink-0"
+          >
+            <path d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z" fill="#4285F4"/>
+            <path d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z" fill="#34A853"/>
+            <path d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z" fill="#FBBC05"/>
+            <path d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z" fill="#EA4335"/>
+          </svg>
+        )}
+      </button>
+      <div ref={buttonRef} className="hidden" aria-hidden="true"></div>
       {isLoading && (
-        <p className="text-center text-xs text-gray-600 mt-2">
-          Đang xử lý đăng nhập...
+        <p className="text-center text-xs text-white/80 mt-2">
+          Đang xử lý...
+        </p>
+      )}
+      {!isSDKLoaded && GOOGLE_CLIENT_ID && (
+        <p className="text-center text-xs text-white/60 mt-1">
+          Đang tải...
         </p>
       )}
     </div>

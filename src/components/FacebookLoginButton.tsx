@@ -34,11 +34,11 @@ export default function FacebookLoginButton({ onError }: FacebookLoginButtonProp
   // Check HTTPS on mount
   useEffect(() => {
     if (typeof window !== "undefined") {
-      const isLocalhost = window.location.hostname === "localhost" || 
-                         window.location.hostname === "127.0.0.1" ||
-                         window.location.hostname.startsWith("192.168.") ||
-                         window.location.hostname.startsWith("10.")
-      
+      const isLocalhost = window.location.hostname === "localhost" ||
+        window.location.hostname === "127.0.0.1" ||
+        window.location.hostname.startsWith("192.168.") ||
+        window.location.hostname.startsWith("10.")
+
       const requiresHttps = window.location.protocol !== "https:" && !isLocalhost
       setIsHttps(!requiresHttps)
 
@@ -56,21 +56,12 @@ export default function FacebookLoginButton({ onError }: FacebookLoginButtonProp
       return
     }
 
-    // Check if SDK is already loaded
-    if (window.FB) {
-      window.FB.init({
-        appId: FACEBOOK_APP_ID,
-        version: "v18.0",
-        cookie: true,
-        xfbml: true,
-      })
-      setIsSDKLoaded(true)
-      return
-    }
+    const initializeFacebookSDK = () => {
+      if (!window.FB) {
+        return false
+      }
 
-    // Load Facebook SDK script
-    window.fbAsyncInit = () => {
-      if (window.FB) {
+      try {
         window.FB.init({
           appId: FACEBOOK_APP_ID,
           version: "v18.0",
@@ -78,7 +69,40 @@ export default function FacebookLoginButton({ onError }: FacebookLoginButtonProp
           xfbml: true,
         })
         setIsSDKLoaded(true)
+        return true
+      } catch (error: any) {
+        console.error("❌ [FacebookLogin] Lỗi khởi tạo Facebook SDK:", error)
+        onError?.("Không thể khởi tạo Facebook login. Vui lòng thử lại sau.")
+        return false
       }
+    }
+
+    // Check if SDK is already loaded
+    if (window.FB) {
+      initializeFacebookSDK()
+      return
+    }
+
+    // Check if script is already being loaded
+    const existingScript = document.querySelector('script[src*="connect.facebook.net"]')
+    if (existingScript) {
+      // Wait for it to load
+      existingScript.addEventListener('load', () => {
+        setTimeout(() => {
+          initializeFacebookSDK()
+        }, 100)
+      })
+      return
+    }
+
+    // Load Facebook SDK script
+    window.fbAsyncInit = () => {
+      setTimeout(() => {
+        if (!initializeFacebookSDK()) {
+          console.error("❌ [FacebookLogin] Facebook SDK đã load nhưng không thể khởi tạo")
+          onError?.("Không thể khởi tạo Facebook login. Vui lòng thử lại sau.")
+        }
+      }, 100)
     }
 
     // Inject Facebook SDK script
@@ -87,15 +111,18 @@ export default function FacebookLoginButton({ onError }: FacebookLoginButtonProp
     script.async = true
     script.defer = true
     script.crossOrigin = "anonymous"
-    document.body.appendChild(script)
+
+    script.onerror = () => {
+      console.error("❌ [FacebookLogin] Không thể tải Facebook SDK")
+      onError?.("Không thể tải Facebook SDK. Vui lòng kiểm tra kết nối internet.")
+    }
+
+    document.head.appendChild(script)
 
     return () => {
-      // Cleanup if needed
-      if (script.parentNode) {
-        script.parentNode.removeChild(script)
-      }
+      // Don't remove script on cleanup as it might be used by other components
     }
-  }, [FACEBOOK_APP_ID])
+  }, [FACEBOOK_APP_ID, onError])
 
   if (!FACEBOOK_APP_ID) {
     return null
@@ -110,11 +137,11 @@ export default function FacebookLoginButton({ onError }: FacebookLoginButtonProp
 
     // Double-check HTTPS (Facebook requires HTTPS except for localhost)
     if (typeof window !== "undefined") {
-      const isLocalhost = window.location.hostname === "localhost" || 
-                         window.location.hostname === "127.0.0.1" ||
-                         window.location.hostname.startsWith("192.168.") ||
-                         window.location.hostname.startsWith("10.")
-      
+      const isLocalhost = window.location.hostname === "localhost" ||
+        window.location.hostname === "127.0.0.1" ||
+        window.location.hostname.startsWith("192.168.") ||
+        window.location.hostname.startsWith("10.")
+
       if (window.location.protocol !== "https:" && !isLocalhost) {
         const errorMsg = "Facebook login yêu cầu HTTPS. Vui lòng truy cập qua HTTPS hoặc sử dụng localhost."
         console.error(`❌ [FacebookLogin] ${errorMsg}`)
@@ -155,7 +182,7 @@ export default function FacebookLoginButton({ onError }: FacebookLoginButtonProp
     } catch (error: any) {
       console.error("❌ [FacebookLogin] Error calling FB.login:", error)
       const errorMsg = error?.message || "Không thể khởi động Facebook login"
-      
+
       // Check for HTTPS error
       if (errorMsg.includes("http pages") || errorMsg.includes("HTTPS")) {
         const detailedMsg = "Facebook login yêu cầu HTTPS. Vui lòng truy cập qua HTTPS hoặc sử dụng localhost."
@@ -281,10 +308,10 @@ export default function FacebookLoginButton({ onError }: FacebookLoginButtonProp
       setIsRedirecting(true)
       setLoadingMessage("Đăng nhập thành công! Đang chuyển hướng...")
       console.log("🔀 [FacebookLogin] Đang redirect...")
-      
+
       // Small delay to show success message
       await new Promise(resolve => setTimeout(resolve, 500))
-      
+
       if (isSystemAdmin || isAdmin) {
         console.log("🔀 [FacebookLogin] Redirecting to /admin")
         router.replace("/admin")
@@ -299,7 +326,7 @@ export default function FacebookLoginButton({ onError }: FacebookLoginButtonProp
       console.log("✅ [FacebookLogin] Đăng nhập thành công!")
     } catch (err) {
       console.error("❌ [FacebookLogin] Lỗi đăng nhập:", err)
-      
+
       // Log chi tiết error
       if (err instanceof Error) {
         console.error("❌ [FacebookLogin] Error details:", {
@@ -311,10 +338,10 @@ export default function FacebookLoginButton({ onError }: FacebookLoginButtonProp
       } else {
         console.error("❌ [FacebookLogin] Error object:", err)
       }
-      
+
       // Chuyển đổi error thành thông báo dễ hiểu cho người dùng
       const errorMessage = getUserFriendlyError(err)
-      
+
       setLoadingMessage("")
       setIsRedirecting(false)
       onError?.(errorMessage)
@@ -327,17 +354,17 @@ export default function FacebookLoginButton({ onError }: FacebookLoginButtonProp
   }
 
   return (
-    <div className="w-full">
+    <div className="flex flex-col items-center">
       <button
         type="button"
         onClick={handleFacebookClick}
         disabled={isLoading || !isSDKLoaded || !isHttps}
-        className="w-full flex items-center justify-center gap-3 px-4 py-3 bg-blue-600 text-white rounded-lg font-semibold hover:bg-blue-700 transition-colors disabled:opacity-60 disabled:cursor-not-allowed border border-blue-700 shadow-sm hover:shadow-md relative"
-        title={!isHttps ? "Facebook login yêu cầu HTTPS. Vui lòng truy cập qua HTTPS hoặc sử dụng localhost." : undefined}
+        className="w-14 h-14 rounded-full bg-[#1877F2] text-white flex items-center justify-center hover:bg-[#166FE5] transition-colors disabled:opacity-60 disabled:cursor-not-allowed shadow-lg hover:shadow-xl relative"
+        title={!isHttps ? "Facebook login yêu cầu HTTPS. Vui lòng truy cập qua HTTPS hoặc sử dụng localhost." : "Đăng nhập bằng Facebook"}
       >
-        {isLoading && (
+        {isLoading ? (
           <svg
-            className="animate-spin h-5 w-5 text-white absolute left-4"
+            className="animate-spin h-6 w-6 text-white"
             xmlns="http://www.w3.org/2000/svg"
             fill="none"
             viewBox="0 0 24 24"
@@ -356,28 +383,26 @@ export default function FacebookLoginButton({ onError }: FacebookLoginButtonProp
               d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
             ></path>
           </svg>
+        ) : (
+          <svg
+            width="24"
+            height="24"
+            viewBox="0 0 24 24"
+            fill="currentColor"
+            className="flex-shrink-0"
+          >
+            <path d="M24 12.073c0-6.627-5.373-12-12-12s-12 5.373-12 12c0 5.99 4.388 10.954 10.125 11.854v-8.385H7.078v-3.47h3.047V9.43c0-3.007 1.792-4.669 4.533-4.669 1.312 0 2.686.235 2.686.235v2.953H15.83c-1.491 0-1.956.925-1.956 1.874v2.25h3.328l-.532 3.47h-2.796v8.385C19.612 23.027 24 18.062 24 12.073z" />
+          </svg>
         )}
-        <svg
-          width="20"
-          height="20"
-          viewBox="0 0 24 24"
-          fill="currentColor"
-          className={`flex-shrink-0 ${isLoading ? 'opacity-50' : ''}`}
-        >
-          <path d="M24 12.073c0-6.627-5.373-12-12-12s-12 5.373-12 12c0 5.99 4.388 10.954 10.125 11.854v-8.385H7.078v-3.47h3.047V9.43c0-3.007 1.792-4.669 4.533-4.669 1.312 0 2.686.235 2.686.235v2.953H15.83c-1.491 0-1.956.925-1.956 1.874v2.25h3.328l-.532 3.47h-2.796v8.385C19.612 23.027 24 18.062 24 12.073z" />
-        </svg>
-        <span className={isLoading ? 'opacity-50' : ''}>
-          {isRedirecting ? 'Đang chuyển hướng...' : isLoading ? 'Đang xử lý...' : 'Facebook'}
-        </span>
       </button>
       {loadingMessage && (
-        <p className="text-center text-sm text-blue-100 mt-2 animate-pulse">
+        <p className="text-center text-xs text-white/80 mt-2 animate-pulse">
           {loadingMessage}
         </p>
       )}
       {!isSDKLoaded && FACEBOOK_APP_ID && (
-        <p className="text-center text-xs text-yellow-300 mt-1">
-          Đang tải Facebook SDK...
+        <p className="text-center text-xs text-white/60 mt-1">
+          Đang tải...
         </p>
       )}
     </div>
