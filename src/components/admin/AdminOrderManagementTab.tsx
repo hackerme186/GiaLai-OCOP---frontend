@@ -2,7 +2,7 @@
 
 import { useEffect, useState, useMemo, type ReactElement } from "react"
 import Image from "next/image"
-import { getOrders, approveOrderCompletion, type Order } from "@/lib/api"
+import { getOrders, approveOrderCompletion, confirmBankTransfer, type Order, type ConfirmBankTransferDto } from "@/lib/api"
 import { useOrderProducts } from "@/lib/hooks/useOrderProducts"
 
 export default function AdminOrderManagementTab() {
@@ -22,6 +22,11 @@ export default function AdminOrderManagementTab() {
   const [showApprovalModal, setShowApprovalModal] = useState(false)
   const [approvalOrder, setApprovalOrder] = useState<Order | null>(null)
   const [rejectionReason, setRejectionReason] = useState("")
+  
+  // Bank Transfer Approval Modal
+  const [showBankTransferModal, setShowBankTransferModal] = useState(false)
+  const [bankTransferOrder, setBankTransferOrder] = useState<Order | null>(null)
+  const [bankTransferRejectionReason, setBankTransferRejectionReason] = useState("")
   
   // Expanded orders
   const [expandedOrders, setExpandedOrders] = useState<Set<number>>(new Set())
@@ -87,6 +92,51 @@ export default function AdminOrderManagementTab() {
       setRejectionReason("")
     } catch (err) {
       console.error("❌ Error approving completion:", err)
+      const errorMessage = err instanceof Error ? err.message : "Không thể xử lý yêu cầu"
+      alert(`Lỗi: ${errorMessage}`)
+    }
+  }
+
+  const handleOpenBankTransferModal = (order: Order) => {
+    setBankTransferOrder(order)
+    setBankTransferRejectionReason("")
+    setShowBankTransferModal(true)
+  }
+
+  const handleConfirmBankTransfer = async (confirmed: boolean) => {
+    if (!bankTransferOrder) return
+
+    if (!confirmed && !bankTransferRejectionReason.trim()) {
+      alert("Vui lòng nhập lý do chưa chuyển khoản")
+      return
+    }
+
+    try {
+      console.log("🔄 Confirming bank transfer for order:", bankTransferOrder.id, "confirmed:", confirmed)
+      
+      const result = await confirmBankTransfer({
+        orderId: bankTransferOrder.id,
+        confirmed,
+        rejectionReason: confirmed ? undefined : bankTransferRejectionReason
+      })
+      
+      console.log("✅ Bank transfer confirmation result:", result)
+      
+      // Reload orders để lấy dữ liệu mới nhất từ server
+      await loadOrders()
+      
+      setSuccessMessage(
+        confirmed 
+          ? `Đã xác nhận đã chuyển khoản cho đơn hàng #${bankTransferOrder.id}!`
+          : `Đã xác nhận chưa chuyển khoản cho đơn hàng #${bankTransferOrder.id}.`
+      )
+      setTimeout(() => setSuccessMessage(null), 5000)
+      
+      setShowBankTransferModal(false)
+      setBankTransferOrder(null)
+      setBankTransferRejectionReason("")
+    } catch (err) {
+      console.error("❌ Error confirming bank transfer:", err)
       const errorMessage = err instanceof Error ? err.message : "Không thể xử lý yêu cầu"
       alert(`Lỗi: ${errorMessage}`)
     }
@@ -327,6 +377,12 @@ export default function AdminOrderManagementTab() {
   }
 
   const pendingCompletionCount = orders.filter(o => o.status === "PendingCompletion").length
+  
+  // Đếm số đơn hàng cần xét duyệt chuyển khoản (bao gồm cả AwaitingTransfer và BankTransferRejected để có thể xác nhận lại)
+  const pendingBankTransferCount = orders.filter(o => 
+    o.paymentMethod === "BankTransfer" && 
+    (o.paymentStatus === "AwaitingTransfer" || o.paymentStatus === "BankTransferRejected")
+  ).length
 
   return (
     <div className="space-y-6">
@@ -347,6 +403,36 @@ export default function AdminOrderManagementTab() {
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
             </svg>
           </button>
+        </div>
+      )}
+
+      {/* Pending Bank Transfer Alert */}
+      {pendingBankTransferCount > 0 && (
+        <div className="bg-orange-50 border-l-4 border-orange-500 p-4 rounded-lg shadow-sm mb-4">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-3">
+              <svg className="w-6 h-6 text-orange-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 10h18M7 15h1m4 0h1m-7 4h12a3 3 0 003-3V8a3 3 0 00-3-3H6a3 3 0 00-3 3v8a3 3 0 003 3z" />
+              </svg>
+              <div>
+                <p className="font-semibold text-orange-900">
+                  Có {pendingBankTransferCount} đơn hàng cần xét duyệt chuyển khoản ngân hàng
+                </p>
+                <p className="text-sm text-orange-700 mt-1">
+                  Vui lòng kiểm tra và xác nhận các đơn hàng đã chuyển khoản
+                </p>
+              </div>
+            </div>
+            <button
+              onClick={() => {
+                setFilter("all")
+                setSearchQuery("BankTransfer AwaitingTransfer")
+              }}
+              className="px-4 py-2 bg-orange-600 text-white rounded-lg hover:bg-orange-700 transition-colors text-sm font-medium whitespace-nowrap"
+            >
+              Xem ngay →
+            </button>
+          </div>
         </div>
       )}
 
@@ -478,13 +564,42 @@ export default function AdminOrderManagementTab() {
                 {/* Order Header */}
                 <div className="bg-gradient-to-r from-gray-50 to-gray-100 border-b border-gray-200 px-6 py-4">
                   <div className="flex items-center justify-between mb-2">
-                    <div className="flex items-center gap-4">
+                    <div className="flex items-center gap-4 flex-wrap">
                       <div className="text-sm text-gray-600 font-medium">Mã đơn hàng</div>
                       <div className="text-xl font-bold bg-gradient-to-r from-blue-600 to-indigo-600 bg-clip-text text-transparent">#{order.id}</div>
                       <span className={`px-4 py-1.5 rounded-full text-xs font-semibold border-2 flex items-center gap-2 shadow-sm ${statusInfo.color}`}>
                         {statusInfo.icon}
                         {statusInfo.text}
                       </span>
+                      {/* Badge trạng thái chuyển khoản */}
+                      {order.paymentMethod === "BankTransfer" && (
+                        <>
+                          {order.paymentStatus === "BankTransferConfirmed" && (
+                            <span className="px-4 py-1.5 rounded-full text-xs font-semibold border-2 flex items-center gap-2 shadow-sm bg-green-50 text-green-700 border-green-200">
+                              <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                              </svg>
+                              Đã chuyển khoản
+                            </span>
+                          )}
+                          {order.paymentStatus === "BankTransferRejected" && (
+                            <span className="px-4 py-1.5 rounded-full text-xs font-semibold border-2 flex items-center gap-2 shadow-sm bg-red-50 text-red-700 border-red-200">
+                              <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                              </svg>
+                              Chưa chuyển khoản
+                            </span>
+                          )}
+                          {order.paymentStatus === "AwaitingTransfer" && (
+                            <span className="px-4 py-1.5 rounded-full text-xs font-semibold border-2 flex items-center gap-2 shadow-sm bg-yellow-50 text-yellow-700 border-yellow-200">
+                              <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+                              </svg>
+                              Chờ xác nhận chuyển khoản
+                            </span>
+                          )}
+                        </>
+                      )}
                     </div>
                     <div className="flex items-center gap-3">
                       <div className="text-sm text-gray-600 font-medium">
@@ -642,11 +757,16 @@ export default function AdminOrderManagementTab() {
                           <div>
                             <span className="text-gray-600">Trạng thái:</span>
                             <span className={`ml-2 font-medium ${
-                              order.paymentStatus === "Paid" ? "text-green-600" :
+                              order.paymentStatus === "Paid" || order.paymentStatus === "BankTransferConfirmed" ? "text-green-600" :
                               order.paymentStatus === "Pending" ? "text-orange-600" :
+                              order.paymentStatus === "AwaitingTransfer" ? "text-yellow-600" :
+                              order.paymentStatus === "BankTransferRejected" ? "text-red-600" :
                               "text-red-600"
                             }`}>
-                              {order.paymentStatus}
+                              {order.paymentStatus === "BankTransferConfirmed" ? "Đã chuyển khoản" : 
+                               order.paymentStatus === "BankTransferRejected" ? "Chưa chuyển khoản" :
+                               order.paymentStatus === "AwaitingTransfer" ? "Chờ xác nhận chuyển khoản" :
+                               order.paymentStatus}
                             </span>
                           </div>
                           {order.paymentReference && (
@@ -778,7 +898,37 @@ export default function AdminOrderManagementTab() {
                   </div>
 
                   {/* Actions */}
-                  <div className="flex gap-3 pt-4">
+                  <div className="flex gap-3 pt-4 flex-wrap">
+                    {/* Bank Transfer Approval Buttons */}
+                    {order.paymentMethod === "BankTransfer" && (order.paymentStatus === "AwaitingTransfer" || order.paymentStatus === "BankTransferRejected") && (
+                      <>
+                        <button
+                          onClick={async () => {
+                            if (confirm(`Bạn có chắc muốn xác nhận đơn hàng #${order.id} đã chuyển khoản?`)) {
+                              setBankTransferOrder(order)
+                              await handleConfirmBankTransfer(true)
+                            }
+                          }}
+                          className="flex-1 px-6 py-3 bg-gradient-to-r from-green-600 to-emerald-600 text-white rounded-lg font-semibold hover:from-green-700 hover:to-emerald-700 transition-all shadow-lg hover:shadow-xl flex items-center justify-center gap-2 min-w-[200px]"
+                        >
+                          <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                          </svg>
+                          Xác nhận đã chuyển khoản
+                        </button>
+                        <button
+                          onClick={() => handleOpenBankTransferModal(order)}
+                          className="flex-1 px-6 py-3 bg-gradient-to-r from-red-600 to-red-700 text-white rounded-lg font-semibold hover:from-red-700 hover:to-red-800 transition-all shadow-lg hover:shadow-xl flex items-center justify-center gap-2 min-w-[200px]"
+                        >
+                          <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                          </svg>
+                          Chưa chuyển khoản
+                        </button>
+                      </>
+                    )}
+                    
+                    {/* Completion Approval Buttons */}
                     {order.status === "PendingCompletion" && (
                       <>
                         <button
@@ -788,7 +938,7 @@ export default function AdminOrderManagementTab() {
                               await handleApproveCompletion(true)
                             }
                           }}
-                          className="flex-1 px-6 py-3 bg-gradient-to-r from-green-600 to-emerald-600 text-white rounded-lg font-semibold hover:from-green-700 hover:to-emerald-700 transition-all shadow-lg hover:shadow-xl flex items-center justify-center gap-2"
+                          className="flex-1 px-6 py-3 bg-gradient-to-r from-green-600 to-emerald-600 text-white rounded-lg font-semibold hover:from-green-700 hover:to-emerald-700 transition-all shadow-lg hover:shadow-xl flex items-center justify-center gap-2 min-w-[200px]"
                         >
                           <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
@@ -797,7 +947,7 @@ export default function AdminOrderManagementTab() {
                         </button>
                         <button
                           onClick={() => handleOpenApprovalModal(order)}
-                          className="flex-1 px-6 py-3 bg-gradient-to-r from-red-600 to-red-700 text-white rounded-lg font-semibold hover:from-red-700 hover:to-red-800 transition-all shadow-lg hover:shadow-xl flex items-center justify-center gap-2"
+                          className="flex-1 px-6 py-3 bg-gradient-to-r from-red-600 to-red-700 text-white rounded-lg font-semibold hover:from-red-700 hover:to-red-800 transition-all shadow-lg hover:shadow-xl flex items-center justify-center gap-2 min-w-[200px]"
                         >
                           <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
@@ -834,6 +984,68 @@ export default function AdminOrderManagementTab() {
           getStatusInfo={getStatusInfo}
           printInvoice={printInvoice}
         />
+      )}
+
+      {/* Bank Transfer Rejection Modal */}
+      {showBankTransferModal && bankTransferOrder && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-xl shadow-2xl p-6 max-w-md w-full">
+            <div className="flex items-center justify-between mb-4">
+              <h3 className="text-xl font-bold text-gray-900">Xác nhận chưa chuyển khoản</h3>
+              <button
+                onClick={() => {
+                  setShowBankTransferModal(false)
+                  setBankTransferOrder(null)
+                  setBankTransferRejectionReason("")
+                }}
+                className="text-gray-400 hover:text-gray-600"
+              >
+                <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                </svg>
+              </button>
+            </div>
+
+            <div className="mb-4">
+              <p className="text-gray-700 mb-2">
+                Đơn hàng <span className="font-semibold">#{bankTransferOrder.id}</span> đang chờ xác nhận chuyển khoản.
+              </p>
+              <p className="text-sm text-gray-600 mb-4">
+                Vui lòng nhập lý do chưa chuyển khoản:
+              </p>
+              <textarea
+                value={bankTransferRejectionReason}
+                onChange={(e) => setBankTransferRejectionReason(e.target.value)}
+                placeholder="Ví dụ: Chưa nhận được tiền trong tài khoản, Số tiền không khớp, Khách hàng chưa chuyển khoản..."
+                className="w-full px-4 py-3 border-2 border-gray-200 rounded-lg focus:border-red-500 focus:ring-2 focus:ring-red-200 resize-none"
+                rows={4}
+              />
+            </div>
+
+            <div className="flex gap-3">
+              <button
+                onClick={() => handleConfirmBankTransfer(false)}
+                disabled={!bankTransferRejectionReason.trim()}
+                className="flex-1 px-6 py-3 bg-red-600 text-white rounded-lg font-semibold hover:bg-red-700 transition-all disabled:bg-gray-300 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+              >
+                <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                </svg>
+                Xác nhận chưa chuyển khoản
+              </button>
+              <button
+                onClick={() => {
+                  setShowBankTransferModal(false)
+                  setBankTransferOrder(null)
+                  setBankTransferRejectionReason("")
+                }}
+                className="px-6 py-3 bg-gray-200 text-gray-700 rounded-lg font-semibold hover:bg-gray-300 transition-all"
+              >
+                Hủy
+              </button>
+            </div>
+          </div>
+        </div>
       )}
 
       {/* Approval Modal */}
@@ -1092,11 +1304,16 @@ function AdminOrderDetailModalContent({
                   <div>
                     <span className="text-sm text-gray-600">Trạng thái thanh toán:</span>
                     <p className={`font-medium ${
-                      detailOrder.paymentStatus === "Paid" ? "text-green-600" :
+                      detailOrder.paymentStatus === "Paid" || detailOrder.paymentStatus === "BankTransferConfirmed" ? "text-green-600" :
                       detailOrder.paymentStatus === "Pending" ? "text-orange-600" :
+                      detailOrder.paymentStatus === "AwaitingTransfer" ? "text-yellow-600" :
+                      detailOrder.paymentStatus === "BankTransferRejected" ? "text-red-600" :
                       "text-red-600"
                     }`}>
-                      {detailOrder.paymentStatus}
+                      {detailOrder.paymentStatus === "BankTransferConfirmed" ? "Đã chuyển khoản" : 
+                       detailOrder.paymentStatus === "BankTransferRejected" ? "Chưa chuyển khoản" :
+                       detailOrder.paymentStatus === "AwaitingTransfer" ? "Chờ xác nhận chuyển khoản" :
+                       detailOrder.paymentStatus}
                     </p>
                   </div>
                   {detailOrder.paymentReference && (

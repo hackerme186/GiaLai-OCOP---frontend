@@ -751,6 +751,8 @@ function StatusBadge({ label, type }: StatusBadgeProps) {
         cancelled: "bg-red-100 text-red-700",
         awaitingtransfer: "bg-yellow-100 text-yellow-700",
         paid: "bg-green-100 text-green-700",
+        "đãchuyểnkhoản": "bg-green-100 text-green-700",
+        "banktransferconfirmed": "bg-green-100 text-green-700",
     }
 
     const key = normalized.replace(/\s+/g, "")

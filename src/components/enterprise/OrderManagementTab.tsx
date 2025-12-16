@@ -78,13 +78,42 @@ function OrderCard({
       {/* Order Header */}
       <div className="bg-gradient-to-r from-gray-50 to-gray-100 border-b border-gray-200 px-6 py-4">
         <div className="flex items-center justify-between mb-2">
-          <div className="flex items-center gap-4">
+          <div className="flex items-center gap-4 flex-wrap">
             <div className="text-sm text-gray-600 font-medium">Mã đơn hàng</div>
             <div className="text-xl font-bold bg-gradient-to-r from-blue-600 to-indigo-600 bg-clip-text text-transparent">#{order.id}</div>
             <span className={`px-4 py-1.5 rounded-full text-xs font-semibold border-2 flex items-center gap-2 shadow-sm ${statusInfo.color}`}>
               {statusInfo.icon}
               {statusInfo.text}
             </span>
+            {/* Badge trạng thái chuyển khoản */}
+            {order.paymentMethod === "BankTransfer" && (
+              <>
+                {order.paymentStatus === "BankTransferConfirmed" && (
+                  <span className="px-4 py-1.5 rounded-full text-xs font-semibold border-2 flex items-center gap-2 shadow-sm bg-green-50 text-green-700 border-green-200">
+                    <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                    </svg>
+                    Đã chuyển khoản
+                  </span>
+                )}
+                {order.paymentStatus === "BankTransferRejected" && (
+                  <span className="px-4 py-1.5 rounded-full text-xs font-semibold border-2 flex items-center gap-2 shadow-sm bg-red-50 text-red-700 border-red-200">
+                    <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                    </svg>
+                    Chưa chuyển khoản
+                  </span>
+                )}
+                {order.paymentStatus === "AwaitingTransfer" && (
+                  <span className="px-4 py-1.5 rounded-full text-xs font-semibold border-2 flex items-center gap-2 shadow-sm bg-yellow-50 text-yellow-700 border-yellow-200">
+                    <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+                    </svg>
+                    Chờ xác nhận chuyển khoản
+                  </span>
+                )}
+              </>
+            )}
           </div>
           <div className="flex items-center gap-3">
             <div className="text-sm text-gray-600 font-medium">
@@ -125,7 +154,9 @@ function OrderCard({
             <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
             </svg>
-            <span>{order.paymentStatus}</span>
+                    <span>{order.paymentStatus === "BankTransferConfirmed" ? "Đã chuyển khoản" : 
+                            order.paymentStatus === "AwaitingTransfer" ? "Chờ xác nhận chuyển khoản" :
+                            order.paymentStatus}</span>
           </div>
           {order.shipperId && (
             <div className="flex items-center gap-2 text-gray-600">
@@ -267,13 +298,18 @@ function OrderCard({
                 </div>
                 <div>
                   <span className="text-gray-600">Trạng thái:</span>
-                  <span className={`ml-2 font-medium ${
-                    order.paymentStatus === "Paid" ? "text-green-600" :
-                    order.paymentStatus === "Pending" ? "text-orange-600" :
-                    "text-red-600"
-                  }`}>
-                    {order.paymentStatus}
-                  </span>
+                            <span className={`ml-2 font-medium ${
+                              order.paymentStatus === "Paid" || order.paymentStatus === "BankTransferConfirmed" ? "text-green-600" :
+                              order.paymentStatus === "Pending" ? "text-orange-600" :
+                              order.paymentStatus === "AwaitingTransfer" ? "text-yellow-600" :
+                              order.paymentStatus === "BankTransferRejected" ? "text-red-600" :
+                              "text-red-600"
+                            }`}>
+                              {order.paymentStatus === "BankTransferConfirmed" ? "Đã chuyển khoản" : 
+                               order.paymentStatus === "BankTransferRejected" ? "Chưa chuyển khoản" :
+                               order.paymentStatus === "AwaitingTransfer" ? "Chờ xác nhận chuyển khoản" :
+                               order.paymentStatus}
+                            </span>
                 </div>
                 {order.paymentReference && (
                   <div className="md:col-span-2">
@@ -1220,11 +1256,16 @@ function OrderDetailModalContent({
                   <div>
                     <span className="text-sm text-gray-600">Trạng thái thanh toán:</span>
                     <p className={`font-medium ${
-                      detailOrder.paymentStatus === "Paid" ? "text-green-600" :
+                      detailOrder.paymentStatus === "Paid" || detailOrder.paymentStatus === "BankTransferConfirmed" ? "text-green-600" :
                       detailOrder.paymentStatus === "Pending" ? "text-orange-600" :
+                      detailOrder.paymentStatus === "AwaitingTransfer" ? "text-yellow-600" :
+                      detailOrder.paymentStatus === "BankTransferRejected" ? "text-red-600" :
                       "text-red-600"
                     }`}>
-                      {detailOrder.paymentStatus}
+                      {detailOrder.paymentStatus === "BankTransferConfirmed" ? "Đã chuyển khoản" : 
+                       detailOrder.paymentStatus === "BankTransferRejected" ? "Chưa chuyển khoản" :
+                       detailOrder.paymentStatus === "AwaitingTransfer" ? "Chờ xác nhận chuyển khoản" :
+                       detailOrder.paymentStatus}
                     </p>
                   </div>
                   {detailOrder.paymentReference && (
