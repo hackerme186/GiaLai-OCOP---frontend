@@ -127,7 +127,7 @@ export default function AdminHeader({ activeTab, onTabChange }: AdminHeaderProps
   }, [visibleTabs, activeTab, onTabChange])
 
   return (
-    <aside className="fixed left-0 top-0 h-screen w-64 bg-gray-100 flex flex-col shadow-lg z-50">
+    <aside className="fixed left-0 top-0 h-screen w-64 bg-gray-100 flex flex-col shadow-lg" style={{ zIndex: 1000 }}>
       {/* Logo Section */}
       <div className="p-4 border-b border-gray-200">
         <div className="flex items-center gap-3">

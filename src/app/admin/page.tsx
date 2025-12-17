@@ -311,6 +311,7 @@ export default function AdminPage() {
               showNotificationDropdown={showNotificationDropdown}
               setShowNotificationDropdown={setShowNotificationDropdown}
               loadNotifications={loadNotifications}
+              onTabChange={setActiveTab}
             />
           )}
           {activeTab === 'enterprise-approval' && (
@@ -419,6 +420,7 @@ interface DashboardTabProps {
   showNotificationDropdown: boolean
   setShowNotificationDropdown: (show: boolean) => void
   loadNotifications: () => Promise<void>
+  onTabChange?: (tab: TabType) => void
 }
 
 function DashboardTab({ 
@@ -426,8 +428,10 @@ function DashboardTab({
   unreadCount, 
   showNotificationDropdown, 
   setShowNotificationDropdown,
-  loadNotifications 
+  loadNotifications,
+  onTabChange
 }: DashboardTabProps) {
+  const router = useRouter()
   const [loading, setLoading] = useState(true)
   const [summary, setSummary] = useState<ReportSummary | null>(null)
   const [error, setError] = useState<string | null>(null)
@@ -522,10 +526,11 @@ function DashboardTab({
           </div>
           
           {/* Notification Bell Icon */}
-          <div className="relative notification-dropdown z-50">
+          <div className="relative notification-dropdown" style={{ zIndex: 999999 }}>
             <button
               onClick={() => setShowNotificationDropdown(!showNotificationDropdown)}
-              className="relative p-3 rounded-full bg-white/20 hover:bg-white/30 transition-all backdrop-blur-sm z-50"
+              className="relative p-3 rounded-full bg-white/20 hover:bg-white/30 transition-all backdrop-blur-sm"
+              style={{ zIndex: 999999 }}
             >
               <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9" />
@@ -542,10 +547,14 @@ function DashboardTab({
               <>
                 {/* Backdrop overlay */}
                 <div 
-                  className="fixed inset-0 bg-black/20 z-[99998]"
+                  className="fixed inset-0 bg-black/20"
+                  style={{ zIndex: 999998 }}
                   onClick={() => setShowNotificationDropdown(false)}
                 />
-                <div className="fixed right-4 top-20 w-[420px] bg-white rounded-xl shadow-2xl border border-gray-200 z-[99999] max-h-[600px] overflow-hidden flex flex-col animate-in fade-in slide-in-from-top-2 duration-200">
+                <div 
+                  className="fixed right-4 top-20 w-[420px] bg-white rounded-xl shadow-2xl border border-gray-200 max-h-[600px] overflow-hidden flex flex-col animate-in fade-in slide-in-from-top-2 duration-200"
+                  style={{ zIndex: 999999 }}
+                >
                 {/* Header */}
                 <div className="px-5 py-4 border-b border-gray-200 bg-gradient-to-r from-blue-50 to-indigo-50 flex items-center justify-between">
                   <div className="flex items-center gap-3">
@@ -640,6 +649,7 @@ function DashboardTab({
                                   : 'bg-white border-l-transparent'
                               }`}
                               onClick={async () => {
+                                // Mark as read if unread
                                 if (!notification.read) {
                                   try {
                                     await markNotificationAsRead(notification.id)
@@ -648,8 +658,57 @@ function DashboardTab({
                                     console.error("Failed to mark as read:", err)
                                   }
                                 }
-                                if (notification.link) {
-                                  window.location.href = notification.link
+                                
+                                // Close dropdown first
+                                setShowNotificationDropdown(false)
+                                
+                                // Navigate to appropriate page
+                                let targetTab: TabType | null = null
+                                let targetUrl = notification.link
+                                
+                                // If link is provided, use it
+                                if (targetUrl) {
+                                  // Check if it's an internal admin tab link
+                                  const tabMatch = targetUrl.match(/[?&]tab=([^&]+)/)
+                                  if (tabMatch && onTabChange) {
+                                    const tabName = tabMatch[1] as TabType
+                                    onTabChange(tabName)
+                                    return
+                                  }
+                                  // External link or full URL
+                                  if (targetUrl.startsWith('/')) {
+                                    router.push(targetUrl)
+                                  } else {
+                                    window.location.href = targetUrl
+                                  }
+                                  return
+                                }
+                                
+                                // If no link provided, determine tab based on notification type and data
+                                const type = notification.type?.toLowerCase() || ''
+                                
+                                if (type.includes('order') || notification.orderId) {
+                                  targetTab = 'order-management'
+                                } else if (type.includes('product') && notification.productId) {
+                                  targetTab = 'product-management'
+                                } else if (type.includes('enterprise') && notification.enterpriseId) {
+                                  if (type.includes('approval')) {
+                                    targetTab = 'enterprise-approval'
+                                  } else {
+                                    targetTab = 'enterprise-management'
+                                  }
+                                } else if (type.includes('wallet') || type.includes('payment')) {
+                                  targetTab = 'wallet-management'
+                                } else if (type.includes('ocop') || type.includes('approval')) {
+                                  targetTab = 'ocop-approval'
+                                }
+                                
+                                // Switch to target tab if found
+                                if (targetTab && onTabChange) {
+                                  onTabChange(targetTab)
+                                } else if (targetTab) {
+                                  // Fallback: use router if onTabChange not available
+                                  router.push(`/admin?tab=${targetTab}`)
                                 }
                               }}
                             >

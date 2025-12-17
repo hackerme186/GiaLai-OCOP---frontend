@@ -2,7 +2,7 @@
 
 import { useEffect, useState, useMemo, type ReactElement } from "react"
 import Image from "next/image"
-import { getOrders, approveOrderCompletion, confirmBankTransfer, type Order, type ConfirmBankTransferDto } from "@/lib/api"
+import { getOrders, approveOrderCompletion, confirmBankTransfer, updateOrderStatus, type Order, type ConfirmBankTransferDto, type OrderEnterpriseStatus } from "@/lib/api"
 import { useOrderProducts } from "@/lib/hooks/useOrderProducts"
 
 export default function AdminOrderManagementTab() {
@@ -140,6 +140,86 @@ export default function AdminOrderManagementTab() {
       const errorMessage = err instanceof Error ? err.message : "Không thể xử lý yêu cầu"
       alert(`Lỗi: ${errorMessage}`)
     }
+  }
+
+  // Chức năng cập nhật trạng thái đơn hàng (SystemAdmin)
+  const handleStatusUpdate = async (orderId: number, newStatus: "Pending" | "Processing" | "Shipped" | "Completed" | "Cancelled") => {
+    try {
+      await updateOrderStatus(orderId, { status: newStatus })
+      setOrders(prev => prev.map(order => 
+        order.id === orderId ? { ...order, status: newStatus } : order
+      ))
+      setSuccessMessage(`Đã cập nhật trạng thái đơn hàng #${orderId} thành công!`)
+      setTimeout(() => setSuccessMessage(null), 3000)
+    } catch (err) {
+      alert(err instanceof Error ? err.message : "Không thể cập nhật trạng thái đơn hàng")
+    }
+  }
+
+  // Helper function để lấy thông tin trạng thái của enterprise
+  const getEnterpriseStatusInfo = (status: string) => {
+    const normalized = status?.toLowerCase() || ""
+    
+    const statusMap: Record<string, { text: string; color: string; icon: ReactElement }> = {
+      "pending": {
+        text: "Chờ chấp nhận",
+        color: "text-orange-600 bg-orange-50 border-orange-200",
+        icon: <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
+      },
+      "processing": {
+        text: "Đã chấp nhận",
+        color: "text-green-600 bg-green-50 border-green-200",
+        icon: <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
+      },
+      "shipped": {
+        text: "Đang giao",
+        color: "text-purple-600 bg-purple-50 border-purple-200",
+        icon: <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7h12m0 0l-4-4m4 4l-4 4m0 6H4m0 0l4 4m-4-4l4-4" /></svg>
+      },
+      "completed": {
+        text: "Hoàn thành",
+        color: "text-blue-600 bg-blue-50 border-blue-200",
+        icon: <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" /></svg>
+      },
+    }
+    
+    return statusMap[normalized] || {
+      text: status || "Không xác định",
+      color: "text-gray-600 bg-gray-50 border-gray-200",
+      icon: <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8.228 9c.549-1.165 2.03-2 3.772-2 2.21 0 4 1.343 4 3 0 1.4-1.278 2.575-3.006 2.907-.542.104-.994.54-.994 1.093m0 3h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
+    }
+  }
+
+  // Helper function để nhóm orderItems theo enterprise
+  const groupOrderItemsByEnterprise = (orderItems: typeof orders[0]['orderItems']) => {
+    if (!orderItems || orderItems.length === 0) return []
+    
+    const groups = new Map<number | string, typeof orderItems>()
+    
+    orderItems.forEach(item => {
+      const key = item.enterpriseId ?? item.enterpriseName ?? 'unknown'
+      if (!groups.has(key)) {
+        groups.set(key, [])
+      }
+      groups.get(key)!.push(item)
+    })
+    
+    return Array.from(groups.entries()).map(([key, items]) => ({
+      enterpriseId: typeof key === 'number' ? key : undefined,
+      enterpriseName: typeof key === 'string' && key !== 'unknown' ? key : items[0]?.enterpriseName || 'Doanh nghiệp không xác định',
+      enterpriseImageUrl: items[0]?.enterpriseImageUrl,
+      items,
+      total: items.reduce((sum, item) => sum + (item.price * item.quantity), 0)
+    }))
+  }
+
+  const getNextStatus = (currentStatus: string) => {
+    const statusFlow: Record<string, string> = {
+      "Pending": "Processing",
+      "Processing": "Shipped",
+      "Shipped": "PendingCompletion", // Chuyển sang PendingCompletion để EnterpriseAdmin có thể gửi yêu cầu hoàn thành
+    }
+    return statusFlow[currentStatus]
   }
 
   const exportOrdersToExcel = () => {
@@ -474,7 +554,7 @@ export default function AdminOrderManagementTab() {
         <div className="mb-6 flex items-center justify-between">
           <div>
             <h2 className="text-3xl font-bold mb-2 drop-shadow-lg">📋 Quản lý đơn hàng</h2>
-            <p className="text-blue-100 text-lg">Theo dõi và xem tất cả đơn hàng từ các doanh nghiệp</p>
+            <p className="text-blue-100 text-lg">Theo dõi, xem và cập nhật trạng thái tất cả đơn hàng từ các doanh nghiệp</p>
           </div>
           <button
             onClick={exportOrdersToExcel}
@@ -653,35 +733,94 @@ export default function AdminOrderManagementTab() {
                   </div>
                 </div>
 
-                {/* Order Items */}
+                {/* Order Items - Grouped by Enterprise */}
                 <div className="p-6 space-y-4">
-                  {order.orderItems?.map((item) => (
-                    <div key={item.id} className="flex items-center gap-4 pb-4 border-b border-gray-100 last:border-0">
-                      <div className="relative w-20 h-20 bg-gray-200 rounded-lg overflow-hidden flex-shrink-0">
-                        <Image
-                          src={item.productImageUrl || "/hero.jpg"}
-                          alt={item.productName || "Product"}
-                          fill
-                          className="object-cover"
-                        />
-                      </div>
-                      <div className="flex-1">
-                        <h4 className="font-semibold text-gray-900 mb-1">{item.productName}</h4>
-                        <div className="flex items-center gap-4 text-sm text-gray-600">
-                          <span>{item.price.toLocaleString("vi-VN")}₫</span>
-                          <span>x{item.quantity}</span>
-                          <span className="font-semibold text-green-600">
-                            = {(item.price * item.quantity).toLocaleString("vi-VN")}₫
+                  {groupOrderItemsByEnterprise(order.orderItems).map((group, groupIndex) => (
+                      <div key={group.enterpriseId || group.enterpriseName} className="bg-white rounded-lg border-2 border-gray-200 overflow-hidden">
+                        {/* Enterprise Header */}
+                        <div className="px-4 py-3 bg-gradient-to-r from-gray-50 to-gray-100 border-b border-gray-200 flex items-center gap-3">
+                          {group.enterpriseImageUrl ? (
+                            <div className="relative w-6 h-6 rounded overflow-hidden flex-shrink-0">
+                              <Image
+                                src={group.enterpriseImageUrl}
+                                alt={group.enterpriseName}
+                                fill
+                                className="object-cover"
+                                sizes="24px"
+                                onError={(e) => {
+                                  const target = e.target as HTMLImageElement
+                                  target.src = '/hero.jpg'
+                                }}
+                              />
+                            </div>
+                          ) : (
+                            <div className="w-6 h-6 rounded bg-indigo-100 flex items-center justify-center flex-shrink-0">
+                              <svg className="w-4 h-4 text-indigo-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4" />
+                              </svg>
+                            </div>
+                          )}
+                          <span className="text-sm font-semibold text-gray-900 flex-1">{group.enterpriseName}</span>
+                          {/* Hiển thị trạng thái chấp nhận của enterprise này */}
+                          {order.enterpriseStatuses && (() => {
+                            const enterpriseStatus = order.enterpriseStatuses.find(
+                              es => es.enterpriseId === group.enterpriseId || es.enterpriseName === group.enterpriseName
+                            )
+                            if (enterpriseStatus) {
+                              const statusInfo = getEnterpriseStatusInfo(enterpriseStatus.status)
+                              return (
+                                <span className={`px-3 py-1 rounded-full text-xs font-semibold flex items-center gap-1.5 ${statusInfo.color}`}>
+                                  {statusInfo.icon}
+                                  {statusInfo.text}
+                                </span>
+                              )
+                            }
+                            return null
+                          })()}
+                        </div>
+
+                        {/* Products in this Enterprise */}
+                        <div className="divide-y divide-gray-100">
+                          {group.items.map((item, itemIndex) => (
+                            <div key={item.id} className="px-4 py-4 flex items-center gap-4">
+                              <div className="relative w-20 h-20 bg-gray-200 rounded-lg overflow-hidden flex-shrink-0">
+                                <Image
+                                  src={item.productImageUrl || "/hero.jpg"}
+                                  alt={item.productName || "Product"}
+                                  fill
+                                  className="object-cover"
+                                  sizes="80px"
+                                  onError={(e) => {
+                                    const target = e.target as HTMLImageElement
+                                    if (!target.src.includes('hero.jpg')) {
+                                      target.src = '/hero.jpg'
+                                    }
+                                  }}
+                                />
+                              </div>
+                              <div className="flex-1">
+                                <h4 className="font-semibold text-gray-900 mb-1">{item.productName}</h4>
+                                <div className="flex items-center gap-4 text-sm text-gray-600">
+                                  <span>{item.price.toLocaleString("vi-VN")}₫</span>
+                                  <span>x{item.quantity}</span>
+                                  <span className="font-semibold text-green-600">
+                                    = {(item.price * item.quantity).toLocaleString("vi-VN")}₫
+                                  </span>
+                                </div>
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+
+                        {/* Enterprise Subtotal */}
+                        <div className="px-4 py-3 bg-gray-50 border-t border-gray-200 flex items-center justify-between">
+                          <span className="text-sm font-medium text-gray-700">Tổng tiền của {group.enterpriseName}:</span>
+                          <span className="text-base font-bold text-green-600">
+                            {group.total.toLocaleString("vi-VN")}₫
                           </span>
                         </div>
-                        {item.enterpriseName && (
-                          <div className="text-xs text-blue-600 mt-1 font-medium">
-                            Doanh nghiệp: {item.enterpriseName}
-                          </div>
-                        )}
                       </div>
-                    </div>
-                  ))}
+                    ))}
                   
                   {/* Expanded Details */}
                   {expandedOrders.has(order.id) && (
@@ -724,6 +863,56 @@ export default function AdminOrderManagementTab() {
                             Doanh nghiệp
                           </h5>
                           <p className="text-sm text-gray-700">{enterpriseNames.join(", ")}</p>
+                        </div>
+                      )}
+
+                      {/* Enterprise Statuses - Trạng thái chấp nhận của từng doanh nghiệp */}
+                      {order.enterpriseStatuses && order.enterpriseStatuses.length > 0 && (
+                        <div className="bg-indigo-50 rounded-lg p-4 border-2 border-indigo-200">
+                          <h5 className="font-semibold text-gray-900 mb-3 flex items-center gap-2">
+                            <svg className="w-5 h-5 text-indigo-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                            </svg>
+                            Trạng thái chấp nhận của từng doanh nghiệp
+                          </h5>
+                          <div className="space-y-3">
+                            {order.enterpriseStatuses.map((enterpriseStatus) => {
+                              const statusInfo = getEnterpriseStatusInfo(enterpriseStatus.status)
+                              return (
+                                <div
+                                  key={enterpriseStatus.id}
+                                  className={`p-3 rounded-lg border-2 ${
+                                    enterpriseStatus.status === "Processing"
+                                      ? "bg-green-50 border-green-300"
+                                      : enterpriseStatus.status === "Shipped"
+                                      ? "bg-purple-50 border-purple-300"
+                                      : enterpriseStatus.status === "Completed"
+                                      ? "bg-blue-50 border-blue-300"
+                                      : "bg-orange-50 border-orange-300"
+                                  }`}
+                                >
+                                  <div className="flex items-center justify-between">
+                                    <div className="flex-1">
+                                      <div className="font-semibold text-gray-900 mb-1">
+                                        {enterpriseStatus.enterpriseName || `Doanh nghiệp #${enterpriseStatus.enterpriseId}`}
+                                      </div>
+                                      <div className="flex items-center gap-2">
+                                        <span className={`px-3 py-1 rounded-full text-xs font-semibold ${statusInfo.color}`}>
+                                          {statusInfo.icon}
+                                          {statusInfo.text}
+                                        </span>
+                                        {enterpriseStatus.updatedAt && (
+                                          <span className="text-xs text-gray-600">
+                                            {new Date(enterpriseStatus.updatedAt).toLocaleString("vi-VN")}
+                                          </span>
+                                        )}
+                                      </div>
+                                    </div>
+                                  </div>
+                                </div>
+                              )
+                            })}
+                          </div>
                         </div>
                       )}
                       
@@ -899,8 +1088,43 @@ export default function AdminOrderManagementTab() {
 
                   {/* Actions */}
                   <div className="flex gap-3 pt-4 flex-wrap">
-                    {/* Bank Transfer Approval Buttons */}
-                    {order.paymentMethod === "BankTransfer" && (order.paymentStatus === "AwaitingTransfer" || order.paymentStatus === "BankTransferRejected") && (
+                    {/* Thông báo khi đơn hàng chưa được EnterpriseAdmin chấp nhận */}
+                    {order.status === "Pending" && (
+                      <div className="flex-1 px-6 py-3 bg-orange-50 border-2 border-orange-300 rounded-lg flex items-center justify-center gap-2">
+                        <svg className="w-5 h-5 text-orange-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+                        </svg>
+                        <span className="text-orange-800 font-semibold">Đang chờ EnterpriseAdmin chấp nhận đơn hàng. Sau khi doanh nghiệp chấp nhận, bạn mới có thể thao tác.</span>
+                      </div>
+                    )}
+
+                    {/* Status Update Buttons - Chỉ hiển thị khi đơn hàng đã được EnterpriseAdmin chấp nhận (status !== "Pending") */}
+                    {order.status !== "Pending" && (() => {
+                      const nextStatus = getNextStatus(order.status || "")
+                      if (nextStatus && order.status !== "Completed" && order.status !== "Cancelled" && order.status !== "PendingCompletion") {
+                        return (
+                          <button
+                            onClick={() => {
+                              if (confirm(`Xác nhận cập nhật trạng thái đơn hàng #${order.id} thành "${nextStatus}"?`)) {
+                                handleStatusUpdate(order.id, nextStatus as any)
+                              }
+                            }}
+                            className="flex-1 px-6 py-3 bg-gradient-to-r from-green-600 to-emerald-600 text-white rounded-lg font-semibold hover:from-green-700 hover:to-emerald-700 transition-all shadow-lg hover:shadow-xl flex items-center justify-center gap-2 min-w-[200px]"
+                          >
+                            <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                            </svg>
+                            {nextStatus === "Processing" && "Xác nhận đơn hàng"}
+                            {nextStatus === "Shipped" && "Đang giao hàng"}
+                            {nextStatus === "PendingCompletion" && "Chuyển sang chờ xác nhận hoàn thành"}
+                          </button>
+                        )
+                      }
+                      return null
+                    })()}
+
+                    {/* Bank Transfer Approval Buttons - Chỉ hiển thị khi đơn hàng đã được EnterpriseAdmin chấp nhận */}
+                    {order.status !== "Pending" && order.paymentMethod === "BankTransfer" && (order.paymentStatus === "AwaitingTransfer" || order.paymentStatus === "BankTransferRejected") && (
                       <>
                         <button
                           onClick={async () => {

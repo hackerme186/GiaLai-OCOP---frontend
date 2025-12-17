@@ -559,6 +559,17 @@ export interface CustomerInfo {
   address?: string;
 }
 
+export interface OrderEnterpriseStatus {
+  id: number;
+  orderId: number;
+  enterpriseId: number;
+  enterpriseName?: string;
+  status: string; // "Pending" | "Processing" | "Shipped" | "Completed"
+  updatedAt?: string;
+  updatedBy?: number;
+  notes?: string;
+}
+
 export interface Order {
   id: number;
   userId: number;
@@ -577,6 +588,7 @@ export interface Order {
   orderItems?: OrderItem[];
   payments?: Payment[];
   enterpriseApprovalStatus?: string;
+  enterpriseStatuses?: OrderEnterpriseStatus[]; // Trạng thái riêng của từng Enterprise (chỉ cho SystemAdmin)
   shipperId?: number;
   shippedAt?: string;
   deliveredAt?: string;

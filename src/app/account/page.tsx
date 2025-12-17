@@ -3,7 +3,7 @@
 import { useEffect, useMemo, useState } from "react"
 import Link from "next/link"
 import { getUserProfile, isLoggedIn } from "@/lib/auth"
-import { getCurrentUser, getEnterprise, updateCurrentUser, changePassword, verifyEmail, resendVerificationOtp, type Enterprise, type User, type UpdateUserDto } from "@/lib/api"
+import { getCurrentUser, getEnterprise, updateCurrentUser, changePassword, verifyEmail, resendVerificationOtp, getNotifications, markNotificationAsRead, markAllNotificationsAsRead, deleteNotification, type Enterprise, type User, type UpdateUserDto, type Notification } from "@/lib/api"
 import Header from "@/components/layout/Header"
 import { useRouter } from "next/navigation"
 import {
@@ -22,14 +22,7 @@ import Image from "next/image"
 
 const AddressMapModal = dynamic(() => import("@/components/address/AddressMapModal"), { ssr: false })
 
-type NotificationItem = {
-  id: number
-  title: string
-  message: string
-  date: string
-  read: boolean
-  type?: "order" | "system" | "promotion"
-}
+// Using Notification type from API instead of local NotificationItem
 
 export default function AccountPage() {
   const router = useRouter()
@@ -78,7 +71,7 @@ export default function AccountPage() {
   const [otpCountdown, setOtpCountdown] = useState(0)
 
   // Notifications states
-  const [notifications, setNotifications] = useState<NotificationItem[]>([])
+  const [notifications, setNotifications] = useState<Notification[]>([])
   const [loadingNotifications, setLoadingNotifications] = useState(false)
 
   useEffect(() => {
@@ -848,30 +841,79 @@ export default function AccountPage() {
     }
   }
 
-  const handleMarkNotificationAsRead = (id: number) => {
-    setNotifications((prev) =>
-      prev.map((item) => (item.id === id ? { ...item, read: true } : item))
-    )
+  const loadNotifications = async () => {
+    try {
+      setLoadingNotifications(true)
+      const data = await getNotifications()
+      setNotifications(data)
+    } catch (err) {
+      console.error("Failed to load notifications:", err)
+      setNotifications([])
+    } finally {
+      setLoadingNotifications(false)
+    }
   }
 
-  const handleToggleNotificationRead = (id: number) => {
-    setNotifications((prev) =>
-      prev.map((item) =>
-        item.id === id ? { ...item, read: !item.read } : item
+  const handleMarkNotificationAsRead = async (id: number) => {
+    try {
+      await markNotificationAsRead(id)
+      setNotifications((prev) =>
+        prev.map((item) => (item.id === id ? { ...item, read: true } : item))
       )
-    )
+    } catch (err) {
+      console.error("Failed to mark notification as read:", err)
+      alert("Không thể đánh dấu thông báo đã đọc")
+    }
   }
 
-  const handleMarkAllNotificationsAsRead = () => {
-    setNotifications((prev) => prev.map((item) => ({ ...item, read: true })))
+  const handleToggleNotificationRead = async (id: number) => {
+    const notification = notifications.find(n => n.id === id)
+    if (!notification) return
+    
+    if (notification.read) {
+      // Cannot unread a notification, so just reload
+      await loadNotifications()
+    } else {
+      await handleMarkNotificationAsRead(id)
+    }
+  }
+
+  const handleMarkAllNotificationsAsRead = async () => {
+    try {
+      await markAllNotificationsAsRead()
+      await loadNotifications()
+    } catch (err) {
+      console.error("Failed to mark all notifications as read:", err)
+      alert("Không thể đánh dấu tất cả thông báo đã đọc")
+    }
   }
 
   const handleClearNotifications = () => {
-    setNotifications([])
+    // Clear all notifications by deleting them one by one
+    // Note: This is a destructive action, consider adding confirmation
+    if (!confirm("Bạn có chắc muốn xóa tất cả thông báo?")) return
+    
+    const deletePromises = notifications.map(n => deleteNotification(n.id))
+    Promise.all(deletePromises)
+      .then(() => {
+        setNotifications([])
+      })
+      .catch((err) => {
+        console.error("Failed to delete notifications:", err)
+        alert("Không thể xóa tất cả thông báo")
+      })
   }
 
-  const handleDeleteNotification = (id: number) => {
-    setNotifications((prev) => prev.filter((item) => item.id !== id))
+  const handleDeleteNotification = async (id: number) => {
+    if (!confirm("Bạn có chắc muốn xóa thông báo này?")) return
+    
+    try {
+      await deleteNotification(id)
+      setNotifications((prev) => prev.filter((item) => item.id !== id))
+    } catch (err) {
+      console.error("Failed to delete notification:", err)
+      alert("Không thể xóa thông báo")
+    }
   }
 
   const unreadNotificationCount = notifications.filter((n) => !n.read).length
@@ -891,18 +933,13 @@ export default function AccountPage() {
     }
   }
 
-  // Load notifications (mock data for now)
+  // Load notifications from API
   useEffect(() => {
     if (activeMenu === "notifications" && ready) {
-      setLoadingNotifications(true)
-      // TODO: Load from API when available
-      setTimeout(() => {
-        setNotifications([
-          { id: 1, title: "Đơn hàng đã được xác nhận", message: "Đơn hàng #12345 của bạn đã được xác nhận", date: new Date().toISOString(), read: false },
-          { id: 2, title: "Sản phẩm mới", message: "Có sản phẩm mới phù hợp với sở thích của bạn", date: new Date(Date.now() - 86400000).toISOString(), read: false },
-        ])
-        setLoadingNotifications(false)
-      }, 500)
+      loadNotifications()
+      // Poll for new notifications every 30 seconds
+      const interval = setInterval(loadNotifications, 30000)
+      return () => clearInterval(interval)
     }
   }, [activeMenu, ready])
 
@@ -1467,7 +1504,7 @@ export default function AccountPage() {
                         <p className="text-sm uppercase tracking-wide text-orange-500 font-semibold">Địa chỉ giao hàng chính</p>
                         <h3 className="text-lg font-semibold text-gray-900 mt-1">Địa chỉ đang sử dụng cho đơn hàng</h3>
                         <p className="text-sm text-gray-600 mt-1">
-                          Địa chỉ này sẽ được dùng mặc định khi bạn đặt hàng. Bạn có thể chỉnh sửa hoặc lấy nhanh bằng GPS.
+                          Địa chỉ này sẽ được dùng mặc định khi bạn đặt hàng. Bạn có thể chỉnh sửa địa chỉ khi cần.
                         </p>
                       </div>
                       {shippingAddress && (
@@ -1905,27 +1942,48 @@ export default function AccountPage() {
                     notifications.map((item) => (
                       <div
                         key={item.id}
-                        className={`rounded-2xl border p-5 transition-all ${item.read
+                        className={`rounded-2xl border p-5 transition-all cursor-pointer ${item.read
                           ? "border-gray-200 bg-gray-50"
                           : "border-orange-200 bg-white shadow-sm"
-                          }`}
+                          } hover:shadow-md`}
+                        onClick={async () => {
+                          // Mark as read if unread
+                          if (!item.read) {
+                            await handleMarkNotificationAsRead(item.id)
+                          }
+                          // Navigate to link if available
+                          if (item.link) {
+                            if (item.link.startsWith('/')) {
+                              router.push(item.link)
+                            } else {
+                              window.location.href = item.link
+                            }
+                          }
+                        }}
                       >
                         <div className="flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
-                          <div>
+                          <div className="flex-1">
                             <div className="flex items-center gap-2">
                               {!item.read && <span className="w-2 h-2 rounded-full bg-orange-500 inline-block" />}
                               <p className="text-base font-semibold text-gray-900">{item.title}</p>
                             </div>
                             <p className="text-sm text-gray-600 mt-1">{item.message}</p>
-                            <p className="text-xs text-gray-400 mt-2">{formatDateTime(item.date)}</p>
+                            <div className="flex items-center gap-2 mt-2">
+                              <svg className="w-3.5 h-3.5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+                              </svg>
+                              <p className="text-xs text-gray-400">{formatDateTime(item.createdAt)}</p>
+                            </div>
                           </div>
-                          <div className="flex flex-wrap gap-2 text-sm">
-                            <button
-                              onClick={() => handleToggleNotificationRead(item.id)}
-                              className="px-3 py-1.5 rounded-lg border border-gray-200 text-gray-600 hover:bg-gray-50"
-                            >
-                              {item.read ? "Đánh dấu chưa đọc" : "Đánh dấu đã đọc"}
-                            </button>
+                          <div className="flex flex-wrap gap-2 text-sm" onClick={(e) => e.stopPropagation()}>
+                            {!item.read && (
+                              <button
+                                onClick={() => handleMarkNotificationAsRead(item.id)}
+                                className="px-3 py-1.5 rounded-lg border border-gray-200 text-gray-600 hover:bg-gray-50"
+                              >
+                                Đánh dấu đã đọc
+                              </button>
+                            )}
                             <button
                               onClick={() => handleDeleteNotification(item.id)}
                               className="px-3 py-1.5 rounded-lg border border-red-200 text-red-600 hover:bg-red-50"
