@@ -2286,6 +2286,28 @@ export async function forgotPassword(
   });
 }
 
+// ------ RESET PASSWORD (Auth) ------
+export interface ResetPasswordDto {
+  email: string;
+  otpCode: string;
+  newPassword: string;
+  confirmNewPassword: string;
+}
+
+export async function resetPassword(
+  payload: ResetPasswordDto
+): Promise<void> {
+  return request<void>("/auth/reset-password", {
+    method: "POST",
+    json: {
+      email: payload.email,
+      otpCode: payload.otpCode,
+      newPassword: payload.newPassword,
+      confirmNewPassword: payload.confirmNewPassword,
+    },
+  });
+}
+
 // ------ CREATE ENTERPRISE ADMIN (SystemAdmin) ------
 export interface CreateEnterpriseAdminDto {
   name: string;
