@@ -2,7 +2,7 @@
 
 import { useEffect, useState, useMemo, type ReactElement } from "react"
 import Image from "next/image"
-import { getOrders, updateOrderStatus, getShippers, assignOrderToShipper, requestOrderCompletion, type Order, type User, type Shipper } from "@/lib/api"
+import { getOrders, getShippers, assignOrderToShipper, requestOrderCompletion, updateOrderStatus, type Order, type User, type Shipper } from "@/lib/api"
 import { useOrderProducts } from "@/lib/hooks/useOrderProducts"
 
 interface OrderManagementTabProps {
@@ -17,9 +17,9 @@ function OrderCard({
   expandedOrders,
   onToggleExpand,
   onOpenDetailModal,
-  onStatusUpdate,
   onRequestCompletion,
   onOpenAssignModal,
+  onAcceptOrder,
   printInvoice,
   enterpriseId,
 }: {
@@ -29,9 +29,9 @@ function OrderCard({
   expandedOrders: Set<number>
   onToggleExpand: (orderId: number) => void
   onOpenDetailModal: (order: Order) => void
-  onStatusUpdate: (orderId: number, status: "Pending" | "Processing" | "Shipped" | "Completed" | "Cancelled") => void
   onRequestCompletion: (orderId: number) => void
   onOpenAssignModal: (order: Order) => void
+  onAcceptOrder: (orderId: number) => void
   printInvoice: (order: Order) => void
   enterpriseId?: number
 }) {
@@ -374,13 +374,12 @@ function OrderCard({
 
         {/* Actions */}
         <div className="flex gap-3 pt-4">
-          {nextStatus && order.status !== "Completed" && order.status !== "Cancelled" && order.status !== "PendingCompletion" && (
+          {/* Nút chấp nhận đơn hàng - chỉ hiển thị khi status = Pending */}
+          {order.status === "Pending" && (
             <button
               onClick={() => {
-                if (nextStatus === "PendingCompletion") {
-                  onRequestCompletion(order.id)
-                } else {
-                  onStatusUpdate(order.id, nextStatus as any)
+                if (confirm(`Xác nhận chấp nhận đơn hàng #${order.id}? Đơn hàng sẽ chuyển sang trạng thái "Đang xử lý" và SystemAdmin sẽ tiếp tục xử lý các bước tiếp theo.`)) {
+                  onAcceptOrder(order.id)
                 }
               }}
               className="flex-1 px-6 py-3 bg-gradient-to-r from-green-600 to-emerald-600 text-white rounded-lg font-semibold hover:from-green-700 hover:to-emerald-700 transition-all shadow-lg hover:shadow-xl flex items-center justify-center gap-2"
@@ -388,30 +387,47 @@ function OrderCard({
               <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
               </svg>
-              {nextStatus === "Processing" && "Xác nhận đơn hàng"}
-              {nextStatus === "Shipped" && "Đang giao hàng"}
-              {nextStatus === "PendingCompletion" && "Gửi yêu cầu xác nhận hoàn thành"}
+              Chấp nhận đơn hàng
             </button>
           )}
+
+          {/* Thông báo trạng thái chờ SystemAdmin xét duyệt */}
           {order.status === "PendingCompletion" && (
             <div className="flex-1 px-6 py-3 bg-yellow-50 border-2 border-yellow-300 rounded-lg flex items-center justify-center gap-2">
               <svg className="w-5 h-5 text-yellow-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
               </svg>
-              <span className="text-yellow-800 font-semibold">Đang chờ SystemAdmin xét duyệt</span>
+              <span className="text-yellow-800 font-semibold">Đang chờ SystemAdmin xét duyệt hoàn thành</span>
             </div>
           )}
+          
+          {/* Thông báo trạng thái Processing - đã chấp nhận, chờ SystemAdmin xử lý */}
           {order.status === "Processing" && (
+            <div className="flex-1 px-6 py-3 bg-blue-50 border-2 border-blue-300 rounded-lg flex items-center justify-center gap-2">
+              <svg className="w-5 h-5 text-blue-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+              </svg>
+              <span className="text-blue-800 font-semibold">Đã chấp nhận đơn hàng. SystemAdmin sẽ gán shipper và cập nhật trạng thái tiếp theo</span>
+            </div>
+          )}
+
+          {/* Nút gửi yêu cầu xác nhận hoàn thành - chỉ hiển thị khi status = Shipped */}
+          {order.status === "Shipped" && (
             <button
-              onClick={() => onOpenAssignModal(order)}
-              className="px-6 py-3 bg-purple-600 text-white rounded-lg font-semibold hover:bg-purple-700 transition-all shadow-lg hover:shadow-xl flex items-center justify-center gap-2"
+              onClick={() => {
+                if (confirm(`Xác nhận gửi yêu cầu xác nhận hoàn thành đơn hàng #${order.id}? Đơn hàng sẽ được gửi đến SystemAdmin để xét duyệt.`)) {
+                  onRequestCompletion(order.id)
+                }
+              }}
+              className="flex-1 px-6 py-3 bg-gradient-to-r from-purple-600 to-indigo-600 text-white rounded-lg font-semibold hover:from-purple-700 hover:to-indigo-700 transition-all shadow-lg hover:shadow-xl flex items-center justify-center gap-2"
             >
               <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
               </svg>
-              Gán shipper
+              Gửi yêu cầu xác nhận hoàn thành
             </button>
           )}
+          
           <button
             onClick={() => printInvoice(order)}
             className="px-6 py-3 bg-gray-600 text-white rounded-lg font-semibold hover:bg-gray-700 transition-all shadow-lg hover:shadow-xl flex items-center justify-center gap-2"
@@ -710,26 +726,18 @@ export default function OrderManagementTab({ user }: OrderManagementTabProps) {
     return filtered
   }, [orders, filter, searchQuery])
 
-  const handleStatusUpdate = async (orderId: number, newStatus: "Pending" | "Processing" | "Shipped" | "Completed" | "Cancelled") => {
+  // Handler để EnterpriseAdmin chấp nhận đơn hàng (Pending → Processing)
+  const handleAcceptOrder = async (orderId: number) => {
     try {
-      await updateOrderStatus(orderId, { status: newStatus })
+      await updateOrderStatus(orderId, { status: "Processing" })
       setOrders(prev => prev.map(order => 
-        order.id === orderId ? { ...order, status: newStatus } : order
+        order.id === orderId ? { ...order, status: "Processing" } : order
       ))
-      setSuccessMessage(`Đã cập nhật trạng thái đơn hàng #${orderId} thành công!`)
-      setTimeout(() => setSuccessMessage(null), 3000)
+      setSuccessMessage(`Đã chấp nhận đơn hàng #${orderId}! Đơn hàng đã chuyển sang trạng thái "Đang xử lý". SystemAdmin sẽ tiếp tục xử lý các bước tiếp theo.`)
+      setTimeout(() => setSuccessMessage(null), 5000)
     } catch (err) {
-      alert(err instanceof Error ? err.message : "Không thể cập nhật trạng thái đơn hàng")
+      alert(err instanceof Error ? err.message : "Không thể chấp nhận đơn hàng")
     }
-  }
-
-  const getNextStatus = (currentStatus: string) => {
-    const statusFlow: Record<string, string> = {
-      "Pending": "Processing",
-      "Processing": "Shipped",
-      "Shipped": "PendingCompletion", // Thay vì Completed, chuyển sang PendingCompletion để chờ SystemAdmin xác nhận
-    }
-    return statusFlow[currentStatus]
   }
 
   const handleRequestCompletion = async (orderId: number) => {
@@ -835,7 +843,7 @@ export default function OrderManagementTab({ user }: OrderManagementTabProps) {
         <div className="mb-6 flex items-center justify-between">
           <div>
             <h2 className="text-3xl font-bold mb-2 drop-shadow-lg">📋 Quản lý đơn hàng</h2>
-            <p className="text-blue-100 text-lg">Quản lý và cập nhật trạng thái đơn hàng của doanh nghiệp</p>
+            <p className="text-blue-100 text-lg">Quản lý đơn hàng: Chấp nhận đơn hàng mới, theo dõi trạng thái (SystemAdmin sẽ xử lý các bước tiếp theo)</p>
           </div>
           <button
             onClick={exportOrdersToExcel}
@@ -908,13 +916,13 @@ export default function OrderManagementTab({ user }: OrderManagementTabProps) {
               key={order.id}
               order={order}
               statusInfo={getStatusInfo(order.status || "")}
-              nextStatus={getNextStatus(order.status || "")}
+              nextStatus={undefined}
               expandedOrders={expandedOrders}
               onToggleExpand={toggleOrderExpand}
               onOpenDetailModal={handleOpenDetailModal}
-              onStatusUpdate={handleStatusUpdate}
               onRequestCompletion={handleRequestCompletion}
               onOpenAssignModal={handleOpenAssignModal}
+              onAcceptOrder={handleAcceptOrder}
               printInvoice={printInvoice}
               enterpriseId={user?.enterpriseId}
             />

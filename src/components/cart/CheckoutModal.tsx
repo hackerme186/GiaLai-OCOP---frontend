@@ -547,42 +547,45 @@ export default function CheckoutModal({
                         {showSavedAddresses ? "Ẩn" : "Chọn địa chỉ"}
                       </button>
                     )}
-                    <button
-                      type="button"
-                      onClick={handleGetCurrentLocation}
-                      disabled={loadingAddress || isSubmitting}
-                      className="flex items-center gap-2 px-3 py-1.5 text-sm font-semibold text-indigo-600 bg-indigo-50 rounded-lg hover:bg-indigo-100 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-                    >
-                      {loadingAddress ? (
-                        <>
-                          <div className="animate-spin rounded-full h-4 w-4 border-2 border-indigo-600 border-t-transparent"></div>
-                          <span>Đang tải...</span>
-                        </>
-                      ) : (
-                        <>
-                          <svg
-                            className="w-4 h-4"
-                            fill="none"
-                            viewBox="0 0 24 24"
-                            stroke="currentColor"
-                          >
-                            <path
-                              strokeLinecap="round"
-                              strokeLinejoin="round"
-                              strokeWidth={2}
-                              d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z"
-                            />
-                            <path
-                              strokeLinecap="round"
-                              strokeLinejoin="round"
-                              strokeWidth={2}
-                              d="M15 11a3 3 0 11-6 0 3 3 0 016 0z"
-                            />
-                          </svg>
-                          <span>Lấy từ GPS</span>
-                        </>
-                      )}
-                    </button>
+                    {/* GPS Button - Hidden */}
+                    {false && (
+                      <button
+                        type="button"
+                        onClick={handleGetCurrentLocation}
+                        disabled={loadingAddress || isSubmitting}
+                        className="flex items-center gap-2 px-3 py-1.5 text-sm font-semibold text-indigo-600 bg-indigo-50 rounded-lg hover:bg-indigo-100 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                      >
+                        {loadingAddress ? (
+                          <>
+                            <div className="animate-spin rounded-full h-4 w-4 border-2 border-indigo-600 border-t-transparent"></div>
+                            <span>Đang tải...</span>
+                          </>
+                        ) : (
+                          <>
+                            <svg
+                              className="w-4 h-4"
+                              fill="none"
+                              viewBox="0 0 24 24"
+                              stroke="currentColor"
+                            >
+                              <path
+                                strokeLinecap="round"
+                                strokeLinejoin="round"
+                                strokeWidth={2}
+                                d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z"
+                              />
+                              <path
+                                strokeLinecap="round"
+                                strokeLinejoin="round"
+                                strokeWidth={2}
+                                d="M15 11a3 3 0 11-6 0 3 3 0 016 0z"
+                              />
+                            </svg>
+                            <span>Lấy từ GPS</span>
+                          </>
+                        )}
+                      </button>
+                    )}
                   </div>
                 </div>
 
@@ -655,50 +658,53 @@ export default function CheckoutModal({
                     required
                     disabled={loadingAddress || isSubmitting}
                   />
-                  <div className="absolute bottom-3 right-3 flex items-center gap-2">
-                    <button
-                      type="button"
-                      onClick={handleGetCurrentLocation}
-                      disabled={loadingAddress || isSubmitting}
-                      className="px-3 py-1.5 text-xs font-semibold text-indigo-600 bg-white border-2 border-indigo-200 rounded-lg hover:bg-indigo-50 hover:border-indigo-300 transition-all disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-1.5 shadow-sm"
-                      title="Lấy địa chỉ từ GPS"
-                    >
-                      {loadingAddress ? (
-                        <>
-                          <div className="animate-spin rounded-full h-3 w-3 border-2 border-indigo-600 border-t-transparent"></div>
-                          <span>Đang tải...</span>
-                        </>
-                      ) : (
-                        <>
-                          <svg
-                            className="w-4 h-4"
-                            fill="none"
-                            viewBox="0 0 24 24"
-                            stroke="currentColor"
-                          >
-                            <path
-                              strokeLinecap="round"
-                              strokeLinejoin="round"
-                              strokeWidth={2}
-                              d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z"
-                            />
-                            <path
-                              strokeLinecap="round"
-                              strokeLinejoin="round"
-                              strokeWidth={2}
-                              d="M15 11a3 3 0 11-6 0 3 3 0 016 0z"
-                            />
-                          </svg>
-                          <span>Lấy từ GPS</span>
-                        </>
-                      )}
-                    </button>
-                  </div>
+                  {/* GPS Button - Hidden */}
+                  {false && (
+                    <div className="absolute bottom-3 right-3 flex items-center gap-2">
+                      <button
+                        type="button"
+                        onClick={handleGetCurrentLocation}
+                        disabled={loadingAddress || isSubmitting}
+                        className="px-3 py-1.5 text-xs font-semibold text-indigo-600 bg-white border-2 border-indigo-200 rounded-lg hover:bg-indigo-50 hover:border-indigo-300 transition-all disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-1.5 shadow-sm"
+                        title="Lấy địa chỉ từ GPS"
+                      >
+                        {loadingAddress ? (
+                          <>
+                            <div className="animate-spin rounded-full h-3 w-3 border-2 border-indigo-600 border-t-transparent"></div>
+                            <span>Đang tải...</span>
+                          </>
+                        ) : (
+                          <>
+                            <svg
+                              className="w-4 h-4"
+                              fill="none"
+                              viewBox="0 0 24 24"
+                              stroke="currentColor"
+                            >
+                              <path
+                                strokeLinecap="round"
+                                strokeLinejoin="round"
+                                strokeWidth={2}
+                                d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z"
+                              />
+                              <path
+                                strokeLinecap="round"
+                                strokeLinejoin="round"
+                                strokeWidth={2}
+                                d="M15 11a3 3 0 11-6 0 3 3 0 016 0z"
+                              />
+                            </svg>
+                            <span>Lấy từ GPS</span>
+                          </>
+                        )}
+                      </button>
+                    </div>
+                  )}
                 </div>
                 <p className="mt-2 text-xs text-gray-500">
                   {savedAddresses.length > 0
-                    ? '💡 Chọn từ địa chỉ đã lưu hoặc bấm "Lấy từ GPS" để tự động điền địa chỉ từ vị trí hiện tại'
-                    : '💡 Bấm "Lấy từ GPS" để tự động điền địa chỉ từ vị trí hiện tại của bạn'}
+                    ? '💡 Chọn từ địa chỉ đã lưu hoặc nhập địa chỉ giao hàng'
+                    : '💡 Nhập địa chỉ giao hàng đầy đủ của bạn'}
                 </p>
               </div>
 
