@@ -1326,6 +1326,7 @@ export async function createProductForEnterprise(
     json: payload,
   });
 }
+
 export async function updateProduct(
   id: number,
   payload: Partial<CreateProductDto>
