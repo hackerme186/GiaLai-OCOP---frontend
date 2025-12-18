@@ -675,14 +675,34 @@ function OrderCard({ order, onCancelled }: OrderCardProps) {
 
             {/* Order Summary - Shopee Style */}
             <div className="px-4 py-4 border-t border-gray-200 bg-white">
-                <div className="flex items-center justify-between mb-4">
-                    <div>
-                        <p className="text-sm text-gray-600">Tổng số sản phẩm</p>
-                        <p className="text-base font-medium text-gray-900">{order.orderItems?.length || 0} {order.orderItems?.length === 1 ? 'sản phẩm' : 'sản phẩm'}</p>
+                <div className="space-y-2 mb-4">
+                    <div className="flex items-center justify-between">
+                        <span className="text-sm text-gray-600">Tổng số sản phẩm</span>
+                        <span className="text-sm font-medium text-gray-900">{order.orderItems?.length || 0} sản phẩm</span>
                     </div>
-                    <div className="text-right">
-                        <p className="text-sm text-gray-600">Tổng thanh toán</p>
-                        <p className="text-xl font-medium text-red-500">{orderTotal.toLocaleString("vi-VN")}₫</p>
+                    {order.shippingFee && order.shippingFee > 0 && (
+                        <>
+                            <div className="flex items-center justify-between">
+                                <span className="text-sm text-gray-600">Tiền hàng</span>
+                                <span className="text-sm font-medium text-gray-900">{(orderTotal - order.shippingFee).toLocaleString("vi-VN")}₫</span>
+                            </div>
+                            <div className="flex items-center justify-between">
+                                <span className="text-sm text-gray-600 flex items-center gap-1">
+                                    Phí vận chuyển
+                                    {order.shippingZoneType && (
+                                        <span className="text-xs text-green-600 bg-green-50 px-1.5 py-0.5 rounded">
+                                            {order.shippingZoneType === 'SameProvince' ? 'Cùng tỉnh' : 
+                                             order.shippingZoneType === 'SameRegion' ? 'Cùng miền' : 'Khác miền'}
+                                        </span>
+                                    )}
+                                </span>
+                                <span className="text-sm font-medium text-gray-900">{order.shippingFee.toLocaleString("vi-VN")}₫</span>
+                            </div>
+                        </>
+                    )}
+                    <div className="flex items-center justify-between pt-2 border-t border-gray-100">
+                        <span className="text-sm text-gray-600">Tổng thanh toán</span>
+                        <span className="text-xl font-medium text-red-500">{orderTotal.toLocaleString("vi-VN")}₫</span>
                     </div>
                 </div>
 
@@ -1009,7 +1029,24 @@ function PaymentMethodModal({ order, onPaymentCreated }: PaymentMethodModalProps
                             </button>
                         </div>
 
-                        <div className="bg-gray-50 rounded-lg p-4 mb-6">
+                        <div className="bg-gray-50 rounded-lg p-4 mb-6 space-y-2">
+                            {order.shippingFee && order.shippingFee > 0 && (
+                                <>
+                                    <div className="flex justify-between items-center text-sm">
+                                        <span className="text-gray-600">Tiền hàng:</span>
+                                        <span className="font-medium text-gray-900">
+                                            {(order.totalAmount - order.shippingFee).toLocaleString("vi-VN")}₫
+                                        </span>
+                                    </div>
+                                    <div className="flex justify-between items-center text-sm">
+                                        <span className="text-gray-600">Phí vận chuyển:</span>
+                                        <span className="font-medium text-gray-900">
+                                            {order.shippingFee.toLocaleString("vi-VN")}₫
+                                        </span>
+                                    </div>
+                                    <div className="border-t border-gray-200 pt-2"></div>
+                                </>
+                            )}
                             <div className="flex justify-between items-center">
                                 <span className="text-gray-600">Tổng tiền:</span>
                                 <span className="text-xl font-bold text-green-600">

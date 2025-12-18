@@ -94,8 +94,29 @@ function EnterpriseAdminPageContent() {
         }
 
         if (!currentUser.enterpriseId) {
-          alert("Tài khoản chưa liên kết doanh nghiệp.")
-          router.replace("/home")
+          // Thử refresh user info một lần nữa (có thể backend vừa cập nhật)
+          try {
+            const refreshedUser = await getCurrentUser()
+            if (refreshedUser.enterpriseId) {
+              setUser(refreshedUser)
+              setAuthorized(true)
+              return
+            }
+          } catch (refreshErr) {
+            console.warn("Failed to refresh user info:", refreshErr)
+          }
+          
+          // Nếu vẫn không có enterpriseId, yêu cầu đăng nhập lại
+          const shouldRelogin = confirm(
+            "Tài khoản chưa liên kết doanh nghiệp.\n\n" +
+            "💡 Nếu SystemAdmin vừa duyệt đơn đăng ký OCOP của bạn, bạn cần đăng nhập lại để nhận token mới.\n\n" +
+            "Bạn có muốn đăng nhập lại ngay bây giờ?"
+          )
+          if (shouldRelogin) {
+            router.replace("/login?redirect=/enterprise-admin")
+          } else {
+            router.replace("/home")
+          }
           return
         }
 
