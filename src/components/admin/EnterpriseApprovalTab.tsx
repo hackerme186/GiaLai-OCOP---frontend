@@ -6,7 +6,7 @@ import {
   approveEnterpriseApplication,
   getEnterpriseApplications,
   rejectEnterpriseApplication,
-  createProduct,
+  createProductForEnterprise,
   getUser,
   getCategories,
   type Category,
@@ -170,15 +170,11 @@ export default function EnterpriseApprovalTab() {
           console.log("📤 Tạo sản phẩm từ đơn đăng ký OCOP:", {
             ...productData,
             enterpriseId: enterpriseId,
-            note: "Backend sẽ tự động gán enterpriseId từ user context hoặc cần xử lý riêng"
           })
           
-          // Tạo sản phẩm
-          // Lưu ý: Backend có thể tự động set:
-          // - status = "PendingApproval" (mặc định cho product mới)
-          // - enterpriseId từ user context (nếu user là EnterpriseAdmin)
-          // Nếu SystemAdmin tạo product, backend có thể cần xử lý đặc biệt để gán enterpriseId
-          const createdProduct = await createProduct(productData)
+          // Tạo sản phẩm sử dụng API dành cho SystemAdmin
+          // API: POST /api/products/enterprise/{enterpriseId}
+          const createdProduct = await createProductForEnterprise(enterpriseId, productData)
           console.log("✅ Đã tạo sản phẩm:", createdProduct)
 
           // Kiểm tra xem sản phẩm đã có enterpriseId chưa
@@ -492,13 +488,41 @@ export default function EnterpriseApprovalTab() {
 
                   {/* Product Info */}
                   {item.productName && (
-                    <div className="flex items-start gap-3">
-                      <svg className="w-5 h-5 text-gray-400 mt-0.5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4" />
-                      </svg>
-                      <div className="flex-1">
-                        <p className="text-sm font-semibold text-gray-700 mb-1">Sản phẩm OCOP</p>
-                        <p className="text-sm text-gray-600 line-clamp-2">{item.productName}</p>
+                    <div className="bg-gradient-to-r from-green-50 to-emerald-50 border border-green-200 rounded-xl p-4">
+                      <div className="flex items-center gap-2 mb-3">
+                        <svg className="w-5 h-5 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4" />
+                        </svg>
+                        <p className="text-sm font-bold text-green-800">Sản phẩm đại diện</p>
+                      </div>
+                      <div className="space-y-2">
+                        <p className="text-sm font-semibold text-gray-900">{item.productName}</p>
+                        {item.productCategory && (
+                          <span className="inline-block px-2 py-1 bg-green-100 text-green-700 rounded-lg text-xs font-medium">
+                            {item.productCategory}
+                          </span>
+                        )}
+                        {item.productDescription && (
+                          <p className="text-xs text-gray-600 line-clamp-2">{item.productDescription}</p>
+                        )}
+                        {item.productImages && (
+                          <div className="flex gap-2 mt-2">
+                            {item.productImages.split(',').slice(0, 3).map((url, idx) => (
+                              <img
+                                key={idx}
+                                src={url.trim()}
+                                alt={`Product ${idx + 1}`}
+                                className="w-16 h-16 object-cover rounded-lg border border-green-200"
+                                onError={(e) => { (e.target as HTMLImageElement).style.display = 'none' }}
+                              />
+                            ))}
+                            {item.productImages.split(',').length > 3 && (
+                              <div className="w-16 h-16 bg-green-100 rounded-lg flex items-center justify-center text-green-700 text-xs font-semibold">
+                                +{item.productImages.split(',').length - 3}
+                              </div>
+                            )}
+                          </div>
+                        )}
                       </div>
                     </div>
                   )}
