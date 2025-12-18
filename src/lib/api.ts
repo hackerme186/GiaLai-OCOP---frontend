@@ -1314,6 +1314,17 @@ export async function createProduct(
   });
 }
 
+// SystemAdmin: Tạo sản phẩm cho một enterprise cụ thể
+export async function createProductForEnterprise(
+  enterpriseId: number,
+  payload: CreateProductDto
+): Promise<Product> {
+  return request<Product>(`/products/enterprise/${enterpriseId}`, {
+    method: "POST",
+    json: payload,
+  });
+}
+
 export async function updateProduct(
   id: number,
   payload: Partial<CreateProductDto>
