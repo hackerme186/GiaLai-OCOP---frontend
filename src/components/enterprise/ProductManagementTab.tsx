@@ -2,15 +2,17 @@
 
 import { useEffect, useState } from "react"
 import Image from "next/image"
-import { getProducts, getCategories, createProduct, updateProduct, deleteProduct, type Product, type Category, type User } from "@/lib/api"
+import { getProducts, getCategories, createProduct, updateProduct, deleteProduct, getCurrentUser, type Product, type Category, type User } from "@/lib/api"
 import ImageUploader from "@/components/upload/ImageUploader"
 import ProductImagesManager from "./ProductImagesManager"
+import { useRouter } from "next/navigation"
 
 interface ProductManagementTabProps {
   user: User | null
 }
 
 export default function ProductManagementTab({ user }: ProductManagementTabProps) {
+  const router = useRouter()
   const [products, setProducts] = useState<Product[]>([])
   const [categories, setCategories] = useState<Category[]>([])
   const [loading, setLoading] = useState(true)
@@ -21,6 +23,7 @@ export default function ProductManagementTab({ user }: ProductManagementTabProps
   const [success, setSuccess] = useState<string | null>(null)
   const [showImagesManager, setShowImagesManager] = useState(false)
   const [selectedProductForImages, setSelectedProductForImages] = useState<Product | null>(null)
+  const [refreshingUser, setRefreshingUser] = useState(false)
 
   // Form state
   const [formData, setFormData] = useState({
@@ -38,15 +41,45 @@ export default function ProductManagementTab({ user }: ProductManagementTabProps
     loadData()
   }, [])
 
+  const refreshUserInfo = async (): Promise<boolean> => {
+    try {
+      setRefreshingUser(true)
+      const refreshedUser = await getCurrentUser()
+      if (refreshedUser.enterpriseId) {
+        // User info đã được cập nhật, reload trang để nhận user mới
+        window.location.reload()
+        return true
+      }
+      return false
+    } catch (err) {
+      console.error("Failed to refresh user info:", err)
+      return false
+    } finally {
+      setRefreshingUser(false)
+    }
+  }
+
   const loadData = async () => {
     try {
       setLoading(true)
       setError(null)
 
       if (!user?.enterpriseId) {
-        setError("Tài khoản chưa được liên kết với doanh nghiệp. Vui lòng liên hệ quản trị viên.")
-        setLoading(false)
-        return
+        // Thử refresh user info một lần trước khi báo lỗi
+        console.log("⚠️ User chưa có enterpriseId, đang thử refresh user info...")
+        const refreshed = await refreshUserInfo()
+        if (!refreshed) {
+          setError(
+            "Tài khoản chưa được liên kết với doanh nghiệp.\n\n" +
+            "💡 Nếu SystemAdmin vừa duyệt đơn đăng ký OCOP của bạn, vui lòng:\n" +
+            "1. Đăng xuất và đăng nhập lại để nhận token mới\n" +
+            "2. Hoặc nhấn nút 'Làm mới thông tin' bên dưới\n\n" +
+            "Nếu vẫn không được, vui lòng liên hệ quản trị viên."
+          )
+          setLoading(false)
+          return
+        }
+        // Nếu refresh thành công, trang sẽ reload, không cần return
       }
 
       // Load products - backend auto-filters by EnterpriseId from token
@@ -344,11 +377,52 @@ export default function ProductManagementTab({ user }: ProductManagementTabProps
       )}
 
       {error && (
-        <div className="bg-red-50 border-2 border-red-200 text-red-800 rounded-lg p-4 flex items-center gap-3">
-          <svg className="w-5 h-5 text-red-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-          </svg>
-          <span className="font-medium">{error}</span>
+        <div className="bg-red-50 border-2 border-red-200 text-red-800 rounded-lg p-6">
+          <div className="flex items-start gap-3 mb-4">
+            <svg className="w-6 h-6 text-red-600 flex-shrink-0 mt-0.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+            </svg>
+            <div className="flex-1">
+              <h3 className="font-bold text-red-900 mb-2">Không thể tải dữ liệu</h3>
+              <pre className="text-sm whitespace-pre-wrap font-sans">{error}</pre>
+            </div>
+          </div>
+          {error.includes("chưa được liên kết với doanh nghiệp") && (
+            <div className="flex gap-3 mt-4">
+              <button
+                onClick={refreshUserInfo}
+                disabled={refreshingUser}
+                className="px-4 py-2 bg-blue-600 text-white rounded-lg font-medium hover:bg-blue-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
+              >
+                {refreshingUser ? (
+                  <>
+                    <div className="animate-spin rounded-full h-4 w-4 border-2 border-white border-t-transparent"></div>
+                    <span>Đang làm mới...</span>
+                  </>
+                ) : (
+                  <>
+                    <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+                    </svg>
+                    <span>Làm mới thông tin</span>
+                  </>
+                )}
+              </button>
+              <button
+                onClick={() => {
+                  if (confirm("Bạn sẽ được chuyển đến trang đăng nhập. Sau khi đăng nhập lại, bạn sẽ có thể tạo sản phẩm.")) {
+                    router.push("/login?redirect=/enterprise-admin?tab=products")
+                  }
+                }}
+                className="px-4 py-2 bg-green-600 text-white rounded-lg font-medium hover:bg-green-700 transition-colors flex items-center gap-2"
+              >
+                <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />
+                </svg>
+                <span>Đăng nhập lại</span>
+              </button>
+            </div>
+          )}
         </div>
       )}
 
