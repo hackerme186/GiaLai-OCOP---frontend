@@ -2,7 +2,8 @@
 
 import { useEffect, useState, useMemo, type ReactElement } from "react"
 import Image from "next/image"
-import { getOrders, approveOrderCompletion, type Order } from "@/lib/api"
+import { getOrders, approveOrderCompletion, confirmBankTransfer, updateOrderStatus, type Order, type ConfirmBankTransferDto, type OrderEnterpriseStatus } from "@/lib/api"
+import { useOrderProducts } from "@/lib/hooks/useOrderProducts"
 
 export default function AdminOrderManagementTab() {
   const [orders, setOrders] = useState<Order[]>([])
@@ -21,6 +22,11 @@ export default function AdminOrderManagementTab() {
   const [showApprovalModal, setShowApprovalModal] = useState(false)
   const [approvalOrder, setApprovalOrder] = useState<Order | null>(null)
   const [rejectionReason, setRejectionReason] = useState("")
+  
+  // Bank Transfer Approval Modal
+  const [showBankTransferModal, setShowBankTransferModal] = useState(false)
+  const [bankTransferOrder, setBankTransferOrder] = useState<Order | null>(null)
+  const [bankTransferRejectionReason, setBankTransferRejectionReason] = useState("")
   
   // Expanded orders
   const [expandedOrders, setExpandedOrders] = useState<Set<number>>(new Set())
@@ -89,6 +95,131 @@ export default function AdminOrderManagementTab() {
       const errorMessage = err instanceof Error ? err.message : "Không thể xử lý yêu cầu"
       alert(`Lỗi: ${errorMessage}`)
     }
+  }
+
+  const handleOpenBankTransferModal = (order: Order) => {
+    setBankTransferOrder(order)
+    setBankTransferRejectionReason("")
+    setShowBankTransferModal(true)
+  }
+
+  const handleConfirmBankTransfer = async (confirmed: boolean) => {
+    if (!bankTransferOrder) return
+
+    if (!confirmed && !bankTransferRejectionReason.trim()) {
+      alert("Vui lòng nhập lý do chưa chuyển khoản")
+      return
+    }
+
+    try {
+      console.log("🔄 Confirming bank transfer for order:", bankTransferOrder.id, "confirmed:", confirmed)
+      
+      const result = await confirmBankTransfer({
+        orderId: bankTransferOrder.id,
+        confirmed,
+        rejectionReason: confirmed ? undefined : bankTransferRejectionReason
+      })
+      
+      console.log("✅ Bank transfer confirmation result:", result)
+      
+      // Reload orders để lấy dữ liệu mới nhất từ server
+      await loadOrders()
+      
+      setSuccessMessage(
+        confirmed 
+          ? `Đã xác nhận đã chuyển khoản cho đơn hàng #${bankTransferOrder.id}!`
+          : `Đã xác nhận chưa chuyển khoản cho đơn hàng #${bankTransferOrder.id}.`
+      )
+      setTimeout(() => setSuccessMessage(null), 5000)
+      
+      setShowBankTransferModal(false)
+      setBankTransferOrder(null)
+      setBankTransferRejectionReason("")
+    } catch (err) {
+      console.error("❌ Error confirming bank transfer:", err)
+      const errorMessage = err instanceof Error ? err.message : "Không thể xử lý yêu cầu"
+      alert(`Lỗi: ${errorMessage}`)
+    }
+  }
+
+  // Chức năng cập nhật trạng thái đơn hàng (SystemAdmin)
+  const handleStatusUpdate = async (orderId: number, newStatus: "Pending" | "Processing" | "Shipped" | "Completed" | "Cancelled") => {
+    try {
+      await updateOrderStatus(orderId, { status: newStatus })
+      setOrders(prev => prev.map(order => 
+        order.id === orderId ? { ...order, status: newStatus } : order
+      ))
+      setSuccessMessage(`Đã cập nhật trạng thái đơn hàng #${orderId} thành công!`)
+      setTimeout(() => setSuccessMessage(null), 3000)
+    } catch (err) {
+      alert(err instanceof Error ? err.message : "Không thể cập nhật trạng thái đơn hàng")
+    }
+  }
+
+  // Helper function để lấy thông tin trạng thái của enterprise
+  const getEnterpriseStatusInfo = (status: string) => {
+    const normalized = status?.toLowerCase() || ""
+    
+    const statusMap: Record<string, { text: string; color: string; icon: ReactElement }> = {
+      "pending": {
+        text: "Chờ chấp nhận",
+        color: "text-orange-600 bg-orange-50 border-orange-200",
+        icon: <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
+      },
+      "processing": {
+        text: "Đã chấp nhận",
+        color: "text-green-600 bg-green-50 border-green-200",
+        icon: <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
+      },
+      "shipped": {
+        text: "Đang giao",
+        color: "text-purple-600 bg-purple-50 border-purple-200",
+        icon: <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7h12m0 0l-4-4m4 4l-4 4m0 6H4m0 0l4 4m-4-4l4-4" /></svg>
+      },
+      "completed": {
+        text: "Hoàn thành",
+        color: "text-blue-600 bg-blue-50 border-blue-200",
+        icon: <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" /></svg>
+      },
+    }
+    
+    return statusMap[normalized] || {
+      text: status || "Không xác định",
+      color: "text-gray-600 bg-gray-50 border-gray-200",
+      icon: <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8.228 9c.549-1.165 2.03-2 3.772-2 2.21 0 4 1.343 4 3 0 1.4-1.278 2.575-3.006 2.907-.542.104-.994.54-.994 1.093m0 3h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
+    }
+  }
+
+  // Helper function để nhóm orderItems theo enterprise
+  const groupOrderItemsByEnterprise = (orderItems: typeof orders[0]['orderItems']) => {
+    if (!orderItems || orderItems.length === 0) return []
+    
+    const groups = new Map<number | string, typeof orderItems>()
+    
+    orderItems.forEach(item => {
+      const key = item.enterpriseId ?? item.enterpriseName ?? 'unknown'
+      if (!groups.has(key)) {
+        groups.set(key, [])
+      }
+      groups.get(key)!.push(item)
+    })
+    
+    return Array.from(groups.entries()).map(([key, items]) => ({
+      enterpriseId: typeof key === 'number' ? key : undefined,
+      enterpriseName: typeof key === 'string' && key !== 'unknown' ? key : items[0]?.enterpriseName || 'Doanh nghiệp không xác định',
+      enterpriseImageUrl: items[0]?.enterpriseImageUrl,
+      items,
+      total: items.reduce((sum, item) => sum + (item.price * item.quantity), 0)
+    }))
+  }
+
+  const getNextStatus = (currentStatus: string) => {
+    const statusFlow: Record<string, string> = {
+      "Pending": "Processing",
+      "Processing": "Shipped",
+      "Shipped": "PendingCompletion", // Chuyển sang PendingCompletion để EnterpriseAdmin có thể gửi yêu cầu hoàn thành
+    }
+    return statusFlow[currentStatus]
   }
 
   const exportOrdersToExcel = () => {
@@ -326,6 +457,12 @@ export default function AdminOrderManagementTab() {
   }
 
   const pendingCompletionCount = orders.filter(o => o.status === "PendingCompletion").length
+  
+  // Đếm số đơn hàng cần xét duyệt chuyển khoản (bao gồm cả AwaitingTransfer và BankTransferRejected để có thể xác nhận lại)
+  const pendingBankTransferCount = orders.filter(o => 
+    o.paymentMethod === "BankTransfer" && 
+    (o.paymentStatus === "AwaitingTransfer" || o.paymentStatus === "BankTransferRejected")
+  ).length
 
   return (
     <div className="space-y-6">
@@ -346,6 +483,36 @@ export default function AdminOrderManagementTab() {
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
             </svg>
           </button>
+        </div>
+      )}
+
+      {/* Pending Bank Transfer Alert */}
+      {pendingBankTransferCount > 0 && (
+        <div className="bg-orange-50 border-l-4 border-orange-500 p-4 rounded-lg shadow-sm mb-4">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-3">
+              <svg className="w-6 h-6 text-orange-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 10h18M7 15h1m4 0h1m-7 4h12a3 3 0 003-3V8a3 3 0 00-3-3H6a3 3 0 00-3 3v8a3 3 0 003 3z" />
+              </svg>
+              <div>
+                <p className="font-semibold text-orange-900">
+                  Có {pendingBankTransferCount} đơn hàng cần xét duyệt chuyển khoản ngân hàng
+                </p>
+                <p className="text-sm text-orange-700 mt-1">
+                  Vui lòng kiểm tra và xác nhận các đơn hàng đã chuyển khoản
+                </p>
+              </div>
+            </div>
+            <button
+              onClick={() => {
+                setFilter("all")
+                setSearchQuery("BankTransfer AwaitingTransfer")
+              }}
+              className="px-4 py-2 bg-orange-600 text-white rounded-lg hover:bg-orange-700 transition-colors text-sm font-medium whitespace-nowrap"
+            >
+              Xem ngay →
+            </button>
+          </div>
         </div>
       )}
 
@@ -387,7 +554,7 @@ export default function AdminOrderManagementTab() {
         <div className="mb-6 flex items-center justify-between">
           <div>
             <h2 className="text-3xl font-bold mb-2 drop-shadow-lg">📋 Quản lý đơn hàng</h2>
-            <p className="text-blue-100 text-lg">Theo dõi và xem tất cả đơn hàng từ các doanh nghiệp</p>
+            <p className="text-blue-100 text-lg">Theo dõi, xem và cập nhật trạng thái tất cả đơn hàng từ các doanh nghiệp</p>
           </div>
           <button
             onClick={exportOrdersToExcel}
@@ -477,13 +644,42 @@ export default function AdminOrderManagementTab() {
                 {/* Order Header */}
                 <div className="bg-gradient-to-r from-gray-50 to-gray-100 border-b border-gray-200 px-6 py-4">
                   <div className="flex items-center justify-between mb-2">
-                    <div className="flex items-center gap-4">
+                    <div className="flex items-center gap-4 flex-wrap">
                       <div className="text-sm text-gray-600 font-medium">Mã đơn hàng</div>
                       <div className="text-xl font-bold bg-gradient-to-r from-blue-600 to-indigo-600 bg-clip-text text-transparent">#{order.id}</div>
                       <span className={`px-4 py-1.5 rounded-full text-xs font-semibold border-2 flex items-center gap-2 shadow-sm ${statusInfo.color}`}>
                         {statusInfo.icon}
                         {statusInfo.text}
                       </span>
+                      {/* Badge trạng thái chuyển khoản */}
+                      {order.paymentMethod === "BankTransfer" && (
+                        <>
+                          {order.paymentStatus === "BankTransferConfirmed" && (
+                            <span className="px-4 py-1.5 rounded-full text-xs font-semibold border-2 flex items-center gap-2 shadow-sm bg-green-50 text-green-700 border-green-200">
+                              <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                              </svg>
+                              Đã chuyển khoản
+                            </span>
+                          )}
+                          {order.paymentStatus === "BankTransferRejected" && (
+                            <span className="px-4 py-1.5 rounded-full text-xs font-semibold border-2 flex items-center gap-2 shadow-sm bg-red-50 text-red-700 border-red-200">
+                              <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                              </svg>
+                              Chưa chuyển khoản
+                            </span>
+                          )}
+                          {order.paymentStatus === "AwaitingTransfer" && (
+                            <span className="px-4 py-1.5 rounded-full text-xs font-semibold border-2 flex items-center gap-2 shadow-sm bg-yellow-50 text-yellow-700 border-yellow-200">
+                              <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+                              </svg>
+                              Chờ xác nhận chuyển khoản
+                            </span>
+                          )}
+                        </>
+                      )}
                     </div>
                     <div className="flex items-center gap-3">
                       <div className="text-sm text-gray-600 font-medium">
@@ -537,35 +733,94 @@ export default function AdminOrderManagementTab() {
                   </div>
                 </div>
 
-                {/* Order Items */}
+                {/* Order Items - Grouped by Enterprise */}
                 <div className="p-6 space-y-4">
-                  {order.orderItems?.map((item) => (
-                    <div key={item.id} className="flex items-center gap-4 pb-4 border-b border-gray-100 last:border-0">
-                      <div className="relative w-20 h-20 bg-gray-200 rounded-lg overflow-hidden flex-shrink-0">
-                        <Image
-                          src={item.productImageUrl || "/hero.jpg"}
-                          alt={item.productName || "Product"}
-                          fill
-                          className="object-cover"
-                        />
-                      </div>
-                      <div className="flex-1">
-                        <h4 className="font-semibold text-gray-900 mb-1">{item.productName}</h4>
-                        <div className="flex items-center gap-4 text-sm text-gray-600">
-                          <span>{item.price.toLocaleString("vi-VN")}₫</span>
-                          <span>x{item.quantity}</span>
-                          <span className="font-semibold text-green-600">
-                            = {(item.price * item.quantity).toLocaleString("vi-VN")}₫
+                  {groupOrderItemsByEnterprise(order.orderItems).map((group, groupIndex) => (
+                      <div key={group.enterpriseId || group.enterpriseName} className="bg-white rounded-lg border-2 border-gray-200 overflow-hidden">
+                        {/* Enterprise Header */}
+                        <div className="px-4 py-3 bg-gradient-to-r from-gray-50 to-gray-100 border-b border-gray-200 flex items-center gap-3">
+                          {group.enterpriseImageUrl ? (
+                            <div className="relative w-6 h-6 rounded overflow-hidden flex-shrink-0">
+                              <Image
+                                src={group.enterpriseImageUrl}
+                                alt={group.enterpriseName}
+                                fill
+                                className="object-cover"
+                                sizes="24px"
+                                onError={(e) => {
+                                  const target = e.target as HTMLImageElement
+                                  target.src = '/hero.jpg'
+                                }}
+                              />
+                            </div>
+                          ) : (
+                            <div className="w-6 h-6 rounded bg-indigo-100 flex items-center justify-center flex-shrink-0">
+                              <svg className="w-4 h-4 text-indigo-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4" />
+                              </svg>
+                            </div>
+                          )}
+                          <span className="text-sm font-semibold text-gray-900 flex-1">{group.enterpriseName}</span>
+                          {/* Hiển thị trạng thái chấp nhận của enterprise này */}
+                          {order.enterpriseStatuses && (() => {
+                            const enterpriseStatus = order.enterpriseStatuses.find(
+                              es => es.enterpriseId === group.enterpriseId || es.enterpriseName === group.enterpriseName
+                            )
+                            if (enterpriseStatus) {
+                              const statusInfo = getEnterpriseStatusInfo(enterpriseStatus.status)
+                              return (
+                                <span className={`px-3 py-1 rounded-full text-xs font-semibold flex items-center gap-1.5 ${statusInfo.color}`}>
+                                  {statusInfo.icon}
+                                  {statusInfo.text}
+                                </span>
+                              )
+                            }
+                            return null
+                          })()}
+                        </div>
+
+                        {/* Products in this Enterprise */}
+                        <div className="divide-y divide-gray-100">
+                          {group.items.map((item, itemIndex) => (
+                            <div key={item.id} className="px-4 py-4 flex items-center gap-4">
+                              <div className="relative w-20 h-20 bg-gray-200 rounded-lg overflow-hidden flex-shrink-0">
+                                <Image
+                                  src={item.productImageUrl || "/hero.jpg"}
+                                  alt={item.productName || "Product"}
+                                  fill
+                                  className="object-cover"
+                                  sizes="80px"
+                                  onError={(e) => {
+                                    const target = e.target as HTMLImageElement
+                                    if (!target.src.includes('hero.jpg')) {
+                                      target.src = '/hero.jpg'
+                                    }
+                                  }}
+                                />
+                              </div>
+                              <div className="flex-1">
+                                <h4 className="font-semibold text-gray-900 mb-1">{item.productName}</h4>
+                                <div className="flex items-center gap-4 text-sm text-gray-600">
+                                  <span>{item.price.toLocaleString("vi-VN")}₫</span>
+                                  <span>x{item.quantity}</span>
+                                  <span className="font-semibold text-green-600">
+                                    = {(item.price * item.quantity).toLocaleString("vi-VN")}₫
+                                  </span>
+                                </div>
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+
+                        {/* Enterprise Subtotal */}
+                        <div className="px-4 py-3 bg-gray-50 border-t border-gray-200 flex items-center justify-between">
+                          <span className="text-sm font-medium text-gray-700">Tổng tiền của {group.enterpriseName}:</span>
+                          <span className="text-base font-bold text-green-600">
+                            {group.total.toLocaleString("vi-VN")}₫
                           </span>
                         </div>
-                        {item.enterpriseName && (
-                          <div className="text-xs text-blue-600 mt-1 font-medium">
-                            Doanh nghiệp: {item.enterpriseName}
-                          </div>
-                        )}
                       </div>
-                    </div>
-                  ))}
+                    ))}
                   
                   {/* Expanded Details */}
                   {expandedOrders.has(order.id) && (
@@ -610,6 +865,56 @@ export default function AdminOrderManagementTab() {
                           <p className="text-sm text-gray-700">{enterpriseNames.join(", ")}</p>
                         </div>
                       )}
+
+                      {/* Enterprise Statuses - Trạng thái chấp nhận của từng doanh nghiệp */}
+                      {order.enterpriseStatuses && order.enterpriseStatuses.length > 0 && (
+                        <div className="bg-indigo-50 rounded-lg p-4 border-2 border-indigo-200">
+                          <h5 className="font-semibold text-gray-900 mb-3 flex items-center gap-2">
+                            <svg className="w-5 h-5 text-indigo-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                            </svg>
+                            Trạng thái chấp nhận của từng doanh nghiệp
+                          </h5>
+                          <div className="space-y-3">
+                            {order.enterpriseStatuses.map((enterpriseStatus) => {
+                              const statusInfo = getEnterpriseStatusInfo(enterpriseStatus.status)
+                              return (
+                                <div
+                                  key={enterpriseStatus.id}
+                                  className={`p-3 rounded-lg border-2 ${
+                                    enterpriseStatus.status === "Processing"
+                                      ? "bg-green-50 border-green-300"
+                                      : enterpriseStatus.status === "Shipped"
+                                      ? "bg-purple-50 border-purple-300"
+                                      : enterpriseStatus.status === "Completed"
+                                      ? "bg-blue-50 border-blue-300"
+                                      : "bg-orange-50 border-orange-300"
+                                  }`}
+                                >
+                                  <div className="flex items-center justify-between">
+                                    <div className="flex-1">
+                                      <div className="font-semibold text-gray-900 mb-1">
+                                        {enterpriseStatus.enterpriseName || `Doanh nghiệp #${enterpriseStatus.enterpriseId}`}
+                                      </div>
+                                      <div className="flex items-center gap-2">
+                                        <span className={`px-3 py-1 rounded-full text-xs font-semibold ${statusInfo.color}`}>
+                                          {statusInfo.icon}
+                                          {statusInfo.text}
+                                        </span>
+                                        {enterpriseStatus.updatedAt && (
+                                          <span className="text-xs text-gray-600">
+                                            {new Date(enterpriseStatus.updatedAt).toLocaleString("vi-VN")}
+                                          </span>
+                                        )}
+                                      </div>
+                                    </div>
+                                  </div>
+                                </div>
+                              )
+                            })}
+                          </div>
+                        </div>
+                      )}
                       
                       {/* Shipping Address */}
                       {order.shippingAddress && (
@@ -641,11 +946,16 @@ export default function AdminOrderManagementTab() {
                           <div>
                             <span className="text-gray-600">Trạng thái:</span>
                             <span className={`ml-2 font-medium ${
-                              order.paymentStatus === "Paid" ? "text-green-600" :
+                              order.paymentStatus === "Paid" || order.paymentStatus === "BankTransferConfirmed" ? "text-green-600" :
                               order.paymentStatus === "Pending" ? "text-orange-600" :
+                              order.paymentStatus === "AwaitingTransfer" ? "text-yellow-600" :
+                              order.paymentStatus === "BankTransferRejected" ? "text-red-600" :
                               "text-red-600"
                             }`}>
-                              {order.paymentStatus}
+                              {order.paymentStatus === "BankTransferConfirmed" ? "Đã chuyển khoản" : 
+                               order.paymentStatus === "BankTransferRejected" ? "Chưa chuyển khoản" :
+                               order.paymentStatus === "AwaitingTransfer" ? "Chờ xác nhận chuyển khoản" :
+                               order.paymentStatus}
                             </span>
                           </div>
                           {order.paymentReference && (
@@ -777,7 +1087,72 @@ export default function AdminOrderManagementTab() {
                   </div>
 
                   {/* Actions */}
-                  <div className="flex gap-3 pt-4">
+                  <div className="flex gap-3 pt-4 flex-wrap">
+                    {/* Thông báo khi đơn hàng chưa được EnterpriseAdmin chấp nhận */}
+                    {order.status === "Pending" && (
+                      <div className="flex-1 px-6 py-3 bg-orange-50 border-2 border-orange-300 rounded-lg flex items-center justify-center gap-2">
+                        <svg className="w-5 h-5 text-orange-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+                        </svg>
+                        <span className="text-orange-800 font-semibold">Đang chờ EnterpriseAdmin chấp nhận đơn hàng. Sau khi doanh nghiệp chấp nhận, bạn mới có thể thao tác.</span>
+                      </div>
+                    )}
+
+                    {/* Status Update Buttons - Chỉ hiển thị khi đơn hàng đã được EnterpriseAdmin chấp nhận (status !== "Pending") */}
+                    {order.status !== "Pending" && (() => {
+                      const nextStatus = getNextStatus(order.status || "")
+                      if (nextStatus && order.status !== "Completed" && order.status !== "Cancelled" && order.status !== "PendingCompletion") {
+                        return (
+                          <button
+                            onClick={() => {
+                              if (confirm(`Xác nhận cập nhật trạng thái đơn hàng #${order.id} thành "${nextStatus}"?`)) {
+                                handleStatusUpdate(order.id, nextStatus as any)
+                              }
+                            }}
+                            className="flex-1 px-6 py-3 bg-gradient-to-r from-green-600 to-emerald-600 text-white rounded-lg font-semibold hover:from-green-700 hover:to-emerald-700 transition-all shadow-lg hover:shadow-xl flex items-center justify-center gap-2 min-w-[200px]"
+                          >
+                            <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                            </svg>
+                            {nextStatus === "Processing" && "Xác nhận đơn hàng"}
+                            {nextStatus === "Shipped" && "Đang giao hàng"}
+                            {nextStatus === "PendingCompletion" && "Chuyển sang chờ xác nhận hoàn thành"}
+                          </button>
+                        )
+                      }
+                      return null
+                    })()}
+
+                    {/* Bank Transfer Approval Buttons - Chỉ hiển thị khi đơn hàng đã được EnterpriseAdmin chấp nhận */}
+                    {order.status !== "Pending" && order.paymentMethod === "BankTransfer" && (order.paymentStatus === "AwaitingTransfer" || order.paymentStatus === "BankTransferRejected") && (
+                      <>
+                        <button
+                          onClick={async () => {
+                            if (confirm(`Bạn có chắc muốn xác nhận đơn hàng #${order.id} đã chuyển khoản?`)) {
+                              setBankTransferOrder(order)
+                              await handleConfirmBankTransfer(true)
+                            }
+                          }}
+                          className="flex-1 px-6 py-3 bg-gradient-to-r from-green-600 to-emerald-600 text-white rounded-lg font-semibold hover:from-green-700 hover:to-emerald-700 transition-all shadow-lg hover:shadow-xl flex items-center justify-center gap-2 min-w-[200px]"
+                        >
+                          <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                          </svg>
+                          Xác nhận đã chuyển khoản
+                        </button>
+                        <button
+                          onClick={() => handleOpenBankTransferModal(order)}
+                          className="flex-1 px-6 py-3 bg-gradient-to-r from-red-600 to-red-700 text-white rounded-lg font-semibold hover:from-red-700 hover:to-red-800 transition-all shadow-lg hover:shadow-xl flex items-center justify-center gap-2 min-w-[200px]"
+                        >
+                          <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                          </svg>
+                          Chưa chuyển khoản
+                        </button>
+                      </>
+                    )}
+                    
+                    {/* Completion Approval Buttons */}
                     {order.status === "PendingCompletion" && (
                       <>
                         <button
@@ -787,7 +1162,7 @@ export default function AdminOrderManagementTab() {
                               await handleApproveCompletion(true)
                             }
                           }}
-                          className="flex-1 px-6 py-3 bg-gradient-to-r from-green-600 to-emerald-600 text-white rounded-lg font-semibold hover:from-green-700 hover:to-emerald-700 transition-all shadow-lg hover:shadow-xl flex items-center justify-center gap-2"
+                          className="flex-1 px-6 py-3 bg-gradient-to-r from-green-600 to-emerald-600 text-white rounded-lg font-semibold hover:from-green-700 hover:to-emerald-700 transition-all shadow-lg hover:shadow-xl flex items-center justify-center gap-2 min-w-[200px]"
                         >
                           <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
@@ -796,7 +1171,7 @@ export default function AdminOrderManagementTab() {
                         </button>
                         <button
                           onClick={() => handleOpenApprovalModal(order)}
-                          className="flex-1 px-6 py-3 bg-gradient-to-r from-red-600 to-red-700 text-white rounded-lg font-semibold hover:from-red-700 hover:to-red-800 transition-all shadow-lg hover:shadow-xl flex items-center justify-center gap-2"
+                          className="flex-1 px-6 py-3 bg-gradient-to-r from-red-600 to-red-700 text-white rounded-lg font-semibold hover:from-red-700 hover:to-red-800 transition-all shadow-lg hover:shadow-xl flex items-center justify-center gap-2 min-w-[200px]"
                         >
                           <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
@@ -824,7 +1199,161 @@ export default function AdminOrderManagementTab() {
 
       {/* Order Detail Modal - Similar to EnterpriseAdmin but with enterprise info */}
       {showDetailModal && detailOrder && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4 overflow-y-auto">
+        <AdminOrderDetailModalContent 
+          detailOrder={detailOrder}
+          onClose={() => {
+            setShowDetailModal(false)
+            setDetailOrder(null)
+          }}
+          getStatusInfo={getStatusInfo}
+          printInvoice={printInvoice}
+        />
+      )}
+
+      {/* Bank Transfer Rejection Modal */}
+      {showBankTransferModal && bankTransferOrder && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-xl shadow-2xl p-6 max-w-md w-full">
+            <div className="flex items-center justify-between mb-4">
+              <h3 className="text-xl font-bold text-gray-900">Xác nhận chưa chuyển khoản</h3>
+              <button
+                onClick={() => {
+                  setShowBankTransferModal(false)
+                  setBankTransferOrder(null)
+                  setBankTransferRejectionReason("")
+                }}
+                className="text-gray-400 hover:text-gray-600"
+              >
+                <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                </svg>
+              </button>
+            </div>
+
+            <div className="mb-4">
+              <p className="text-gray-700 mb-2">
+                Đơn hàng <span className="font-semibold">#{bankTransferOrder.id}</span> đang chờ xác nhận chuyển khoản.
+              </p>
+              <p className="text-sm text-gray-600 mb-4">
+                Vui lòng nhập lý do chưa chuyển khoản:
+              </p>
+              <textarea
+                value={bankTransferRejectionReason}
+                onChange={(e) => setBankTransferRejectionReason(e.target.value)}
+                placeholder="Ví dụ: Chưa nhận được tiền trong tài khoản, Số tiền không khớp, Khách hàng chưa chuyển khoản..."
+                className="w-full px-4 py-3 border-2 border-gray-200 rounded-lg focus:border-red-500 focus:ring-2 focus:ring-red-200 resize-none"
+                rows={4}
+              />
+            </div>
+
+            <div className="flex gap-3">
+              <button
+                onClick={() => handleConfirmBankTransfer(false)}
+                disabled={!bankTransferRejectionReason.trim()}
+                className="flex-1 px-6 py-3 bg-red-600 text-white rounded-lg font-semibold hover:bg-red-700 transition-all disabled:bg-gray-300 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+              >
+                <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                </svg>
+                Xác nhận chưa chuyển khoản
+              </button>
+              <button
+                onClick={() => {
+                  setShowBankTransferModal(false)
+                  setBankTransferOrder(null)
+                  setBankTransferRejectionReason("")
+                }}
+                className="px-6 py-3 bg-gray-200 text-gray-700 rounded-lg font-semibold hover:bg-gray-300 transition-all"
+              >
+                Hủy
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Approval Modal */}
+      {showApprovalModal && approvalOrder && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-xl shadow-2xl p-6 max-w-md w-full">
+            <div className="flex items-center justify-between mb-4">
+              <h3 className="text-xl font-bold text-gray-900">Từ chối yêu cầu hoàn thành</h3>
+              <button
+                onClick={() => {
+                  setShowApprovalModal(false)
+                  setApprovalOrder(null)
+                  setRejectionReason("")
+                }}
+                className="text-gray-400 hover:text-gray-600"
+              >
+                <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                </svg>
+              </button>
+            </div>
+
+            <div className="mb-4">
+              <p className="text-gray-700 mb-2">
+                Đơn hàng <span className="font-semibold">#{approvalOrder.id}</span> đang chờ xác nhận hoàn thành.
+              </p>
+              <p className="text-sm text-gray-600 mb-4">
+                Vui lòng nhập lý do từ chối:
+              </p>
+              <textarea
+                value={rejectionReason}
+                onChange={(e) => setRejectionReason(e.target.value)}
+                placeholder="Ví dụ: Đơn hàng chưa được giao thành công, khách hàng chưa nhận hàng..."
+                className="w-full px-4 py-3 border-2 border-gray-200 rounded-lg focus:border-red-500 focus:ring-2 focus:ring-red-200 resize-none"
+                rows={4}
+              />
+            </div>
+
+            <div className="flex gap-3">
+              <button
+                onClick={() => handleApproveCompletion(false)}
+                disabled={!rejectionReason.trim()}
+                className="flex-1 px-6 py-3 bg-red-600 text-white rounded-lg font-semibold hover:bg-red-700 transition-all disabled:bg-gray-300 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+              >
+                <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                </svg>
+                Từ chối
+              </button>
+              <button
+                onClick={() => {
+                  setShowApprovalModal(false)
+                  setApprovalOrder(null)
+                  setRejectionReason("")
+                }}
+                className="px-6 py-3 bg-gray-200 text-gray-700 rounded-lg font-semibold hover:bg-gray-300 transition-all"
+              >
+                Hủy
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+    </div>
+  )
+}
+
+// Separate component for Admin Order Detail Modal to use hook
+function AdminOrderDetailModalContent({ 
+  detailOrder, 
+  onClose, 
+  getStatusInfo,
+  printInvoice
+}: { 
+  detailOrder: Order
+  onClose: () => void
+  getStatusInfo: (status: string) => { text: string; color: string; icon: ReactElement }
+  printInvoice: (order: Order) => void
+}) {
+  // Use hook to load product details
+  const { getProductName, getProductImageUrl, loadingProducts } = useOrderProducts(detailOrder.orderItems)
+
+  return (
+    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4 overflow-y-auto">
           <div className="bg-white rounded-xl shadow-2xl max-w-4xl w-full my-8 max-h-[90vh] overflow-y-auto">
             {/* Header */}
             <div className="sticky top-0 bg-gradient-to-r from-blue-600 to-indigo-600 text-white p-6 rounded-t-xl">
@@ -836,10 +1365,7 @@ export default function AdminOrderManagementTab() {
                   </p>
                 </div>
                 <button
-                  onClick={() => {
-                    setShowDetailModal(false)
-                    setDetailOrder(null)
-                  }}
+                  onClick={onClose}
                   className="text-white hover:text-gray-200 transition-colors"
                 >
                   <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -939,15 +1465,21 @@ export default function AdminOrderManagementTab() {
                   {detailOrder.orderItems?.map((item) => (
                     <div key={item.id} className="p-5 flex items-start gap-4 hover:bg-gray-50 transition-colors">
                       <div className="relative w-24 h-24 bg-gray-200 rounded-lg overflow-hidden flex-shrink-0">
-                        <Image
-                          src={item.productImageUrl || "/hero.jpg"}
-                          alt={item.productName || "Product"}
-                          fill
-                          className="object-cover"
-                        />
+                        {loadingProducts ? (
+                          <div className="w-full h-full flex items-center justify-center">
+                            <div className="animate-spin rounded-full h-6 w-6 border-2 border-gray-300 border-t-gray-600"></div>
+                          </div>
+                        ) : (
+                          <Image
+                            src={getProductImageUrl(item)}
+                            alt={getProductName(item)}
+                            fill
+                            className="object-cover"
+                          />
+                        )}
                       </div>
                       <div className="flex-1 min-w-0">
-                        <h5 className="font-semibold text-gray-900 mb-2">{item.productName}</h5>
+                        <h5 className="font-semibold text-gray-900 mb-2">{getProductName(item)}</h5>
                         <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
                           <div>
                             <span className="text-gray-600">Đơn giá:</span>
@@ -996,11 +1528,16 @@ export default function AdminOrderManagementTab() {
                   <div>
                     <span className="text-sm text-gray-600">Trạng thái thanh toán:</span>
                     <p className={`font-medium ${
-                      detailOrder.paymentStatus === "Paid" ? "text-green-600" :
+                      detailOrder.paymentStatus === "Paid" || detailOrder.paymentStatus === "BankTransferConfirmed" ? "text-green-600" :
                       detailOrder.paymentStatus === "Pending" ? "text-orange-600" :
+                      detailOrder.paymentStatus === "AwaitingTransfer" ? "text-yellow-600" :
+                      detailOrder.paymentStatus === "BankTransferRejected" ? "text-red-600" :
                       "text-red-600"
                     }`}>
-                      {detailOrder.paymentStatus}
+                      {detailOrder.paymentStatus === "BankTransferConfirmed" ? "Đã chuyển khoản" : 
+                       detailOrder.paymentStatus === "BankTransferRejected" ? "Chưa chuyển khoản" :
+                       detailOrder.paymentStatus === "AwaitingTransfer" ? "Chờ xác nhận chuyển khoản" :
+                       detailOrder.paymentStatus}
                     </p>
                   </div>
                   {detailOrder.paymentReference && (
@@ -1066,10 +1603,7 @@ export default function AdminOrderManagementTab() {
                   In hóa đơn
                 </button>
                 <button
-                  onClick={() => {
-                    setShowDetailModal(false)
-                    setDetailOrder(null)
-                  }}
+                  onClick={onClose}
                   className="px-6 py-3 bg-gray-200 text-gray-700 rounded-lg font-semibold hover:bg-gray-300 transition-all"
                 >
                   Đóng
@@ -1078,70 +1612,6 @@ export default function AdminOrderManagementTab() {
             </div>
           </div>
         </div>
-      )}
-
-      {/* Approval Modal */}
-      {showApprovalModal && approvalOrder && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-xl shadow-2xl p-6 max-w-md w-full">
-            <div className="flex items-center justify-between mb-4">
-              <h3 className="text-xl font-bold text-gray-900">Từ chối yêu cầu hoàn thành</h3>
-              <button
-                onClick={() => {
-                  setShowApprovalModal(false)
-                  setApprovalOrder(null)
-                  setRejectionReason("")
-                }}
-                className="text-gray-400 hover:text-gray-600"
-              >
-                <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                </svg>
-              </button>
-            </div>
-
-            <div className="mb-4">
-              <p className="text-gray-700 mb-2">
-                Đơn hàng <span className="font-semibold">#{approvalOrder.id}</span> đang chờ xác nhận hoàn thành.
-              </p>
-              <p className="text-sm text-gray-600 mb-4">
-                Vui lòng nhập lý do từ chối:
-              </p>
-              <textarea
-                value={rejectionReason}
-                onChange={(e) => setRejectionReason(e.target.value)}
-                placeholder="Ví dụ: Đơn hàng chưa được giao thành công, khách hàng chưa nhận hàng..."
-                className="w-full px-4 py-3 border-2 border-gray-200 rounded-lg focus:border-red-500 focus:ring-2 focus:ring-red-200 resize-none"
-                rows={4}
-              />
-            </div>
-
-            <div className="flex gap-3">
-              <button
-                onClick={() => handleApproveCompletion(false)}
-                disabled={!rejectionReason.trim()}
-                className="flex-1 px-6 py-3 bg-red-600 text-white rounded-lg font-semibold hover:bg-red-700 transition-all disabled:bg-gray-300 disabled:cursor-not-allowed flex items-center justify-center gap-2"
-              >
-                <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                </svg>
-                Xác nhận từ chối
-              </button>
-              <button
-                onClick={() => {
-                  setShowApprovalModal(false)
-                  setApprovalOrder(null)
-                  setRejectionReason("")
-                }}
-                className="px-6 py-3 bg-gray-200 text-gray-700 rounded-lg font-semibold hover:bg-gray-300 transition-all"
-              >
-                Hủy
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
-    </div>
-  )
+      )
 }
 

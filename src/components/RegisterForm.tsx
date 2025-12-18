@@ -194,7 +194,7 @@ export default function RegisterForm() {
               : "bg-gray-300 text-gray-600 cursor-not-allowed"
           )}
         >
-          {loading ? "Đang tạo tài khoản..." : "Create Account"}
+          {loading ? "Đang tạo tài khoản..." : "Tạo tài khoản"}
         </button>
       </form>
 
@@ -211,7 +211,7 @@ export default function RegisterForm() {
 
       {/* Copyright */}
       <p className="text-center text-xs text-white/70 mt-8">
-        © 2024 OCOP-GiaLai. All rights reserved
+        © 2024 OCOP-GiaLai. Bảo lưu mọi quyền
       </p>
     </div>
   )

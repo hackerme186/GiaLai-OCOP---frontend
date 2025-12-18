@@ -15,7 +15,7 @@ interface AdminHeaderProps {
 
 export default function AdminHeader({ activeTab, onTabChange }: AdminHeaderProps) {
   const router = useRouter()
-  const [userName, setUserName] = useState<string>("Admin")
+  const [userName, setUserName] = useState<string>("Quản trị viên")
   const [userEmail, setUserEmail] = useState<string>("")
   const [userRole, setUserRole] = useState<string>("")
   const [pendingWalletRequestsCount, setPendingWalletRequestsCount] = useState(0)
@@ -27,7 +27,7 @@ export default function AdminHeader({ activeTab, onTabChange }: AdminHeaderProps
       try {
         const me = await getCurrentUser()
         const role = (me.role || "").toLowerCase()
-        setUserName((me.name || me.fullName || me.username || "Admin").toString())
+        setUserName((me.name || me.fullName || me.username || "Quản trị viên").toString())
         setUserEmail((me.email || "").toString())
         setUserRole((me.role || "").toString())
         
@@ -127,7 +127,7 @@ export default function AdminHeader({ activeTab, onTabChange }: AdminHeaderProps
   }, [visibleTabs, activeTab, onTabChange])
 
   return (
-    <aside className="fixed left-0 top-0 h-screen w-64 bg-gray-100 flex flex-col shadow-lg z-50">
+    <aside className="fixed left-0 top-0 h-screen w-64 bg-gray-100 flex flex-col shadow-lg" style={{ zIndex: 1000 }}>
       {/* Logo Section */}
       <div className="p-4 border-b border-gray-200">
         <div className="flex items-center gap-3">

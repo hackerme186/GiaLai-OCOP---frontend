@@ -43,7 +43,7 @@ export default function NewsManagementTab() {
             title: 'Cà phê Gia Lai được công nhận Top 10 sản phẩm OCOP tiêu biểu',
             date: '12/10/2023',
             description: 'Sản phẩm cà phê Gia Lai đạt chứng nhận 4 sao trong chương trình OCOP quốc gia',
-            image: '/coffee gia lai.jpg'
+            image: '/coffee-gia-lai.jpg'
           },
           {
             id: 2,

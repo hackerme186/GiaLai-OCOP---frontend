@@ -138,7 +138,7 @@ const Footer = () => {
               <span className="text-gray-300 font-medium">OCOP Gia Lai</span>
             </div>
             <p className="text-gray-400 text-sm">
-              &copy; {new Date().getFullYear()} OCOP Gia Lai. All rights reserved.
+              &copy; {new Date().getFullYear()} OCOP Gia Lai. Bảo lưu mọi quyền.
             </p>
           </div>
         </div>

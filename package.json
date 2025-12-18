@@ -7,15 +7,18 @@
     "prebuild": "rimraf src/lib/api.js src/lib/api.js.map",
     "build": "next build",
     "start": "next start",
-    "setup:env": "node -e \"console.log('📋 Vui lòng chạy: \\n  Windows: .\\\\setup-env.ps1\\n  Linux/Mac: chmod +x setup-env.sh && ./setup-env.sh')\""
+    "postinstall": "npm rebuild lightningcss || true",
+    "setup:env": "node -e \"console.log('📋 Tạo file .env.local với nội dung:\\nNEXT_PUBLIC_API_BASE=http://localhost:5003/api\\nNEXT_PUBLIC_GOOGLE_CLIENT_ID=your-google-client-id\\nNEXT_PUBLIC_FACEBOOK_APP_ID=your-facebook-app-id')\""
   },
   "dependencies": {
     "@tanstack/react-query": "^5.90.11",
     "clsx": "^2.1.1",
     "google-auth-library": "^10.4.1",
     "leaflet": "^1.9.4",
+    "lightningcss-wasm": "^1.30.2",
     "next": "^15.5.7",
     "next-auth": "^4.24.11",
+    "qrcode.react": "^4.2.0",
     "react": "19.1.0",
     "react-dom": "19.1.0",
     "react-is": "^19.2.1",
@@ -30,6 +33,7 @@
     "@types/react": "^19",
     "@types/react-dom": "^19",
     "@types/react-leaflet": "^2.8.3",
+    "lightningcss": "^1.30.1",
     "rimraf": "^6.0.1",
     "tailwindcss": "^4",
     "typescript": "^5"

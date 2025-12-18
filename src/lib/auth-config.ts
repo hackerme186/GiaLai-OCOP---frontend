@@ -6,10 +6,13 @@ import type { Session } from "next-auth"
 export const authOptions: NextAuthOptions = {
   providers: [
     GoogleProvider({
-      clientId: process.env.GOOGLE_CLIENT_ID!,
-      clientSecret: process.env.GOOGLE_CLIENT_SECRET!,
+      clientId: process.env.GOOGLE_CLIENT_ID || "",
+      clientSecret: process.env.GOOGLE_CLIENT_SECRET || "",
     }),
   ],
+  // ⚠️ PRODUCTION: Must set NEXTAUTH_SECRET environment variable!
+  // Generate with: openssl rand -base64 32
+  secret: process.env.NEXTAUTH_SECRET || "fallback-secret-key-change-in-production",
   callbacks: {
     async jwt({ token, account, profile }) {
       if (account && profile) {
@@ -30,6 +33,7 @@ export const authOptions: NextAuthOptions = {
     signIn: "/login",
     newUser: "/register",
   },
+  debug: process.env.NODE_ENV === "development",
 }
 
 // ---- mở rộng kiểu cho NextAuth ----

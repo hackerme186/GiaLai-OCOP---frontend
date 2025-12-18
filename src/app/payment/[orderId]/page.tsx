@@ -8,6 +8,8 @@ import Footer from "@/components/layout/Footer"
 import { createPayment, getOrder, getPaymentsByOrder, getProduct, type Payment, type Order, type OrderItem } from "@/lib/api"
 import { isLoggedIn } from "@/lib/auth"
 import { getImageAttributes, isValidImageUrl, getImageUrl } from "@/lib/imageUtils"
+import { useOrderProducts } from "@/lib/hooks/useOrderProducts"
+import { QRCodeSVG } from "qrcode.react"
 
 // Component con sử dụng useSearchParams (phải wrap trong Suspense)
 function PaymentContent() {
@@ -23,6 +25,8 @@ function PaymentContent() {
     const [error, setError] = useState<string | null>(null)
     const [creatingPayment, setCreatingPayment] = useState(false)
     const [orderItemsWithEnterprise, setOrderItemsWithEnterprise] = useState<OrderItem[]>([])
+    // Use hook to load product details
+    const { getProductName, getProductImageUrl, loadingProducts } = useOrderProducts(order?.orderItems)
     // Thông tin tài khoản SystemAdmin (dùng chung cho toàn bộ đơn hàng)
     // Thông tin mặc định của tài khoản SystemAdmin (MB Bank - NGUYEN BA QUYET)
     const ADMIN_BANK_ACCOUNT = process.env.NEXT_PUBLIC_ADMIN_BANK_ACCOUNT || "0858153779"
@@ -60,6 +64,31 @@ function PaymentContent() {
             paidAt: primaryPayment?.paidAt,
         }
     }, [order, bankTransferPayments, ADMIN_BANK_ACCOUNT, ADMIN_BANK_CODE, ADMIN_ACCOUNT_NAME, ADMIN_QR_URL])
+
+    // Sử dụng VietQR API để generate QR code đúng chuẩn cho các app ngân hàng Việt Nam
+    const vietQRUrl = useMemo(() => {
+        if (!adminBankPayment) return null
+        
+        const bankCode = adminBankPayment.bankCode || "970422" // MB Bank
+        const accountNumber = adminBankPayment.bankAccount || ""
+        const accountName = encodeURIComponent(adminBankPayment.accountName || "")
+        const amount = adminBankPayment.amount || 0
+        const content = encodeURIComponent(adminBankPayment.reference || "")
+        
+        // Sử dụng VietQR API để generate QR code đúng chuẩn EMV QR Code
+        // Format: https://img.vietqr.io/image/{bankCode}-{accountNumber}-compact2.png?amount={amount}&addInfo={content}&accountName={accountName}
+        if (bankCode && accountNumber) {
+            return `https://img.vietqr.io/image/${bankCode}-${accountNumber}-compact2.png?amount=${amount}&addInfo=${content}&accountName=${accountName}`
+        }
+        return null
+    }, [adminBankPayment])
+    
+    // Fallback: Generate QR code từ thông tin chuyển khoản (nếu VietQR API không khả dụng)
+    const qrCodeData = useMemo(() => {
+        if (!adminBankPayment) return ""
+        // Format thông tin chuyển khoản để tạo QR code fallback
+        return `Chuyển khoản đến ${adminBankPayment.accountName}\nSố tài khoản: ${adminBankPayment.bankAccount}\nNgân hàng: ${adminBankPayment.bankCode}\nSố tiền: ${adminBankPayment.amount.toLocaleString("vi-VN")} ₫\nNội dung: ${adminBankPayment.reference}`
+    }, [adminBankPayment])
 
     // Tính tổng tiền cần chuyển
     // Phải đặt trước useEffect để tuân thủ Rules of Hooks
@@ -369,24 +398,29 @@ function PaymentContent() {
                                     {(orderItemsWithEnterprise.length > 0 ? orderItemsWithEnterprise : (order.orderItems || [])).map((item) => (
                                         <div key={item.id} className="flex items-center gap-4 p-3 bg-gray-50 rounded-lg">
                                             <div className="relative w-16 h-16 rounded-lg overflow-hidden bg-gray-200 flex-shrink-0">
-                                                <Image
-                                                    src={isValidImageUrl(item.productImageUrl) ? getImageUrl(item.productImageUrl, "/hero.jpg") : "/hero.jpg"}
-                                                    alt={item.productName || `Sản phẩm #${item.productId}`}
-                                                    fill
-                                                    className="object-cover"
-                                                    sizes="64px"
-                                                    {...getImageAttributes(item.productImageUrl)}
-                                                    onError={(e) => {
-                                                        const target = e.target as HTMLImageElement
-                                                        if (!target.src.includes('hero.jpg')) {
-                                                            target.src = '/hero.jpg'
-                                                        }
-                                                    }}
-                                                />
+                                                {loadingProducts ? (
+                                                    <div className="w-full h-full flex items-center justify-center">
+                                                        <div className="animate-spin rounded-full h-4 w-4 border-2 border-gray-300 border-t-gray-600"></div>
+                                                    </div>
+                                                ) : (
+                                                    <Image
+                                                        src={getProductImageUrl(item)}
+                                                        alt={getProductName(item)}
+                                                        fill
+                                                        className="object-cover"
+                                                        sizes="64px"
+                                                        onError={(e) => {
+                                                            const target = e.target as HTMLImageElement
+                                                            if (!target.src.includes('hero.jpg')) {
+                                                                target.src = '/hero.jpg'
+                                                            }
+                                                        }}
+                                                    />
+                                                )}
                                             </div>
                                             <div className="flex-1 min-w-0">
                                                 <h4 className="font-semibold text-gray-900 text-sm mb-1">
-                                                    {item.productName || `Sản phẩm #${item.productId}`}
+                                                    {getProductName(item)}
                                                 </h4>
                                                 {item.enterpriseName && (
                                                     <p className="text-xs text-gray-500 mb-1">Doanh nghiệp: {item.enterpriseName}</p>
@@ -492,10 +526,11 @@ function PaymentContent() {
                                 </div>
 
                                 {/* QR Code */}
-                                {adminBankPayment.qrCodeUrl && (
-                                    <div className="text-center mb-6">
-                                        <h3 className="text-sm font-semibold text-gray-900 mb-4">Quét mã QR để thanh toán</h3>
-                                        <div className="inline-block bg-white p-4 rounded-lg border-2 border-gray-200">
+                                <div className="text-center mb-6">
+                                    <h3 className="text-sm font-semibold text-gray-900 mb-4">Quét mã QR để thanh toán</h3>
+                                    <div className="inline-block bg-white p-4 rounded-lg border-2 border-gray-200">
+                                        {adminBankPayment.qrCodeUrl ? (
+                                            // Ưu tiên 1: Nếu có URL QR code từ env, sử dụng image
                                             <Image
                                                 src={adminBankPayment.qrCodeUrl}
                                                 alt={`QR Code thanh toán - SystemAdmin`}
@@ -508,12 +543,49 @@ function PaymentContent() {
                                                     target.style.display = 'none'
                                                 }}
                                             />
-                                        </div>
-                                        <p className="text-xs text-gray-500 mt-3">
-                                            Quét mã QR bằng ứng dụng ngân hàng của bạn để thanh toán
-                                        </p>
+                                        ) : vietQRUrl ? (
+                                            // Ưu tiên 2: Sử dụng VietQR API để generate QR code đúng chuẩn EMV
+                                            <Image
+                                                src={vietQRUrl}
+                                                alt={`QR Code thanh toán - SystemAdmin`}
+                                                width={300}
+                                                height={300}
+                                                className="w-64 h-64 object-contain"
+                                                unoptimized
+                                                onError={(e) => {
+                                                    console.error("VietQR API error, falling back to generated QR")
+                                                    const target = e.target as HTMLImageElement
+                                                    target.style.display = 'none'
+                                                }}
+                                            />
+                                        ) : (
+                                            // Fallback: Generate QR code từ thông tin chuyển khoản
+                                            <div className="flex items-center justify-center">
+                                                <QRCodeSVG
+                                                    value={qrCodeData || `Chuyển khoản đến ${adminBankPayment.accountName}\nSố tài khoản: ${adminBankPayment.bankAccount}\nNgân hàng: ${adminBankPayment.bankCode}\nSố tiền: ${adminBankPayment.amount.toLocaleString("vi-VN")} ₫\nNội dung: ${adminBankPayment.reference}`}
+                                                    size={256}
+                                                    level="H"
+                                                    includeMargin={true}
+                                                    fgColor="#000000"
+                                                    bgColor="#FFFFFF"
+                                                />
+                                            </div>
+                                        )}
                                     </div>
-                                )}
+                                    <p className="text-xs text-gray-500 mt-3">
+                                        Quét mã QR bằng ứng dụng ngân hàng của bạn để thanh toán
+                                    </p>
+                                    {vietQRUrl && (
+                                        <p className="text-xs text-gray-400 mt-2">
+                                            Mã QR theo chuẩn VietQR: {adminBankPayment.accountName} - {adminBankPayment.bankAccount}
+                                        </p>
+                                    )}
+                                    {!adminBankPayment.qrCodeUrl && !vietQRUrl && (
+                                        <p className="text-xs text-gray-400 mt-2">
+                                            Mã QR chứa thông tin: {adminBankPayment.accountName} - {adminBankPayment.bankAccount}
+                                        </p>
+                                    )}
+                                </div>
                             </div>
 
                             {/* Instructions */}

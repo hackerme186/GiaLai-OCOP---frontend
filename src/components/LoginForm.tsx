@@ -1,6 +1,6 @@
 "use client"
 import Link from "next/link"
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import { login, getCurrentUser } from "@/lib/api"
 import { setAuthToken, getRoleFromToken, setUserProfile } from "@/lib/auth"
 import { useRouter } from "next/navigation"
@@ -10,48 +10,58 @@ import GoogleLoginButton from "./GoogleLoginButton"
 
 export default function LoginForm() {
   const router = useRouter()
-  const [email, setEmail] = useState("nguyenbaquyet9a4cpr@gmail.com")
+  const [email, setEmail] = useState("")
   const [password, setPassword] = useState("")
   const [remember, setRemember] = useState(false)
+  const [mounted, setMounted] = useState(false)
 
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
+
+  // Only set default email on client side to avoid hydration mismatch
+  useEffect(() => {
+    setMounted(true)
+    // Set default email only in development or if needed
+    if (process.env.NODE_ENV === 'development') {
+      setEmail("nguyenbaquyet9a4cpr@gmail.com")
+    }
+  }, [])
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     setError(null)
     setLoading(true)
-    
+
     console.log("🔐 [Login] Bắt đầu đăng nhập với email:", email)
-    
+
     try {
       console.log("📤 [Login] Gửi request đăng nhập...")
       const res = await login({ email, password }) as any
       console.log("📥 [Login] Response từ API:", res)
       console.log("📥 [Login] Response type:", typeof res)
       console.log("📥 [Login] Response keys:", res ? Object.keys(res) : "null")
-      
+
       // Extract token from various possible response structures
       // Backend trả về Token (chữ hoa) nên cần check cả Token và token
       const token = res?.Token || res?.token || res?.data?.Token || res?.data?.token || res?.accessToken || res?.access_token
       console.log("🔑 [Login] Token extracted:", token ? `${token.substring(0, 20)}...` : "NULL")
-      
+
       if (!token) {
         console.error("❌ [Login] Không tìm thấy token trong response:", JSON.stringify(res, null, 2))
         throw new Error("Không nhận được token từ server. Vui lòng kiểm tra thông tin đăng nhập.")
       }
-      
+
       // Save token first
       console.log("💾 [Login] Lưu token vào localStorage...")
       setAuthToken(token)
-      
+
       // Verify token was saved
       const savedToken = typeof window !== "undefined" ? localStorage.getItem("ocop_auth_token") : null
       console.log("✅ [Login] Token đã được lưu:", savedToken ? "YES" : "NO")
-      
+
       // Wait a bit to ensure token is saved to localStorage
       await new Promise(resolve => setTimeout(resolve, 100))
-      
+
       // Determine role from login response first, then fallback to /me
       const extractRole = (obj: any): string => {
         if (!obj) return ""
@@ -64,12 +74,12 @@ export default function LoginForm() {
         if (u.roles && typeof u.roles === 'object') return Object.values(u.roles)[0]?.toString?.() || ""
         return ""
       }
-      
+
       // Try decode from JWT token first (most reliable)
       console.log("👤 [Login] Đang extract role...")
       let role = getRoleFromToken(token) || extractRole(res)
       console.log("👤 [Login] Role từ token:", role || "NOT FOUND")
-      
+
       // If still no role, try to get from /me endpoint
       if (!role || role.trim() === "") {
         console.log("👤 [Login] Role không tìm thấy, đang gọi /me endpoint...")
@@ -82,20 +92,20 @@ export default function LoginForm() {
           console.warn("⚠️ [Login] Could not fetch user info:", err)
         }
       }
-      
+
       // Normalize role for comparison
       const norm = role.toString().toLowerCase().trim()
       console.log("👤 [Login] Normalized role:", norm)
-      
+
       // Check roles
       const isSystemAdmin = norm === 'systemadmin' || norm === 'sysadmin'
       const isEnterpriseAdmin = norm === 'enterpriseadmin'
-      const isAdmin = isSystemAdmin || 
-                     norm === 'admin' || 
-                     norm === 'administrator' || 
-                     norm === 'role_admin' || 
-                     norm === 'admin_role'
-      
+      const isAdmin = isSystemAdmin ||
+        norm === 'admin' ||
+        norm === 'administrator' ||
+        norm === 'role_admin' ||
+        norm === 'admin_role'
+
       try {
         console.log("👤 [Login] Đang lấy user profile...")
         const profile = await getCurrentUser()
@@ -118,7 +128,7 @@ export default function LoginForm() {
       console.log("🔀 [Login] isSystemAdmin:", isSystemAdmin)
       console.log("🔀 [Login] isEnterpriseAdmin:", isEnterpriseAdmin)
       console.log("🔀 [Login] isAdmin:", isAdmin)
-      
+
       if (isSystemAdmin || isAdmin) {
         console.log("🔀 [Login] Redirecting to /admin")
         router.replace("/admin")
@@ -129,21 +139,21 @@ export default function LoginForm() {
         console.log("🔀 [Login] Redirecting to /home")
         router.replace("/home")
       }
-      
+
       console.log("✅ [Login] Đăng nhập thành công!")
     } catch (err) {
       console.error("❌ [Login] Lỗi đăng nhập:", err)
       console.error("❌ [Login] Error type:", err?.constructor?.name)
       console.error("❌ [Login] Error message:", err instanceof Error ? err.message : String(err))
-      
+
       if (err instanceof Error && (err as any).status) {
         console.error("❌ [Login] HTTP Status:", (err as any).status)
       }
-      
+
       if (err instanceof Error && (err as any).response) {
         console.error("❌ [Login] Response data:", (err as any).response)
       }
-      
+
       const errorMessage = getLoginError(err)
       setError(errorMessage)
     } finally {
@@ -156,7 +166,7 @@ export default function LoginForm() {
     <div className="w-full">
       {/* Title - Welcome OCOP-GiaLai */}
       <h1 className="text-4xl md:text-5xl font-bold text-center mb-8 text-white">
-        Welcome OCOP-GiaLai
+        Chào mừng đến với OCOP-GiaLai
       </h1>
 
       <form onSubmit={handleSubmit} className="space-y-5">
@@ -176,10 +186,8 @@ export default function LoginForm() {
             value={email}
             onChange={(e) => setEmail(e.target.value)}
             placeholder="Email"
-            className="w-full pl-12 pr-4 py-3 rounded-lg border-2 border-white/30 bg-white/20 backdrop-blur-sm text-white placeholder:text-white/70 focus:border-white/60 focus:outline-none focus:ring-2 focus:ring-white/30 transition-all"
-            style={{
-              boxShadow: '0 4px 6px rgba(0, 0, 0, 0.1)',
-            }}
+            className="w-full pl-12 pr-4 py-3 rounded-lg border-2 border-white/30 bg-white/20 backdrop-blur-sm text-white placeholder:text-white/70 focus:border-white/60 focus:outline-none focus:ring-2 focus:ring-white/30 transition-all shadow-md"
+            suppressHydrationWarning
           />
         </div>
 
@@ -198,11 +206,9 @@ export default function LoginForm() {
             required
             value={password}
             onChange={(e) => setPassword(e.target.value)}
-            placeholder="Password"
-            className="w-full pl-12 pr-4 py-3 rounded-lg border-2 border-white/30 bg-white/20 backdrop-blur-sm text-white placeholder:text-white/70 focus:border-white/60 focus:outline-none focus:ring-2 focus:ring-white/30 transition-all"
-            style={{
-              boxShadow: '0 4px 6px rgba(0, 0, 0, 0.1)',
-            }}
+            placeholder="Mật khẩu"
+            className="w-full pl-12 pr-4 py-3 rounded-lg border-2 border-white/30 bg-white/20 backdrop-blur-sm text-white placeholder:text-white/70 focus:border-white/60 focus:outline-none focus:ring-2 focus:ring-white/30 transition-all shadow-md"
+            suppressHydrationWarning
           />
         </div>
 
@@ -218,15 +224,15 @@ export default function LoginForm() {
               className="h-4 w-4 rounded border-white/50 bg-white/20 text-pink-500 focus:ring-pink-500 focus:ring-offset-0 cursor-pointer"
             />
             <label htmlFor="remember" className="ml-2 cursor-pointer">
-              Remember me
+              Ghi nhớ đăng nhập
             </label>
           </div>
 
-          <Link 
-            href="/forgot" 
+          <Link
+            href="/forgot"
             className="text-white/90 hover:text-white transition-colors"
           >
-            Forgot Password?
+            Quên mật khẩu?
           </Link>
         </div>
 
@@ -241,12 +247,10 @@ export default function LoginForm() {
         <button
           type="submit"
           disabled={loading}
-          className="w-full rounded-lg bg-pink-500 hover:bg-pink-600 px-6 py-3 text-lg font-semibold text-white shadow-lg hover:shadow-xl disabled:opacity-60 disabled:cursor-not-allowed focus:outline-none focus:ring-2 focus:ring-pink-500/50 transition-all"
-          style={{
-            boxShadow: '0 4px 12px rgba(236, 72, 153, 0.4)',
-          }}
+          className="w-full rounded-lg bg-pink-500 hover:bg-pink-600 px-6 py-3 text-lg font-semibold text-white shadow-lg hover:shadow-xl disabled:opacity-60 disabled:cursor-not-allowed focus:outline-none focus:ring-2 focus:ring-pink-500/50 transition-all shadow-[0_4px_12px_rgba(236,72,153,0.4)]"
+          suppressHydrationWarning
         >
-          {loading ? "Logging in..." : "Login"}
+          {loading ? "Đang đăng nhập..." : "Đăng nhập"}
         </button>
 
         {/* Divider with "or" in pink circle */}
@@ -256,13 +260,13 @@ export default function LoginForm() {
           </div>
           <div className="relative flex justify-center">
             <div className="bg-pink-500 rounded-full w-10 h-10 flex items-center justify-center">
-              <span className="text-white text-sm font-medium">or</span>
+              <span className="text-white text-sm font-medium">hoặc</span>
             </div>
           </div>
         </div>
 
         {/* Social Login Buttons */}
-        <div className="space-y-3">
+        <div className="flex items-center justify-center gap-6">
           {/* Facebook Button */}
           <FacebookLoginButton onError={(err) => setError(err)} />
 
@@ -272,19 +276,19 @@ export default function LoginForm() {
 
         {/* Registration Link */}
         <p className="text-center text-sm text-white/90 mt-6">
-          Don't have an account?{" "}
+          Chưa có tài khoản?{" "}
           <Link
             href="/register"
             className="text-white font-medium hover:text-white/80 underline transition-colors"
           >
-            Register
+            Đăng ký
           </Link>
         </p>
       </form>
 
       {/* Copyright */}
       <p className="text-center text-xs text-white/70 mt-8">
-        © 2024 OCOP-GiaLai. All rights reserved
+        © 2024 OCOP-GiaLai. Bảo lưu mọi quyền
       </p>
     </div>
   )

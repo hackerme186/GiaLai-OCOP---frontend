@@ -1,7 +1,7 @@
 "use client"
 
-import { useEffect, useState } from "react"
-import { useRouter } from "next/navigation"
+import { useEffect, useState, Suspense } from "react"
+import { useRouter, useSearchParams } from "next/navigation"
 import Image from "next/image"
 import {
   isLoggedIn,
@@ -24,13 +24,18 @@ import SettingsTab from "@/components/enterprise/SettingsTab"
 import NotificationsTab from "@/components/enterprise/NotificationsTab"
 import WalletTab from "@/components/enterprise/WalletTab"
 
-export default function EnterpriseAdminPage() {
+function EnterpriseAdminPageContent() {
   const router = useRouter()
+  const searchParams = useSearchParams()
 
   const [authorized, setAuthorized] = useState<boolean | null>(null)
   const [user, setUser] = useState<User | null>(null)
 
-  const [activeTab, setActiveTab] = useState<TabType>("products")
+  // Đọc tab từ query parameter hoặc mặc định là "products"
+  const tabFromQuery = searchParams?.get("tab") as TabType | null
+  const validTabs: TabType[] = ["products", "orders", "inventory", "profile", "ocop-status", "reports", "wallet", "notifications", "settings"]
+  const initialTab = (tabFromQuery && validTabs.includes(tabFromQuery)) ? tabFromQuery : "products"
+  const [activeTab, setActiveTab] = useState<TabType>(initialTab)
   const [sidebarOpen, setSidebarOpen] = useState(false)
 
   const [notifications, setNotifications] = useState<Notification[]>([])
@@ -103,6 +108,27 @@ export default function EnterpriseAdminPage() {
     check()
   }, [router])
 
+  // Cập nhật tab khi query parameter thay đổi (chỉ khi URL thay đổi từ bên ngoài)
+  useEffect(() => {
+    const tabFromQuery = searchParams?.get("tab") as TabType | null
+    if (tabFromQuery && validTabs.includes(tabFromQuery)) {
+      // Validate tab exists và cập nhật state
+      setActiveTab(prevTab => {
+        // Chỉ update nếu khác với giá trị hiện tại để tránh re-render không cần thiết
+        return tabFromQuery !== prevTab ? tabFromQuery : prevTab
+      })
+    } else if (!tabFromQuery) {
+      // Set default tab if no query param
+      setActiveTab(prevTab => {
+        if (prevTab !== "products") {
+          router.replace("/enterprise-admin?tab=products", { scroll: false })
+          return "products"
+        }
+        return prevTab
+      })
+    }
+  }, [searchParams, router])
+
   // Load thông báo tự động
   useEffect(() => {
     if (authorized) {
@@ -165,7 +191,7 @@ export default function EnterpriseAdminPage() {
   ]
 
   const userName =
-    user?.name || user?.fullName || user?.username || "Enterprise Admin"
+    user?.name || user?.fullName || user?.username || "Quản trị doanh nghiệp"
 
   return (
     <div className="flex min-h-screen bg-gray-100">
@@ -185,7 +211,10 @@ export default function EnterpriseAdminPage() {
           {tabs.map(tab => (
             <button
               key={tab.id}
-              onClick={() => setActiveTab(tab.id)}
+              onClick={() => {
+                setActiveTab(tab.id)
+                router.push(`/enterprise-admin?tab=${tab.id}`, { scroll: false })
+              }}
               className={`w-full flex items-center px-4 py-3 rounded-lg text-left transition ${
                 activeTab === tab.id
                   ? "bg-green-600 text-white shadow"
@@ -310,6 +339,7 @@ export default function EnterpriseAdminPage() {
                               
                               const targetTab = getTargetTab()
                               setActiveTab(targetTab)
+                              router.push(`/enterprise-admin?tab=${targetTab}`, { scroll: false })
                               setShowNotificationDropdown(false)
                               
                               // Nếu có link và không phải là /enterprise-admin, điều hướng
@@ -363,6 +393,7 @@ export default function EnterpriseAdminPage() {
                   <button
                     onClick={() => {
                       setActiveTab("notifications")
+                      router.push(`/enterprise-admin?tab=notifications`, { scroll: false })
                       setShowNotificationDropdown(false)
                     }}
                     className="w-full text-center text-sm text-green-600 hover:text-green-700 font-medium py-2"
@@ -402,6 +433,34 @@ export default function EnterpriseAdminPage() {
               user={user} 
               onNotificationUpdate={handleNotificationUpdate}
               unreadCount={unreadCount}
+              onNavigate={(tab, params) => {
+                // Switch tab ngay lập tức
+                const targetTab = tab as TabType
+                
+                // Set activeTab trước
+                setActiveTab(targetTab)
+                
+                // Cập nhật URL để reflect tab change
+                // Sử dụng router.push với shallow routing để không reload trang
+                router.push(`/enterprise-admin?tab=${targetTab}`, { scroll: false })
+                
+                // Có thể scroll đến order/product cụ thể sau khi tab được switch
+                if (params?.orderId || params?.productId) {
+                  setTimeout(() => {
+                    // Scroll đến element có id tương ứng nếu có
+                    const elementId = params.orderId ? `order-${params.orderId}` : `product-${params.productId}`
+                    const element = document.getElementById(elementId)
+                    if (element) {
+                      element.scrollIntoView({ behavior: 'smooth', block: 'center' })
+                      // Highlight element
+                      element.classList.add('ring-2', 'ring-green-500')
+                      setTimeout(() => {
+                        element.classList.remove('ring-2', 'ring-green-500')
+                      }, 3000)
+                    }
+                  }, 500)
+                }
+              }}
             />
           )}
           {activeTab === "settings" && <SettingsTab user={user} />}
@@ -421,3 +480,18 @@ type TabType =
   | "wallet"
   | "notifications"
   | "settings"
+
+export default function EnterpriseAdminPage() {
+  return (
+    <Suspense fallback={
+      <div className="min-h-screen flex items-center justify-center bg-white">
+        <div className="text-center">
+          <div className="animate-spin h-10 w-10 rounded-full border-b-2 border-green-600 mx-auto" />
+          <p className="mt-3 text-gray-600">Đang tải...</p>
+        </div>
+      </div>
+    }>
+      <EnterpriseAdminPageContent />
+    </Suspense>
+  )
+}

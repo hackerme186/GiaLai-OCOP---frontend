@@ -7,8 +7,11 @@ import Header from "@/components/layout/Header"
 import Footer from "@/components/layout/Footer"
 import { useRouter } from "next/navigation"
 import { isLoggedIn } from "@/lib/auth"
-import { getOrders, updateOrderStatus, getProduct, createPayment, deleteOrder, getOrder, type Order, type Product } from "@/lib/api"
+import { getOrders, updateOrderStatus, getProduct, createPayment, deleteOrder, getOrder, getEnterprise, type Order, type Product, type Enterprise } from "@/lib/api"
 import { useCart } from "@/lib/cart-context"
+import { useOrderProducts } from "@/lib/hooks/useOrderProducts"
+import { useQueries } from "@tanstack/react-query"
+import { getImageUrl, getImageAttributes } from "@/lib/imageUtils"
 
 export default function OrdersPage() {
     const router = useRouter()
@@ -57,19 +60,55 @@ export default function OrdersPage() {
 
         // Filter by status
         if (filter !== "all") {
-            const statusMap: Record<string, string[]> = {
-                "pending": ["Pending"],
-                "shipping": ["Shipped"],
-                "awaiting": ["Processing"],
-                "completed": ["Completed"],
-                "cancelled": ["Cancelled"],
-                "return": [] // Return/Refund - có thể không có trong backend
-            }
-            const statuses = statusMap[filter] || []
-            if (statuses.length > 0) {
-                filtered = filtered.filter(order => 
-                    statuses.some(s => order.status?.toLowerCase().includes(s.toLowerCase()))
-                )
+            if (filter === "return") {
+                // Logic for Return/Refund: Show completed orders that are eligible for return/refund
+                // Typically: Completed orders delivered within the last 30 days
+                filtered = filtered.filter(order => {
+                    const normalizedStatus = (order.status || "").toLowerCase()
+                    
+                    // Must be completed
+                    if (!normalizedStatus.includes("completed")) {
+                        return false
+                    }
+                    
+                    // Check if order was delivered within return period (30 days)
+                    if (order.deliveredAt) {
+                        const deliveredDate = new Date(order.deliveredAt)
+                        const now = new Date()
+                        const daysSinceDelivery = Math.floor((now.getTime() - deliveredDate.getTime()) / (1000 * 60 * 60 * 24))
+                        
+                        // Eligible if delivered within last 30 days
+                        return daysSinceDelivery <= 30 && daysSinceDelivery >= 0
+                    }
+                    
+                    // If no deliveredAt date, check completion date or order date
+                    // Use completionApprovedAt if available, otherwise use orderDate
+                    const completionDate = order.completionApprovedAt || order.orderDate
+                    if (completionDate) {
+                        const completion = new Date(completionDate)
+                        const now = new Date()
+                        const daysSinceCompletion = Math.floor((now.getTime() - completion.getTime()) / (1000 * 60 * 60 * 24))
+                        
+                        // Eligible if completed within last 30 days
+                        return daysSinceCompletion <= 30 && daysSinceCompletion >= 0
+                    }
+                    
+                    return false
+                })
+            } else {
+                const statusMap: Record<string, string[]> = {
+                    "pending": ["Pending"],
+                    "shipping": ["Shipped"],
+                    "awaiting": ["Processing"],
+                    "completed": ["Completed"],
+                    "cancelled": ["Cancelled"]
+                }
+                const statuses = statusMap[filter] || []
+                if (statuses.length > 0) {
+                    filtered = filtered.filter(order => 
+                        statuses.some(s => order.status?.toLowerCase().includes(s.toLowerCase()))
+                    )
+                }
             }
         }
 
@@ -105,33 +144,130 @@ export default function OrdersPage() {
                     <p className="text-sm text-gray-500">Quản lý và theo dõi đơn hàng của bạn</p>
                 </div>
 
-                {/* Navigation Tabs */}
-                <div className="bg-white rounded-lg shadow-sm border-b border-gray-200 mb-6 overflow-x-auto">
-                    <div className="flex space-x-1 min-w-max">
+                {/* Navigation Tabs - Enhanced */}
+                <div className="bg-white rounded-lg shadow-sm border border-gray-200 mb-6 overflow-x-auto">
+                    <div className="flex space-x-2 min-w-max px-2 py-2">
                         {[
-                            { id: "all", label: "Tất cả" },
-                            { id: "pending", label: "Chờ xác nhận" },
-                            { id: "shipping", label: "Vận chuyển" },
-                            { id: "awaiting", label: "Chờ giao hàng" },
-                            { id: "completed", label: "Hoàn thành" },
-                            { id: "cancelled", label: "Đã hủy" },
-                            { id: "return", label: "Trả hàng/Hoàn tiền" },
-                        ].map((tab) => (
-                            <button
-                                key={tab.id}
-                                onClick={() => setFilter(tab.id)}
-                                className={`relative px-4 py-4 text-sm font-medium whitespace-nowrap transition-colors ${
-                                    filter === tab.id
-                                        ? "text-green-600"
-                                        : "text-gray-600 hover:text-gray-900"
-                                }`}
-                            >
-                                {tab.label}
-                                {filter === tab.id && (
-                                    <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-green-600"></div>
-                                )}
-                            </button>
-                        ))}
+                            { 
+                                id: "all", 
+                                label: "Tất cả",
+                                icon: (
+                                    <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" />
+                                    </svg>
+                                ),
+                                count: orders.length
+                            },
+                            { 
+                                id: "pending", 
+                                label: "Chờ xác nhận",
+                                icon: (
+                                    <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+                                    </svg>
+                                ),
+                                count: orders.filter(o => o.status?.toLowerCase().includes("pending")).length
+                            },
+                            { 
+                                id: "shipping", 
+                                label: "Vận chuyển",
+                                icon: (
+                                    <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7h12m0 0l-4-4m4 4l-4 4m0 6H4m0 0l4 4m-4-4l4-4" />
+                                    </svg>
+                                ),
+                                count: orders.filter(o => o.status?.toLowerCase().includes("shipped")).length
+                            },
+                            { 
+                                id: "awaiting", 
+                                label: "Chờ giao hàng",
+                                icon: (
+                                    <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+                                    </svg>
+                                ),
+                                count: orders.filter(o => o.status?.toLowerCase().includes("processing")).length
+                            },
+                            { 
+                                id: "completed", 
+                                label: "Hoàn thành",
+                                icon: (
+                                    <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                                    </svg>
+                                ),
+                                count: orders.filter(o => o.status?.toLowerCase().includes("completed")).length
+                            },
+                            { 
+                                id: "cancelled", 
+                                label: "Đã hủy",
+                                icon: (
+                                    <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                                    </svg>
+                                ),
+                                count: orders.filter(o => o.status?.toLowerCase().includes("cancelled")).length
+                            },
+                            { 
+                                id: "return", 
+                                label: "Trả hàng/Hoàn tiền",
+                                icon: (
+                                    <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+                                    </svg>
+                                ),
+                                count: orders.filter(order => {
+                                    const normalizedStatus = (order.status || "").toLowerCase()
+                                    if (!normalizedStatus.includes("completed")) return false
+                                    
+                                    if (order.deliveredAt) {
+                                        const deliveredDate = new Date(order.deliveredAt)
+                                        const now = new Date()
+                                        const daysSinceDelivery = Math.floor((now.getTime() - deliveredDate.getTime()) / (1000 * 60 * 60 * 24))
+                                        return daysSinceDelivery <= 30 && daysSinceDelivery >= 0
+                                    }
+                                    
+                                    const completionDate = order.completionApprovedAt || order.orderDate
+                                    if (completionDate) {
+                                        const completion = new Date(completionDate)
+                                        const now = new Date()
+                                        const daysSinceCompletion = Math.floor((now.getTime() - completion.getTime()) / (1000 * 60 * 60 * 24))
+                                        return daysSinceCompletion <= 30 && daysSinceCompletion >= 0
+                                    }
+                                    
+                                    return false
+                                }).length
+                            },
+                        ].map((tab) => {
+                            const isActive = filter === tab.id
+                            return (
+                                <button
+                                    key={tab.id}
+                                    onClick={() => setFilter(tab.id)}
+                                    suppressHydrationWarning
+                                    className={`relative px-4 py-3 text-sm font-semibold whitespace-nowrap transition-all rounded-lg flex items-center gap-2 ${
+                                        isActive
+                                            ? "bg-green-600 text-white shadow-md"
+                                            : "text-gray-700 hover:bg-gray-100 hover:text-gray-900"
+                                    }`}
+                                >
+                                    {tab.icon}
+                                    <span>{tab.label}</span>
+                                    {tab.count > 0 && (
+                                        <span className={`px-2 py-0.5 rounded-full text-xs font-bold ${
+                                            isActive 
+                                                ? "bg-white text-green-600" 
+                                                : "bg-gray-200 text-gray-700"
+                                        }`}>
+                                            {tab.count}
+                                        </span>
+                                    )}
+                                    {isActive && (
+                                        <div className="absolute -bottom-1 left-1/2 transform -translate-x-1/2 w-0 h-0 border-l-4 border-r-4 border-t-4 border-transparent border-t-green-600"></div>
+                                    )}
+                                </button>
+                            )
+                        })}
                     </div>
                 </div>
 
@@ -148,6 +284,7 @@ export default function OrdersPage() {
                             value={searchQuery}
                             onChange={(e) => setSearchQuery(e.target.value)}
                             placeholder="Bạn có thể tìm kiếm theo tên Shop, ID đơn hàng hoặc Tên Sản phẩm"
+                            suppressHydrationWarning
                             className="block w-full pl-12 pr-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-green-500 text-sm"
                         />
                     </div>
@@ -164,6 +301,7 @@ export default function OrdersPage() {
                         </div>
                         <button
                             onClick={() => setSuccessMessage(null)}
+                            suppressHydrationWarning
                             className="text-green-600 hover:text-green-800 text-sm font-medium"
                         >
                             <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -236,45 +374,49 @@ interface OrderCardProps {
 function OrderCard({ order, onCancelled }: OrderCardProps) {
     const router = useRouter()
     const { addToCart } = useCart()
-    const [products, setProducts] = useState<Map<number, Product>>(new Map())
-    const [loadingProducts, setLoadingProducts] = useState(false)
+    
+    // Use hook to load product details from API
+    const { getProductName, getProductImageUrl, loadingProducts, products } = useOrderProducts(order.orderItems)
 
-    // Get first order item for shop info
-    const firstItem = order.orderItems?.[0]
-    const shopName = firstItem?.enterpriseName || "OCOP Shop"
-    const shopId = firstItem?.enterpriseId
-
-    // Load product details for images
-    useEffect(() => {
-        const loadProducts = async () => {
-            if (!order.orderItems || order.orderItems.length === 0) return
-            setLoadingProducts(true)
-            try {
-                // Load products with silent error handling to avoid UI crash when backend is unavailable
-                const productPromises = order.orderItems.map(item => 
-                    getProduct(item.productId, { silent: true }).catch((err) => {
-                        // Silently handle errors - backend might be unavailable
-                        console.debug(`Could not load product ${item.productId}:`, err)
-                        return null
-                    })
-                )
-                const productResults = await Promise.all(productPromises)
-                const productMap = new Map<number, Product>()
-                productResults.forEach((product, index) => {
-                    if (product && order.orderItems?.[index]) {
-                        productMap.set(order.orderItems[index].productId, product)
-                    }
-                })
-                setProducts(productMap)
-            } catch (err) {
-                // Silently handle errors - don't crash the UI
-                console.debug("Failed to load products (backend might be unavailable):", err)
-            } finally {
-                setLoadingProducts(false)
+    // Group orderItems by enterprise - Use enterprise info directly from OrderItem
+    const groupedByEnterprise = useMemo(() => {
+        if (!order.orderItems || order.orderItems.length === 0) return []
+        
+        const groups = new Map<string | number, typeof order.orderItems>()
+        
+        order.orderItems.forEach(item => {
+            // Use enterpriseId as primary key, fallback to enterpriseName
+            const key = item.enterpriseId ?? item.enterpriseName ?? 'unknown'
+            if (!groups.has(key)) {
+                groups.set(key, [])
             }
-        }
-        loadProducts()
+            groups.get(key)!.push(item)
+        })
+        
+        return Array.from(groups.entries()).map(([key, items]) => {
+            const enterpriseId = typeof key === 'number' ? key : (items[0]?.enterpriseId)
+            // Use enterprise info directly from OrderItem (from backend API)
+            const firstItem = items[0]
+            
+            return {
+                enterpriseId,
+                enterpriseName: firstItem?.enterpriseName || 'Doanh nghiệp không xác định',
+                enterpriseImageUrl: firstItem?.enterpriseImageUrl, // From backend API
+                items,
+                total: items.reduce((sum, item) => sum + ((item.price || 0) * (item.quantity || 0)), 0)
+            }
+        })
     }, [order.orderItems])
+
+    // Use groupedByEnterprise directly (already has enterprise info from API)
+    const groupedByEnterpriseWithInfo = groupedByEnterprise
+
+    // Get first order item for shop info (for backward compatibility)
+    const firstItem = order.orderItems?.[0]
+    const firstEnterpriseId = firstItem?.enterpriseId
+    const shopName = firstItem?.enterpriseName || "OCOP Shop"
+    const shopId = firstEnterpriseId
+    const shopImageUrl = firstItem?.enterpriseImageUrl // Use from OrderItem directly
 
     const getStatusInfo = (status: string) => {
         const normalized = status?.toLowerCase() || ""
@@ -364,136 +506,223 @@ function OrderCard({ order, onCancelled }: OrderCardProps) {
 
     if (!firstItem) return null
 
+    // Calculate order total
+    const orderTotal = useMemo(() => {
+        return order.orderItems?.reduce((sum, item) => sum + ((item.price || 0) * (item.quantity || 0)), 0) || 0
+    }, [order.orderItems])
+
     return (
-        <div className="bg-white rounded-lg shadow-sm border border-gray-200 overflow-hidden">
-            {/* Shop Header */}
-            <div className="px-4 py-3 bg-gray-50 border-b border-gray-200 flex items-center justify-between">
-                <div className="flex items-center gap-3">
-                    <div className="w-8 h-8 rounded-full bg-green-100 flex items-center justify-center">
-                        <svg className="w-5 h-5 text-green-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4" />
+        <div className="bg-white rounded-sm shadow-sm border border-gray-200 overflow-hidden">
+            {/* Order Header - Shopee Style */}
+            <div className="px-4 py-3 border-b border-gray-200 flex items-center justify-between">
+                <span className="text-sm font-medium text-gray-900">Mã đơn: #{order.id}</span>
+                <button className="text-red-500 hover:text-red-600">
+                    <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" />
+                    </svg>
+                </button>
+            </div>
+
+            {/* Order Status - Shopee Style */}
+            <div className="px-4 py-3 bg-yellow-50 border-b border-gray-200 flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                    <div className="p-1.5 rounded bg-yellow-100">
+                        <svg className="w-4 h-4 text-yellow-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
                         </svg>
                     </div>
-                    <span className="font-semibold text-gray-900">{shopName}</span>
+                    <div>
+                        <span className="text-xs text-gray-600 block">Trạng thái đơn hàng</span>
+                        <span className="text-sm font-medium text-gray-900">{statusInfo.deliveryText}</span>
+                    </div>
                 </div>
-                <div className="flex items-center gap-2">
-                    <button className="px-3 py-1.5 text-sm font-medium text-green-600 bg-white border border-green-300 rounded hover:bg-green-50 transition-colors">
-                        Chat
-                    </button>
-                    {shopId && (
-                        <Link
-                            href={`/enterprises/${shopId}`}
-                            className="px-3 py-1.5 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded hover:bg-gray-50 transition-colors"
-                        >
-                            Xem Shop
-                        </Link>
-                    )}
-                </div>
+                <span className="px-3 py-1 text-xs font-medium bg-orange-500 text-white rounded">
+                    {statusInfo.text}
+                </span>
             </div>
 
-            {/* Order Status */}
-            <div className="px-4 py-3 border-b border-gray-200 flex items-center justify-between bg-white">
-                <div className="flex items-center gap-2 text-gray-700">
-                    {statusInfo.icon}
-                    <span className="text-sm font-medium">{statusInfo.deliveryText}</span>
-                </div>
-                <span className={`text-sm font-bold ${statusInfo.color}`}>{statusInfo.text}</span>
-            </div>
-
-            {/* Product Items */}
+            {/* Product Items - Grouped by Enterprise - Shopee Style */}
             {order.orderItems && order.orderItems.length > 0 && (
-                <div className="p-4 space-y-4">
-                    {order.orderItems.map((item) => {
-                        const product = products.get(item.productId)
-                        const itemTotal = (item.price || 0) * (item.quantity || 0)
-                        const originalPrice = item.price || 0
-                        const currentPrice = item.price || 0
-                        const hasDiscount = false // Có thể tính từ product nếu có
-
-                        return (
-                            <div key={item.id} className="flex gap-4 pb-4 border-b border-gray-100 last:border-0 last:pb-0">
-                                {/* Product Image */}
-                                <div className="relative w-20 h-20 sm:w-24 sm:h-24 rounded-lg overflow-hidden bg-gray-100 flex-shrink-0 border border-gray-200">
-                                    {loadingProducts ? (
-                                        <div className="w-full h-full flex items-center justify-center">
-                                            <div className="animate-spin rounded-full h-6 w-6 border-2 border-gray-300 border-t-gray-600"></div>
-                                        </div>
-                                    ) : (
-                                        <Image
-                                            src={item.productImageUrl || product?.imageUrl || "/hero.jpg"}
-                                            alt={item.productName || `Sản phẩm #${item.productId}`}
-                                            fill
-                                            className="object-cover"
-                                            sizes="96px"
-                                        />
-                                    )}
-                                </div>
-
-                                {/* Product Info */}
-                                <div className="flex-1 min-w-0">
-                                    <h3 className="font-semibold text-gray-900 text-sm sm:text-base mb-1 line-clamp-2">
-                                        {item.productName || `Sản phẩm #${item.productId}`}
-                                    </h3>
-                                    <p className="text-xs text-gray-500 mb-2">
-                                        Phân loại hàng: <span className="text-gray-700">Mặc định</span>
-                                    </p>
-                                    <div className="flex items-center gap-3 mb-2">
-                                        {hasDiscount && (
-                                            <span className="text-xs text-gray-400 line-through">
-                                                {originalPrice.toLocaleString("vi-VN")}₫
-                                            </span>
+                <div className="bg-white">
+                    {groupedByEnterpriseWithInfo.map((group, groupIndex) => (
+                        <div key={group.enterpriseId || group.enterpriseName} className={groupIndex > 0 ? 'border-t border-gray-200' : ''}>
+                            {/* Enterprise Header - Always show when multiple enterprises, or show for single enterprise if we want */}
+                            {(groupedByEnterpriseWithInfo.length > 1 || groupedByEnterpriseWithInfo.length === 1) && (
+                                <div className="px-4 py-3 bg-green-50 border-b border-gray-200 flex items-center justify-between">
+                                    <div className="flex items-center gap-2">
+                                        {group.enterpriseImageUrl && group.enterpriseImageUrl.trim() !== '' ? (
+                                            <div className="relative w-5 h-5 rounded overflow-hidden flex-shrink-0">
+                                                <Image
+                                                    src={getImageUrl(group.enterpriseImageUrl, '/hero.jpg')}
+                                                    alt={group.enterpriseName}
+                                                    fill
+                                                    className="object-cover"
+                                                    sizes="20px"
+                                                    {...getImageAttributes(group.enterpriseImageUrl)}
+                                                    onError={(e) => {
+                                                        const target = e.target as HTMLImageElement
+                                                        target.src = '/hero.jpg'
+                                                    }}
+                                                />
+                                            </div>
+                                        ) : (
+                                            <div className="w-5 h-5 bg-green-500 rounded flex items-center justify-center flex-shrink-0">
+                                                <svg className="w-3 h-3 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4" />
+                                                </svg>
+                                            </div>
                                         )}
-                                        <span className="text-base font-bold text-green-600">
-                                            {currentPrice.toLocaleString("vi-VN")}₫
-                                        </span>
-                                        <span className="text-xs text-gray-500">x{item.quantity}</span>
+                                        <span className="text-sm font-medium text-gray-900">{group.enterpriseName}</span>
+                                        <span className="text-xs text-gray-500">({group.items.length} {group.items.length === 1 ? 'sản phẩm' : 'sản phẩm'})</span>
                                     </div>
-                                    <div className="mt-2">
-                                        <span className="text-xs text-gray-500">Thành tiền: </span>
-                                        <span className="text-base font-bold text-green-600">
-                                            {itemTotal.toLocaleString("vi-VN")}₫
-                                        </span>
+                                    <div className="text-right">
+                                        <p className="text-xs text-gray-500">Tổng doanh nghiệp</p>
+                                        <p className="text-sm font-medium text-green-600">{group.total.toLocaleString("vi-VN")}₫</p>
                                     </div>
                                 </div>
+                            )}
+
+                            {/* Products in this Enterprise */}
+                            {group.items.map((item, itemIndex) => {
+                                const itemTotal = (item.price || 0) * (item.quantity || 0)
+                                const currentPrice = item.price || 0
+
+                                return (
+                                    <div key={item.id} className={`px-4 py-4 ${itemIndex < group.items.length - 1 ? 'border-b border-gray-100' : ''}`}>
+                                        <div className="flex items-start gap-4">
+                                            {/* Product Image */}
+                                            <div className="w-20 h-20 bg-gray-100 rounded-sm overflow-hidden flex-shrink-0">
+                                                {loadingProducts ? (
+                                                    <div className="w-full h-full flex items-center justify-center">
+                                                        <div className="animate-spin rounded-full h-6 w-6 border-2 border-gray-300 border-t-orange-500"></div>
+                                                    </div>
+                                                ) : (
+                                                    <Image
+                                                        src={getProductImageUrl(item)}
+                                                        alt={getProductName(item)}
+                                                        width={80}
+                                                        height={80}
+                                                        className="w-full h-full object-cover"
+                                                        onError={(e) => {
+                                                            const target = e.target as HTMLImageElement
+                                                            if (!target.src.includes('hero.jpg')) {
+                                                                target.src = '/hero.jpg'
+                                                            }
+                                                        }}
+                                                    />
+                                                )}
+                                            </div>
+
+                                            {/* Product Info */}
+                                            <div className="flex-1 min-w-0">
+                                                <h3 className="text-sm text-gray-900 line-clamp-2 mb-1">
+                                                    {getProductName(item)}
+                                                </h3>
+                                                
+                                                {/* Voucher Badge */}
+                                                <div className="flex items-center gap-2 mb-2">
+                                                    <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-yellow-100 text-yellow-800">
+                                                        15.12 VOUCHER
+                                                    </span>
+                                                    <span className="text-xs text-gray-500">Mua ngay giá {currentPrice.toLocaleString("vi-VN")}₫</span>
+                                                </div>
+
+                                                {/* Price */}
+                                                <div className="flex items-center gap-2 mb-3">
+                                                    <span className="text-base font-medium text-red-500">
+                                                        {currentPrice.toLocaleString("vi-VN")}₫
+                                                    </span>
+                                                </div>
+
+                                                {/* Quantity and Total */}
+                                                <div className="flex items-center justify-between">
+                                                    <span className="text-xs text-gray-500">Số lượng: {item.quantity}</span>
+                                                    <div className="flex items-center gap-4">
+                                                        <span className="text-base font-medium text-red-500">
+                                                            {itemTotal.toLocaleString("vi-VN")}₫
+                                                        </span>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                )
+                            })}
+
+                            {/* Shop Vouchers Section */}
+                            <div className="px-4 py-3 border-t border-gray-100 bg-gray-50 flex items-center justify-between">
+                                <div className="flex items-center gap-2">
+                                    <svg className="w-4 h-4 text-red-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 7h.01M7 3h5c.512 0 1.024.195 1.414.586l7 7a2 2 0 010 2.828l-7 7a2 2 0 01-2.828 0l-7-7A1.994 1.994 0 013 12V7a4 4 0 014-4z" />
+                                    </svg>
+                                    <span className="text-sm text-gray-600">Xem tất cả Voucher của Shop</span>
+                                </div>
+                                <button className="text-sm text-blue-600 hover:text-blue-700">Xem thêm voucher</button>
                             </div>
-                        )
-                    })}
+
+                            {/* Shipping Discount */}
+                            <div className="px-4 py-3 border-t border-gray-100 bg-gray-50 flex items-center gap-2">
+                                <svg className="w-4 h-4 text-green-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7h12m0 0l-4-4m4 4l-4 4m0 6H4m0 0l4 4m-4-4l4-4" />
+                                </svg>
+                                <span className="text-sm text-gray-600">Giảm 500.000₫ phí vận chuyển đơn tối thiểu 0₫</span>
+                                <button className="text-sm text-blue-600 hover:text-blue-700 ml-auto">Tìm hiểu thêm</button>
+                            </div>
+                        </div>
+                    ))}
                 </div>
             )}
 
-            {/* Action Buttons */}
-            <div className="px-4 py-3 bg-gray-50 border-t border-gray-200 flex flex-wrap gap-2">
-                {order.status === "Completed" && firstItem && (
-                    <button
-                        onClick={() => handleBuyAgain(firstItem)}
-                        className="px-4 py-2 text-sm font-semibold text-white bg-green-600 rounded hover:bg-green-700 transition-colors"
-                    >
-                        Mua Lại
+            {/* Order Summary - Shopee Style */}
+            <div className="px-4 py-4 border-t border-gray-200 bg-white">
+                <div className="flex items-center justify-between mb-4">
+                    <div>
+                        <p className="text-sm text-gray-600">Tổng số sản phẩm</p>
+                        <p className="text-base font-medium text-gray-900">{order.orderItems?.length || 0} {order.orderItems?.length === 1 ? 'sản phẩm' : 'sản phẩm'}</p>
+                    </div>
+                    <div className="text-right">
+                        <p className="text-sm text-gray-600">Tổng thanh toán</p>
+                        <p className="text-xl font-medium text-red-500">{orderTotal.toLocaleString("vi-VN")}₫</p>
+                    </div>
+                </div>
+
+                {/* Action Buttons - Shopee Style */}
+                <div className="flex items-center gap-3 pt-4 border-t border-gray-200">
+                    <button suppressHydrationWarning className="px-4 py-2 text-sm font-medium text-gray-600 bg-gray-100 rounded-sm hover:bg-gray-200 transition-colors flex items-center gap-2">
+                        <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" />
+                        </svg>
+                        Liên Hệ Người Bán
                     </button>
-                )}
-                <button className="px-4 py-2 text-sm font-semibold text-gray-700 bg-white border border-gray-300 rounded hover:bg-gray-50 transition-colors">
-                    Liên Hệ Người Bán
-                </button>
-                {/* Only show payment and cancel buttons when order is Pending (not yet confirmed by enterprise) */}
-                {(() => {
-                    // Logic: Customer can cancel order ONLY when enterprise has NOT confirmed yet
-                    // When enterprise confirms, status changes from "Pending" to "Processing", "Shipped", etc.
-                    const normalizedStatus = (order.status || "").toLowerCase().trim()
                     
-                    // Order can be cancelled if status is still "Pending" (enterprise hasn't confirmed yet)
-                    // Once status becomes "Processing", "Shipped", "Completed" → cannot cancel
-                    const canCancel = normalizedStatus === "pending"
-                    
-                    return canCancel ? (
-                        <>
-                            <PaymentMethodModal order={order} onPaymentCreated={() => {
-                                // Reload orders after payment
-                                window.location.reload()
-                            }} />
+                    {/* Only show cancel button when order is Pending (not yet confirmed by enterprise) */}
+                    {(() => {
+                        // Logic: Customer can cancel order ONLY when enterprise has NOT confirmed yet
+                        // When enterprise confirms, status changes from "Pending" to "Processing", "Shipped", etc.
+                        const normalizedStatus = (order.status || "").toLowerCase().trim()
+                        
+                        // Order can be cancelled if status is still "Pending" (enterprise hasn't confirmed yet)
+                        // Once status becomes "Processing", "Shipped", "Completed" → cannot cancel
+                        const canCancel = normalizedStatus === "pending"
+                        
+                        return canCancel ? (
                             <CancelOrderButton order={order} onCancelled={onCancelled} />
-                        </>
-                    ) : null
-                })()}
+                        ) : null
+                    })()}
+                    
+                    {order.status === "Completed" && firstItem && (
+                        <button
+                            onClick={() => handleBuyAgain(firstItem)}
+                            suppressHydrationWarning
+                            className="px-4 py-2 text-sm font-medium text-white bg-green-500 rounded-sm hover:bg-green-600 transition-colors flex items-center gap-2"
+                        >
+                            <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+                            </svg>
+                            Mua Lại
+                        </button>
+                    )}
+                </div>
             </div>
         </div>
     )
@@ -522,6 +751,8 @@ function StatusBadge({ label, type }: StatusBadgeProps) {
         cancelled: "bg-red-100 text-red-700",
         awaitingtransfer: "bg-yellow-100 text-yellow-700",
         paid: "bg-green-100 text-green-700",
+        "đãchuyểnkhoản": "bg-green-100 text-green-700",
+        "banktransferconfirmed": "bg-green-100 text-green-700",
     }
 
     const key = normalized.replace(/\s+/g, "")
@@ -561,6 +792,7 @@ function FilterChip({ label, active, onClick }: FilterChipProps) {
     return (
         <button
             onClick={onClick}
+            suppressHydrationWarning
             className={`px-4 py-1.5 rounded-full text-sm font-medium transition ${active ? "bg-indigo-600 text-white" : "bg-white border border-gray-300 text-gray-700 hover:bg-gray-50"
                 }`}
         >
@@ -640,7 +872,8 @@ function CancelOrderButton({ order, onCancelled }: CancelOrderButtonProps) {
         <button
             onClick={handleCancel}
             disabled={pending}
-            className="inline-flex items-center justify-center rounded-md border border-red-300 px-4 py-2 text-sm font-semibold text-red-700 hover:bg-red-50 disabled:opacity-60 transition-colors"
+            suppressHydrationWarning
+            className="px-4 py-2 text-sm font-medium text-red-500 border border-red-500 rounded-sm hover:bg-red-50 disabled:opacity-60 transition-colors"
         >
             {pending ? "Đang hủy..." : "Hủy đơn hàng"}
         </button>
@@ -694,7 +927,8 @@ function PaymentMethodModal({ order, onPaymentCreated }: PaymentMethodModalProps
         <>
             <button
                 onClick={() => setIsOpen(true)}
-                className="px-4 py-2 text-sm font-semibold text-white bg-green-600 rounded hover:bg-green-700 transition-colors"
+                suppressHydrationWarning
+                className="px-4 py-2 text-sm font-medium text-white bg-orange-500 rounded-sm hover:bg-orange-600 transition-colors"
             >
                 Thanh toán ngay
             </button>
@@ -710,6 +944,7 @@ function PaymentMethodModal({ order, onPaymentCreated }: PaymentMethodModalProps
                                     setError(null)
                                     setSelectedMethod(null)
                                 }}
+                                suppressHydrationWarning
                                 className="text-gray-400 hover:text-gray-600 transition-colors"
                             >
                                 <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -727,6 +962,7 @@ function PaymentMethodModal({ order, onPaymentCreated }: PaymentMethodModalProps
                         <div className="space-y-3 mb-6">
                             <button
                                 onClick={() => setSelectedMethod("COD")}
+                                suppressHydrationWarning
                                 className={`w-full p-4 rounded-lg border-2 transition-all text-left ${
                                     selectedMethod === "COD"
                                         ? "border-green-600 bg-green-50"
@@ -750,6 +986,7 @@ function PaymentMethodModal({ order, onPaymentCreated }: PaymentMethodModalProps
 
                             <button
                                 onClick={() => setSelectedMethod("BankTransfer")}
+                                suppressHydrationWarning
                                 className={`w-full p-4 rounded-lg border-2 transition-all text-left ${
                                     selectedMethod === "BankTransfer"
                                         ? "border-green-600 bg-green-50"
@@ -789,6 +1026,7 @@ function PaymentMethodModal({ order, onPaymentCreated }: PaymentMethodModalProps
                                     setSelectedMethod(null)
                                 }}
                                 disabled={isProcessing}
+                                suppressHydrationWarning
                                 className="flex-1 px-4 py-3 text-sm font-semibold text-gray-700 bg-gray-100 rounded-lg hover:bg-gray-200 transition-colors disabled:opacity-50"
                             >
                                 Hủy
@@ -796,6 +1034,7 @@ function PaymentMethodModal({ order, onPaymentCreated }: PaymentMethodModalProps
                             <button
                                 onClick={handlePayment}
                                 disabled={!selectedMethod || isProcessing}
+                                suppressHydrationWarning
                                 className="flex-1 px-4 py-3 text-sm font-semibold text-white bg-green-600 rounded-lg hover:bg-green-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                             >
                                 {isProcessing ? "Đang xử lý..." : "Xác nhận"}

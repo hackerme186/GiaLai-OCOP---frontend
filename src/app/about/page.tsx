@@ -45,7 +45,7 @@ export default function AboutPage() {
               </div>
               <div className="relative h-80 rounded-lg overflow-hidden shadow-lg">
                 <Image
-                  src="/coffee gia lai.jpg"
+                  src="/coffee-gia-lai.jpg"
                   alt="Cà phê Gia Lai"
                   fill
                   className="object-cover"
@@ -199,7 +199,7 @@ export default function AboutPage() {
               <div className="text-center">
                 <div className="relative h-64 rounded-lg overflow-hidden shadow-lg mb-4">
                   <Image
-                    src="/coffee gia lai.jpg"
+                    src="/coffee-gia-lai.jpg"
                     alt="Cà phê Gia Lai"
                     fill
                     className="object-cover"
@@ -214,7 +214,7 @@ export default function AboutPage() {
               <div className="text-center">
                 <div className="relative h-64 rounded-lg overflow-hidden shadow-lg mb-4">
                   <Image
-                    src="/hat dieu - tieu.png"
+                    src="/hat-dieu-tieu.png"
                     alt="Hạt điều - Tiêu"
                     fill
                     className="object-cover"
@@ -229,7 +229,7 @@ export default function AboutPage() {
               <div className="text-center">
                 <div className="relative h-64 rounded-lg overflow-hidden shadow-lg mb-4">
                   <Image
-                    src="/nem chua cho huyen.png"
+                    src="/nem-chua-cho-huyen.png"
                     alt="Đặc sản Bình Định"
                     fill
                     className="object-cover"
