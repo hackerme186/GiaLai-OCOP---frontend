@@ -5,8 +5,10 @@ import {
   createOrder,
   getCurrentUser,
   updateCurrentUser,
+  calculateShippingFee,
   type CreateOrderDto,
   type User,
+  type ShippingFeeResponse,
 } from "@/lib/api";
 import {
   getSavedShippingAddresses,
@@ -52,6 +54,9 @@ export default function CheckoutModal({
     null
   );
   const [showSavedAddresses, setShowSavedAddresses] = useState(false);
+  const [shippingFee, setShippingFee] = useState<number>(0);
+  const [shippingZoneName, setShippingZoneName] = useState<string>("");
+  const [loadingShippingFee, setLoadingShippingFee] = useState(false);
 
   useEffect(() => {
     if (isOpen) {
@@ -120,8 +125,49 @@ export default function CheckoutModal({
       setSavedAddresses([]);
       setSelectedAddressId(null);
       setShowSavedAddresses(false);
+      setShippingFee(0);
+      setShippingZoneName("");
     }
   }, [isOpen, router, onClose]);
+
+  // Tính phí ship khi địa chỉ thay đổi
+  useEffect(() => {
+    const calculateFee = async () => {
+      if (!shippingAddress.trim()) {
+        setShippingFee(0);
+        setShippingZoneName("");
+        return;
+      }
+
+      // Extract tỉnh/thành phố từ địa chỉ (phần cuối cùng sau dấu phẩy)
+      const parts = shippingAddress.split(",");
+      const province = parts[parts.length - 1]?.trim();
+      
+      if (!province || province.length < 2) {
+        setShippingFee(0);
+        setShippingZoneName("");
+        return;
+      }
+
+      setLoadingShippingFee(true);
+      try {
+        const result = await calculateShippingFee(province);
+        setShippingFee(result.shippingFee);
+        setShippingZoneName(result.zoneName);
+      } catch (err) {
+        console.warn("Không thể tính phí ship:", err);
+        // Fallback: sử dụng phí mặc định
+        setShippingFee(40000);
+        setShippingZoneName("Khác miền");
+      } finally {
+        setLoadingShippingFee(false);
+      }
+    };
+
+    // Debounce để tránh gọi API quá nhiều
+    const timeoutId = setTimeout(calculateFee, 500);
+    return () => clearTimeout(timeoutId);
+  }, [shippingAddress]);
 
   const handleGetCurrentLocation = async () => {
     setLoadingAddress(true);
@@ -773,12 +819,39 @@ export default function CheckoutModal({
                       {cartItems.length} sản phẩm
                     </span>
                   </div>
-                  <div className="flex justify-between items-center pt-2">
+                  <div className="flex justify-between text-sm">
+                    <span className="text-gray-600 font-medium">
+                      Tạm tính:
+                    </span>
+                    <span className="font-semibold text-gray-900">
+                      {totalAmount.toLocaleString("vi-VN")} ₫
+                    </span>
+                  </div>
+                  <div className="flex justify-between text-sm">
+                    <span className="text-gray-600 font-medium flex items-center gap-1">
+                      Phí vận chuyển:
+                      {shippingZoneName && (
+                        <span className="text-xs text-indigo-600 bg-indigo-50 px-1.5 py-0.5 rounded">
+                          {shippingZoneName}
+                        </span>
+                      )}
+                    </span>
+                    <span className="font-semibold text-gray-900">
+                      {loadingShippingFee ? (
+                        <span className="text-gray-400">Đang tính...</span>
+                      ) : shippingFee > 0 ? (
+                        `${shippingFee.toLocaleString("vi-VN")} ₫`
+                      ) : (
+                        <span className="text-gray-400">Nhập địa chỉ để tính</span>
+                      )}
+                    </span>
+                  </div>
+                  <div className="flex justify-between items-center pt-2 border-t border-gray-200">
                     <span className="text-base font-bold text-gray-900">
                       Tổng cộng:
                     </span>
                     <span className="text-2xl font-extrabold bg-gradient-to-r from-indigo-600 to-purple-600 bg-clip-text text-transparent">
-                      {totalAmount.toLocaleString("vi-VN")} ₫
+                      {(totalAmount + shippingFee).toLocaleString("vi-VN")} ₫
                     </span>
                   </div>
                 </div>

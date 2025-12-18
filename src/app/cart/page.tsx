@@ -230,12 +230,12 @@ function CartContent() {
 
   // Use selected subtotal for order summary, show 0 if no items selected
   const subtotal = selectedItems.size > 0 ? selectedSubtotal : 0
-  const shippingCost = 0
+
   const discount = useMemo(() => {
     if (!appliedCoupon || selectedItems.size === 0) return 0
     return Math.round(subtotal * appliedCoupon.percent)
   }, [appliedCoupon, subtotal, selectedItems.size])
-  const grandTotal = Math.max(subtotal - discount, 0) + shippingCost
+  const grandTotal = Math.max(subtotal - discount, 0) // Không cộng phí ship ở đây, sẽ tính trong checkout
 
   const handleApplyCoupon = () => {
     const code = couponInput.trim().toUpperCase()
@@ -535,9 +535,9 @@ function CartContent() {
                     <span className="text-gray-600">Giảm giá</span>
                     <span className="text-green-600">-{discount.toLocaleString('vi-VN')}₫</span>
                   </div>
-                  <div className="flex justify-between">
+                  <div className="flex justify-between items-center">
                     <span className="text-gray-600">Vận chuyển</span>
-                    <span className="text-gray-900">{shippingCost.toLocaleString('vi-VN')}₫</span>
+                    <span className="text-gray-500 text-xs">Tính khi thanh toán</span>
                   </div>
                 </div>
 
@@ -647,7 +647,7 @@ function CartContent() {
         isOpen={showCheckoutModal}
         onClose={() => setShowCheckoutModal(false)}
         cartItems={displayItems.filter(item => selectedItems.has(item.product.id))}
-        totalAmount={grandTotal}
+        totalAmount={subtotal - discount}
         onOrderCreated={() => {
           if (isBuyNow && buyNowProductId) {
             // Only remove the buy now product from cart

@@ -585,6 +585,8 @@ export interface Order {
   paymentMethod: string;
   paymentStatus: string;
   paymentReference?: string;
+  shippingFee?: number; // Phí vận chuyển
+  shippingZoneType?: string; // SameProvince, SameRegion, DifferentRegion
   orderItems?: OrderItem[];
   payments?: Payment[];
   enterpriseApprovalStatus?: string;
@@ -3279,6 +3281,42 @@ export async function ensureAllUserWallets(): Promise<EnsureAllWalletsResponse> 
       method: "POST",
     }
   );
+}
+
+// ------ SHIPPING ------
+export interface ShippingFeeResponse {
+  province: string;
+  zoneType: string; // SameProvince, SameRegion, DifferentRegion
+  zoneName: string; // Cùng tỉnh, Cùng miền, Khác miền
+  shippingFee: number;
+}
+
+export interface ShippingRule {
+  id: number;
+  zoneType: string;
+  displayName: string;
+  shippingFee: number;
+  description?: string;
+  isActive: boolean;
+  createdAt: string;
+  updatedAt?: string;
+}
+
+export async function calculateShippingFee(
+  province: string
+): Promise<ShippingFeeResponse> {
+  return request<ShippingFeeResponse>(
+    `/shipping/calculate?province=${encodeURIComponent(province)}`,
+    {
+      method: "GET",
+    }
+  );
+}
+
+export async function getShippingRules(): Promise<ShippingRule[]> {
+  return request<ShippingRule[]>("/shipping/rules", {
+    method: "GET",
+  });
 }
 
 // Legacy compatibility exports
