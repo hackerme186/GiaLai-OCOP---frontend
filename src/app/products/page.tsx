@@ -97,13 +97,13 @@ function ProductsContent() {
   // Client-side search filter (fallback if API doesn't support search)
   const searchFiltered = searchQuery
     ? pageProducts.filter((p: Product) => {
-        const searchLower = searchQuery.toLowerCase();
-        return (
-          p.name?.toLowerCase().includes(searchLower) ||
-          p.description?.toLowerCase().includes(searchLower) ||
-          p.categoryName?.toLowerCase().includes(searchLower)
-        );
-      })
+      const searchLower = searchQuery.toLowerCase();
+      return (
+        p.name?.toLowerCase().includes(searchLower) ||
+        p.description?.toLowerCase().includes(searchLower) ||
+        p.categoryName?.toLowerCase().includes(searchLower)
+      );
+    })
     : pageProducts;
 
   // Fetch categories from API (only active categories added by admin)
@@ -128,8 +128,8 @@ function ProductsContent() {
   const products =
     selectedCategory && selectedCategory !== "Tất cả"
       ? searchFiltered.filter((p) =>
-          p.categoryName?.toLowerCase().includes(selectedCategory.toLowerCase())
-        )
+        p.categoryName?.toLowerCase().includes(selectedCategory.toLowerCase())
+      )
       : searchFiltered;
 
   // Reset về trang 1 khi thay đổi tìm kiếm / danh mục
@@ -302,12 +302,11 @@ function ProductsContent() {
                   onClick={() => {
                     setSelectedCategory(category === "Tất cả" ? "" : category);
                   }}
-                  className={`px-4 py-2 rounded-full text-sm font-medium transition-colors ${
-                    (category === "Tất cả" && !selectedCategory) ||
-                    selectedCategory === category
+                  className={`px-4 py-2 rounded-full text-sm font-medium transition-colors ${(category === "Tất cả" && !selectedCategory) ||
+                      selectedCategory === category
                       ? "bg-indigo-600 text-white"
                       : "bg-white text-gray-700 border border-gray-300 hover:bg-gray-50"
-                  }`}
+                    }`}
                 >
                   {category}
                 </button>
@@ -366,13 +365,24 @@ function ProductsContent() {
                           </span>
                         </div>
                       )}
-                      {product.ocopRating && (
-                        <div className="absolute top-2 right-2">
+
+                      <div className="absolute top-2 right-2 flex flex-col gap-1 items-end">
+                        {product.ocopRating && (
                           <span className="bg-yellow-500 text-white px-2 py-1 rounded-full text-xs font-bold flex items-center gap-1">
                             ⭐ {product.ocopRating}
                           </span>
-                        </div>
-                      )}
+                        )}
+                        {(product.stockQuantity === 0 || product.stockStatus === 'OutOfStock') && (
+                          <span className="bg-red-600 text-white px-2 py-1 rounded-full text-xs font-bold">
+                            Hết hàng
+                          </span>
+                        )}
+                        {(product.stockQuantity !== undefined && product.stockQuantity > 0 && product.stockQuantity <= 10) && (
+                          <span className="bg-yellow-500 text-white px-2 py-1 rounded-full text-xs font-bold">
+                            Sắp hết
+                          </span>
+                        )}
+                      </div>
                     </div>
 
                     <div className="p-4 flex flex-col gap-3 flex-1">
@@ -394,11 +404,10 @@ function ProductsContent() {
                                 {[...Array(5)].map((_, i) => (
                                   <svg
                                     key={i}
-                                    className={`h-4 w-4 ${
-                                      i < Math.floor(product.averageRating || 0)
+                                    className={`h-4 w-4 ${i < Math.floor(product.averageRating || 0)
                                         ? "text-yellow-400"
                                         : "text-gray-300"
-                                    }`}
+                                      }`}
                                     fill="currentColor"
                                     viewBox="0 0 20 20"
                                   >
@@ -456,11 +465,10 @@ function ProductsContent() {
                           <button
                             key={item}
                             onClick={() => goToPage(item)}
-                            className={`min-w-[40px] px-3 py-2 rounded-lg border text-sm font-semibold ${
-                              isActive
+                            className={`min-w-[40px] px-3 py-2 rounded-lg border text-sm font-semibold ${isActive
                                 ? "bg-gray-900 text-white border-gray-900"
                                 : "bg-white text-gray-800 border-gray-200 hover:bg-gray-50"
-                            }`}
+                              }`}
                           >
                             {item}
                           </button>

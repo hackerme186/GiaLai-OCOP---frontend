@@ -57,7 +57,7 @@ export default function InventoryTab({ user }: InventoryTabProps) {
       return
     }
 
-    const quantity = parseInt(adjustQuantity)
+    const quantity = parseFloat(adjustQuantity)
     if (isNaN(quantity) || quantity === 0) {
       alert("Số lượng không hợp lệ")
       return
@@ -65,7 +65,7 @@ export default function InventoryTab({ user }: InventoryTabProps) {
 
     try {
       setSaving(true)
-      
+
       // Call API to adjust inventory
       const history = await adjustInventory({
         productId: selectedProduct.id,
@@ -74,11 +74,11 @@ export default function InventoryTab({ user }: InventoryTabProps) {
         reason: adjustReason,
         lowStockThreshold: lowStockThreshold,
       })
-      
+
       // Refresh products and history
       await loadProducts()
       await loadInventoryHistory(selectedProduct.id)
-      
+
       setShowAdjustModal(false)
       setAdjustQuantity("")
       setAdjustReason("")
@@ -212,12 +212,12 @@ export default function InventoryTab({ user }: InventoryTabProps) {
             {lowStockProducts.slice(0, 5).map(product => {
               const quantity = product.stockQuantity ?? 0
               const hasQuantity = product.stockQuantity !== undefined
-              
+
               return (
                 <div key={product.id} className="flex items-center justify-between p-3 bg-white rounded-lg">
                   <span className="font-medium text-gray-900">{product.name}</span>
                   <span className="text-yellow-600 font-semibold">
-                    {hasQuantity 
+                    {hasQuantity
                       ? `Còn ${quantity} sản phẩm (ngưỡng: ${lowStockThreshold})`
                       : "Tồn thấp"
                     }
@@ -252,6 +252,7 @@ export default function InventoryTab({ user }: InventoryTabProps) {
             <thead className="bg-gray-50">
               <tr>
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Tên sản phẩm</th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Đơn vị</th>
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Tồn kho</th>
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Trạng thái</th>
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Thao tác</th>
@@ -262,16 +263,16 @@ export default function InventoryTab({ user }: InventoryTabProps) {
                 // Logic hiển thị tồn kho
                 const hasQuantity = product.stockQuantity !== undefined
                 const quantity = product.stockQuantity ?? 0
-                
+
                 // Xác định trạng thái
-                const isOutOfStock = hasQuantity 
-                  ? quantity === 0 
+                const isOutOfStock = hasQuantity
+                  ? quantity === 0
                   : product.stockStatus === "OutOfStock"
-                
+
                 const isLowStock = hasQuantity
                   ? quantity > 0 && quantity <= lowStockThreshold
                   : product.stockStatus === "LowStock"
-                
+
                 const isInStock = hasQuantity
                   ? quantity > lowStockThreshold
                   : product.stockStatus === "InStock"
@@ -282,25 +283,26 @@ export default function InventoryTab({ user }: InventoryTabProps) {
                       <div className="font-medium text-gray-900">{product.name}</div>
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap">
-                      <span className={`font-semibold ${
-                        isOutOfStock ? "text-red-600" : isLowStock ? "text-yellow-600" : "text-green-600"
-                      }`}>
-                        {hasQuantity 
-                          ? quantity.toLocaleString("vi-VN") // Hiển thị số lượng nếu có
+                      <div className="text-sm text-gray-900">{product.unit || "cái"}</div>
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap">
+                      <span className={`font-semibold ${isOutOfStock ? "text-red-600" : isLowStock ? "text-yellow-600" : "text-green-600"
+                        }`}>
+                        {hasQuantity
+                          ? `${quantity.toLocaleString("vi-VN")} ${product.unit || ""}` // Hiển thị số lượng nếu có
                           : isOutOfStock ? "0" : isLowStock ? `< ${lowStockThreshold}` : "Có hàng"
                         }
                       </span>
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap">
-                      <span className={`px-2 py-1 rounded-full text-xs font-semibold ${
-                        product.stockStatus === "InStock"
-                          ? "bg-green-100 text-green-800"
-                          : product.stockStatus === "OutOfStock"
+                      <span className={`px-2 py-1 rounded-full text-xs font-semibold ${product.stockStatus === "InStock"
+                        ? "bg-green-100 text-green-800"
+                        : product.stockStatus === "OutOfStock"
                           ? "bg-red-100 text-red-800"
                           : "bg-yellow-100 text-yellow-800"
-                      }`}>
-                        {product.stockStatus === "InStock" ? "Còn hàng" : 
-                         product.stockStatus === "OutOfStock" ? "Hết hàng" : "Tồn thấp"}
+                        }`}>
+                        {product.stockStatus === "InStock" ? "Còn hàng" :
+                          product.stockStatus === "OutOfStock" ? "Hết hàng" : "Tồn thấp"}
                       </span>
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap">
@@ -345,9 +347,8 @@ export default function InventoryTab({ user }: InventoryTabProps) {
                   </div>
                 </div>
                 <div className="text-right">
-                  <div className={`font-semibold ${
-                    history.type === "import" ? "text-green-600" : "text-red-600"
-                  }`}>
+                  <div className={`font-semibold ${history.type === "import" ? "text-green-600" : "text-red-600"
+                    }`}>
                     {history.type === "import" ? "+" : "-"}{history.quantity}
                   </div>
                   <div className="text-xs text-gray-500">
@@ -365,14 +366,14 @@ export default function InventoryTab({ user }: InventoryTabProps) {
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
           <div className="bg-white rounded-2xl shadow-2xl max-w-md w-full p-6">
             <h3 className="text-2xl font-bold text-gray-900 mb-4">Điều chỉnh tồn kho</h3>
-            
+
             <div className="mb-4">
               <p className="text-sm text-gray-600 mb-2">Sản phẩm:</p>
               <p className="font-semibold text-gray-900">{selectedProduct.name}</p>
               <p className="text-sm text-gray-600 mt-1">
                 {selectedProduct.stockQuantity !== undefined ? (
                   <>
-                    Tồn kho hiện tại: <span className="font-semibold">{selectedProduct.stockQuantity.toLocaleString("vi-VN")}</span>
+                    Tồn kho hiện tại: <span className="font-semibold">{selectedProduct.stockQuantity.toLocaleString("vi-VN")} {selectedProduct.unit || ""}</span>
                     {selectedProduct.stockQuantity <= lowStockThreshold && selectedProduct.stockQuantity > 0 && (
                       <span className="text-yellow-600 ml-2">(Tồn thấp - ngưỡng: {lowStockThreshold})</span>
                     )}
@@ -380,8 +381,8 @@ export default function InventoryTab({ user }: InventoryTabProps) {
                 ) : (
                   <>
                     Trạng thái: <span className="font-semibold">
-                      {selectedProduct.stockStatus === "InStock" ? "Còn hàng" : 
-                       selectedProduct.stockStatus === "OutOfStock" ? "Hết hàng" : "Tồn thấp"}
+                      {selectedProduct.stockStatus === "InStock" ? "Còn hàng" :
+                        selectedProduct.stockStatus === "OutOfStock" ? "Hết hàng" : "Tồn thấp"}
                     </span>
                   </>
                 )}
@@ -399,6 +400,7 @@ export default function InventoryTab({ user }: InventoryTabProps) {
                   onChange={(e) => setAdjustQuantity(e.target.value)}
                   className="w-full px-4 py-3 border-2 border-gray-200 rounded-lg focus:border-green-500 focus:ring-2 focus:ring-green-200"
                   placeholder="Nhập số lượng (+ để nhập, - để xuất)"
+                  step="0.01"
                   required
                 />
                 <p className="text-xs text-gray-500 mt-1">

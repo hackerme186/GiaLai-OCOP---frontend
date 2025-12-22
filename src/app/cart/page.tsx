@@ -25,9 +25,8 @@ function SummaryRow({ label, value, bold, large, highlight }: SummaryRowProps) {
     <div className="flex justify-between text-sm">
       <span className={`text-gray-600 ${bold ? "font-semibold text-gray-900" : ""}`}>{label}</span>
       <span
-        className={`${
-          bold ? "font-semibold text-gray-900" : "text-gray-900"
-        } ${large ? "text-lg" : ""} ${highlight ? "text-green-600" : ""}`}
+        className={`${bold ? "font-semibold text-gray-900" : "text-gray-900"
+          } ${large ? "text-lg" : ""} ${highlight ? "text-green-600" : ""}`}
       >
         {formatted}
       </span>
@@ -45,11 +44,11 @@ function CartContent() {
   const [couponError, setCouponError] = useState<string | null>(null)
   const [showCheckoutModal, setShowCheckoutModal] = useState(false)
   const [selectedItems, setSelectedItems] = useState<Set<number>>(new Set())
-  
+
   // Check if this is a "Buy Now" flow - only show specific product
   const isBuyNow = searchParams.get('buyNow') === 'true'
   const buyNowProductId = searchParams.get('productId') ? parseInt(searchParams.get('productId')!) : null
-  
+
   // Filter cart items if in "Buy Now" mode
   const displayItems = useMemo(() => {
     if (isBuyNow && buyNowProductId) {
@@ -135,14 +134,14 @@ function CartContent() {
   // Group cart items by enterprise
   const groupedByEnterprise = useMemo(() => {
     const groups = new Map<number | string, Array<{ product: typeof productsWithEnterprise[0]; quantity: number }>>()
-    
+
     displayItems.forEach((item, index) => {
       const product = productsWithEnterprise[index] || item.product
       // Get enterpriseId from multiple sources
       const enterpriseId = product.enterpriseId ?? product.enterprise?.id
       const enterpriseName = product.enterprise?.name
       const key = enterpriseId ?? enterpriseName ?? 'unknown'
-      
+
       // Debug logging
       if (!enterpriseId && !enterpriseName) {
         console.warn(`[Cart] Product ${product.id} (${product.name}) missing enterprise info:`, {
@@ -151,24 +150,24 @@ function CartContent() {
           fetchedProduct: productsMap.get(product.id)
         })
       }
-      
+
       if (!groups.has(key)) {
         groups.set(key, [])
       }
       groups.get(key)!.push({ product, quantity: item.quantity })
     })
-    
+
     return Array.from(groups.entries()).map(([key, items]) => {
       // Determine enterpriseId from the first item
       const firstProduct = items[0]?.product
       const enterpriseId = typeof key === 'number' ? key : (firstProduct?.enterpriseId ?? firstProduct?.enterprise?.id)
       const enterprise = enterpriseId ? enterprisesMap.get(enterpriseId) : null
-      
+
       // Get enterprise name from multiple sources
-      const enterpriseName = enterprise?.name 
-        || firstProduct?.enterprise?.name 
+      const enterpriseName = enterprise?.name
+        || firstProduct?.enterprise?.name
         || (enterpriseId ? undefined : 'Doanh nghiệp không xác định')
-      
+
       // Debug logging
       if (!enterpriseName || enterpriseName === 'Doanh nghiệp không xác định') {
         console.warn(`[Cart] Enterprise info missing for group:`, {
@@ -183,7 +182,7 @@ function CartContent() {
           enterprisesMapSize: enterprisesMap.size
         })
       }
-      
+
       // Get enterpriseImageUrl safely
       let enterpriseImageUrl: string | undefined = undefined
       if (enterprise && 'imageUrl' in enterprise) {
@@ -191,7 +190,7 @@ function CartContent() {
       } else if (firstProduct?.enterprise && 'imageUrl' in firstProduct.enterprise) {
         enterpriseImageUrl = firstProduct.enterprise.imageUrl
       }
-      
+
       return {
         enterpriseId,
         enterpriseName: enterpriseName || 'Doanh nghiệp không xác định',
@@ -201,14 +200,14 @@ function CartContent() {
       }
     })
   }, [displayItems, productsWithEnterprise, enterprisesMap, productsMap])
-  
+
   // Calculate totals for displayed items only
   const displaySubtotal = useMemo(() => {
     return displayItems.reduce((sum, item) => {
       return sum + (item.product.price || 0) * item.quantity
     }, 0)
   }, [displayItems])
-  
+
   const displayTotalItems = useMemo(() => {
     return displayItems.reduce((sum, item) => sum + item.quantity, 0)
   }, [displayItems])
@@ -243,16 +242,16 @@ function CartContent() {
       setCouponError("Vui lòng nhập mã giảm giá")
       return
     }
-    
+
     // Only allow coupon if items are selected
     if (selectedItems.size === 0) {
       setCouponError("Vui lòng chọn ít nhất một sản phẩm để áp dụng mã giảm giá")
       return
     }
-    
+
     // Calculate subtotal for validation (only selected items)
     const currentSubtotal = selectedSubtotal
-    
+
     if (code === "OCOP10") {
       setAppliedCoupon({ code, percent: 0.1 })
       setCouponError(null)
@@ -430,7 +429,7 @@ function CartContent() {
                           >
                             {item.product.name}
                           </Link>
-                          
+
                           {/* Voucher Badge */}
                           <div className="flex items-center gap-2 mb-2">
                             <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-yellow-100 text-yellow-800">
@@ -443,32 +442,41 @@ function CartContent() {
                           <div className="flex items-center gap-2 mb-3">
                             <span className="text-base font-medium text-red-500">
                               {item.product.price?.toLocaleString('vi-VN')}₫
+                              {item.product.unit ? <span className="text-sm text-gray-500 font-normal ml-1">/{item.product.unit}</span> : ''}
                             </span>
                           </div>
 
                           {/* Quantity and Actions */}
                           <div className="flex items-center justify-between">
                             <div className="flex items-center border border-gray-300 rounded">
-                              <button
-                                onClick={() => updateQuantity(item.product.id, item.quantity - 1)}
-                                className="px-2 py-1 text-gray-600 hover:text-gray-900"
-                                disabled={item.quantity <= 1}
-                              >
-                                <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M20 12H4" />
-                                </svg>
-                              </button>
-                              <span className="px-3 py-1 text-sm min-w-[3rem] text-center border-x border-gray-300">
-                                {item.quantity}
-                              </span>
-                              <button
-                                onClick={() => updateQuantity(item.product.id, item.quantity + 1)}
-                                className="px-2 py-1 text-gray-600 hover:text-gray-900"
-                              >
-                                <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
-                                </svg>
-                              </button>
+                              {(() => {
+                                const isDiscrete = ["cái", "hộp", "chai", "lo", "lọ", "lon", "gói", "viên"].includes((item.product.unit || "").toLowerCase());
+                                const step = isDiscrete ? 1 : 0.5;
+                                return (
+                                  <>
+                                    <button
+                                      onClick={() => updateQuantity(item.product.id, Math.max(step, Number((item.quantity - step).toFixed(1))))}
+                                      className="px-2 py-1 text-gray-600 hover:text-gray-900"
+                                      disabled={item.quantity <= step}
+                                    >
+                                      <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M20 12H4" />
+                                      </svg>
+                                    </button>
+                                    <span className="px-3 py-1 text-sm min-w-[3rem] text-center border-x border-gray-300">
+                                      {item.quantity}
+                                    </span>
+                                    <button
+                                      onClick={() => updateQuantity(item.product.id, Number((item.quantity + step).toFixed(1)))}
+                                      className="px-2 py-1 text-gray-600 hover:text-gray-900"
+                                    >
+                                      <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
+                                      </svg>
+                                    </button>
+                                  </>
+                                )
+                              })()}
                             </div>
 
                             <div className="flex items-center gap-4">
@@ -516,7 +524,7 @@ function CartContent() {
             <div className="w-80 flex-shrink-0">
               <div className="bg-white rounded-sm shadow-sm p-4 sticky top-4">
                 <h2 className="text-base font-medium text-gray-900 mb-4">Tóm tắt đơn hàng</h2>
-                
+
                 {/* Voucher Input */}
                 <div className="mb-4 pb-4 border-b border-gray-200">
                   <div className="flex items-center justify-between mb-2">
@@ -561,7 +569,7 @@ function CartContent() {
                 >
                   Mua Hàng
                 </button>
-                
+
                 {/* Show message if no items selected */}
                 {selectedItems.size === 0 && (
                   <p className="text-xs text-gray-500 text-center mb-3">
@@ -639,9 +647,9 @@ function CartContent() {
           Thanh toán an toàn & bảo mật
         </div>
       </div>
-      
+
       <Footer />
-      
+
       {/* Checkout Modal */}
       <CheckoutModal
         isOpen={showCheckoutModal}

@@ -30,6 +30,7 @@ export default function ProductManagementTab({ user }: ProductManagementTabProps
     categoryId: 0,
     imageUrl: "",
     stockStatus: "InStock" as "InStock" | "OutOfStock" | "",
+    unit: "", // 🔹 Add unit
   })
   const [imageFile, setImageFile] = useState<File | null>(null)
   const [imagePreview, setImagePreview] = useState<string | null>(null)
@@ -59,15 +60,15 @@ export default function ProductManagementTab({ user }: ProductManagementTabProps
       // Load categories - with fallback for 403 error (EnterpriseAdmin can't access categories endpoint)
       try {
         const categoriesData = await getCategories()
-        
+
         // ✨ FILTER: Only show active categories (IsActive = true)
         const activeCategories = categoriesData.filter(cat => cat.isActive !== false)
-        
+
         console.log(`📋 Loaded ${categoriesData.length} categories, ${activeCategories.length} active`)
         setCategories(activeCategories)
       } catch (catError) {
         console.warn("❌ Cannot load categories from API (403 - permission denied). Extracting from existing products.")
-        
+
         // Fallback: Extract categories from existing products (these are already filtered by backend)
         const uniqueCategories: Category[] = []
         const categoryMap = new Map<number, string>()
@@ -125,14 +126,14 @@ export default function ProductManagementTab({ user }: ProductManagementTabProps
 
   const handleCreate = () => {
     setEditingProduct(null)
-    
+
     // Warn if no active categories available
     if (categories.length === 0) {
       console.warn('⚠️ No active categories available.')
       alert('⚠️ Không có danh mục nào khả dụng.\n\nVui lòng liên hệ SystemAdmin để kích hoạt danh mục sản phẩm.')
       return
     }
-    
+
     // Auto-select first active category
     const defaultCategoryId = categories[0].id
     setFormData({
@@ -142,11 +143,12 @@ export default function ProductManagementTab({ user }: ProductManagementTabProps
       categoryId: defaultCategoryId,
       imageUrl: "",
       stockStatus: "InStock", // Default: Còn hàng
+      unit: "cái", // 🔹 Default unit
     })
     setImageFile(null)
     setImagePreview(null)
     setShowModal(true)
-    
+
     console.log(`📝 Creating new product with default category: ${categories[0].name} (ID: ${defaultCategoryId})`)
   }
 
@@ -159,6 +161,7 @@ export default function ProductManagementTab({ user }: ProductManagementTabProps
       categoryId: product.categoryId || 0,
       imageUrl: product.imageUrl || "",
       stockStatus: (product.stockStatus || "InStock") as "InStock" | "OutOfStock" | "",
+      unit: product.unit || "cái", // 🔹 Populate unit
     })
     setImageFile(null)
     setImagePreview(product.imageUrl || null)
@@ -208,7 +211,11 @@ export default function ProductManagementTab({ user }: ProductManagementTabProps
       setError("Vui lòng chọn danh mục sản phẩm")
       return
     }
-    
+    if (!formData.unit.trim()) {
+      setError("Vui lòng nhập đơn vị tính")
+      return
+    }
+
     // Verify selected category is still active
     const selectedCategory = categories.find(cat => cat.id === formData.categoryId)
     if (!selectedCategory) {
@@ -220,7 +227,7 @@ export default function ProductManagementTab({ user }: ProductManagementTabProps
     try {
       // Handle image: use uploaded file (base64) or existing URL
       let finalImageUrl = formData.imageUrl.trim()
-      
+
       if (imageFile) {
         // Convert file to base64
         const base64Image = await new Promise<string>((resolve, reject) => {
@@ -237,7 +244,7 @@ export default function ProductManagementTab({ user }: ProductManagementTabProps
         // If editing and no new file/URL selected, keep existing image
         finalImageUrl = editingProduct.imageUrl
       }
-      
+
       // Prepare payload with validated price and default imageUrl if empty
       const payload = {
         ...formData,
@@ -245,7 +252,7 @@ export default function ProductManagementTab({ user }: ProductManagementTabProps
         imageUrl: finalImageUrl || '/hero.jpg', // Use default if empty
         stockStatus: formData.stockStatus || "InStock" // Default to InStock if empty
       }
-      
+
       console.log('📤 Sending product payload:', payload)
       console.log('📸 ImageUrl:', payload.imageUrl)
       console.log('📦 StockStatus:', payload.stockStatus)
@@ -279,11 +286,11 @@ export default function ProductManagementTab({ user }: ProductManagementTabProps
       await loadData() // Reload to get latest data
     } catch (err) {
       console.error('❌ Error creating/updating product:', err)
-      
+
       let errorMessage = "Có lỗi xảy ra"
       if (err instanceof Error) {
         errorMessage = err.message
-        
+
         // Parse backend validation errors (400 Bad Request)
         if (errorMessage.includes("400")) {
           // Try to extract more specific error info
@@ -298,7 +305,7 @@ export default function ProductManagementTab({ user }: ProductManagementTabProps
           }
         }
       }
-      
+
       setError(errorMessage)
       setTimeout(() => setError(null), 8000)
     }
@@ -385,11 +392,10 @@ export default function ProductManagementTab({ user }: ProductManagementTabProps
             <button
               key={tab.id}
               onClick={() => setFilter(tab.id)}
-              className={`px-5 py-2.5 font-medium text-sm rounded-lg transition-all ${
-                filter === tab.id
-                  ? "bg-green-600 text-white shadow-lg"
-                  : "bg-gray-100 text-gray-700 hover:bg-gray-200"
-              }`}
+              className={`px-5 py-2.5 font-medium text-sm rounded-lg transition-all ${filter === tab.id
+                ? "bg-green-600 text-white shadow-lg"
+                : "bg-gray-100 text-gray-700 hover:bg-gray-200"
+                }`}
             >
               {tab.label} ({tab.id === "all" ? products.length : products.filter(p => p.status === tab.id).length})
             </button>
@@ -455,7 +461,7 @@ export default function ProductManagementTab({ user }: ProductManagementTabProps
 
                 <div className="flex items-center justify-between mb-4 pb-4 border-b border-gray-100">
                   <span className="text-2xl font-bold bg-gradient-to-r from-green-600 to-emerald-600 bg-clip-text text-transparent">
-                    {product.price.toLocaleString("vi-VN")}₫
+                    {product.price.toLocaleString("vi-VN")}₫/{product.unit || 'cái'}
                   </span>
                   {product.categoryName && (
                     <span className="text-xs text-gray-600 bg-gray-100 px-3 py-1.5 rounded-full font-medium">
@@ -554,8 +560,8 @@ export default function ProductManagementTab({ user }: ProductManagementTabProps
                 />
               </div>
 
-              {/* Price & Category */}
-              <div className="grid grid-cols-2 gap-4">
+              {/* Price & Unit & Category */}
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
                 <div>
                   <label className="block text-sm font-semibold text-gray-900 mb-2">
                     Giá (VNĐ) <span className="text-red-500">*</span>
@@ -565,11 +571,35 @@ export default function ProductManagementTab({ user }: ProductManagementTabProps
                     value={formData.price}
                     onChange={(e) => setFormData({ ...formData, price: e.target.value })}
                     className="w-full px-4 py-3 border-2 border-gray-200 rounded-lg focus:border-green-500 focus:ring-2 focus:ring-green-200 transition-all"
-                    placeholder="Nhập giá sản phẩm"
+                    placeholder="Nhập giá"
                     min="0"
                     step="1000"
                     required
                   />
+                </div>
+
+                {/* 🔹 Unit Input */}
+                <div>
+                  <label className="block text-sm font-semibold text-gray-900 mb-2">
+                    Đơn vị tính <span className="text-red-500">*</span>
+                  </label>
+                  <input
+                    type="text"
+                    value={formData.unit}
+                    onChange={(e) => setFormData({ ...formData, unit: e.target.value })}
+                    className="w-full px-4 py-3 border-2 border-gray-200 rounded-lg focus:border-green-500 focus:ring-2 focus:ring-green-200 transition-all"
+                    placeholder="VD: cái, kg, hộp"
+                    required
+                    list="units"
+                  />
+                  <datalist id="units">
+                    <option value="cái" />
+                    <option value="kg" />
+                    <option value="lít" />
+                    <option value="hộp" />
+                    <option value="gói" />
+                    <option value="chai" />
+                  </datalist>
                 </div>
 
                 <div>
@@ -582,30 +612,31 @@ export default function ProductManagementTab({ user }: ProductManagementTabProps
                     className="w-full px-4 py-3 border-2 border-gray-200 rounded-lg focus:border-green-500 focus:ring-2 focus:ring-green-200 transition-all"
                     required
                   >
-                    <option value={0} disabled>-- Chọn danh mục --</option>
+                    <option value={0} disabled>-- Chọn --</option>
                     {categories.map((cat) => (
                       <option key={cat.id} value={cat.id}>
                         {cat.name}
                       </option>
                     ))}
                   </select>
-                  {categories.length === 0 && (
-                    <p className="text-xs text-red-600 mt-1">
-                      ⚠️ Không có danh mục khả dụng. Vui lòng liên hệ quản trị viên.
-                    </p>
-                  )}
-                  <p className="text-xs text-gray-500 mt-1">
-                    💡 Chỉ hiển thị danh mục đã được SystemAdmin kích hoạt
-                  </p>
                 </div>
               </div>
+              {categories.length === 0 && (
+                <p className="text-xs text-red-600 mt-1">
+                  ⚠️ Không có danh mục khả dụng. Vui lòng liên hệ quản trị viên.
+                </p>
+              )}
+              <p className="text-xs text-gray-500 mt-1">
+                💡 Chỉ hiển thị danh mục đã được SystemAdmin kích hoạt
+              </p>
+
 
               {/* Image Upload */}
               <div>
                 <label className="block text-sm font-semibold text-gray-900 mb-2">
                   Hình ảnh sản phẩm
                 </label>
-                
+
                 {/* Image Preview */}
                 {(imagePreview || (editingProduct && editingProduct.imageUrl)) && (
                   <div className="mb-3">
@@ -633,7 +664,7 @@ export default function ProductManagementTab({ user }: ProductManagementTabProps
                     </div>
                   </div>
                 )}
-                
+
                 {/* File Input */}
                 <div className="relative">
                   <input
@@ -642,14 +673,14 @@ export default function ProductManagementTab({ user }: ProductManagementTabProps
                     onChange={(e) => {
                       const file = e.target.files?.[0]
                       if (!file) return
-                      
+
                       // Validate file type
                       if (!file.type.match(/^image\//)) {
                         setError("Vui lòng chọn file ảnh hợp lệ (JPG, PNG, GIF, etc.)")
                         setTimeout(() => setError(null), 5000)
                         return
                       }
-                      
+
                       // Validate file size (5 MB)
                       const maxSize = 5 * 1024 * 1024 // 5 MB
                       if (file.size > maxSize) {
@@ -657,7 +688,7 @@ export default function ProductManagementTab({ user }: ProductManagementTabProps
                         setTimeout(() => setError(null), 5000)
                         return
                       }
-                      
+
                       // Create preview
                       const reader = new FileReader()
                       reader.onloadend = () => {
@@ -692,7 +723,7 @@ export default function ProductManagementTab({ user }: ProductManagementTabProps
                     </div>
                   </label>
                 </div>
-                
+
                 {/* Alternative: URL Input (optional) */}
                 <div className="mt-3">
                   <details className="group">
@@ -716,7 +747,7 @@ export default function ProductManagementTab({ user }: ProductManagementTabProps
                     </div>
                   </details>
                 </div>
-                
+
                 <p className="text-xs text-gray-500 mt-2">
                   📸 Để trống nếu không có ảnh, hệ thống sẽ dùng ảnh mặc định
                 </p>
@@ -778,22 +809,25 @@ export default function ProductManagementTab({ user }: ProductManagementTabProps
                 </button>
               </div>
             </form>
-          </div>
-        </div>
-      )}
+          </div >
+        </div >
+      )
+      }
 
       {/* Product Images Manager Modal */}
-      {showImagesManager && selectedProductForImages && (
-        <ProductImagesManager
-          productId={selectedProductForImages.id}
-          productName={selectedProductForImages.name}
-          onClose={() => {
-            setShowImagesManager(false)
-            setSelectedProductForImages(null)
-          }}
-        />
-      )}
-    </div>
+      {
+        showImagesManager && selectedProductForImages && (
+          <ProductImagesManager
+            productId={selectedProductForImages.id}
+            productName={selectedProductForImages.name}
+            onClose={() => {
+              setShowImagesManager(false)
+              setSelectedProductForImages(null)
+            }}
+          />
+        )
+      }
+    </div >
   )
 }
 

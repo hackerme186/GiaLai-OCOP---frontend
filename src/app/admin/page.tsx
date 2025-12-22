@@ -34,6 +34,7 @@ import HomeManagementTab from "@/components/admin/HomeManagementTab"
 import ProductManagementTab from "@/components/admin/ProductManagementTab"
 import WalletManagementTab from "@/components/admin/WalletManagementTab"
 import AdminOrderManagementTab from "@/components/admin/AdminOrderManagementTab"
+import RevenueStatisticsTab from "@/components/enterprise/RevenueStatisticsTab"
 
 export default function AdminPage() {
   const router = useRouter()
@@ -58,6 +59,7 @@ export default function AdminPage() {
     { id: 'news-management', label: 'Quản lý tin tức', icon: '📰' },
     { id: 'home-management', label: 'Quản lý trang chủ', icon: '🏠' },
     { id: 'reports', label: 'Báo cáo toàn tỉnh', icon: '📉' },
+    { id: 'revenue-statistics', label: 'Phân tích doanh thu', icon: '💰' },
     { id: 'locations', label: 'Quản lý địa điểm', icon: '📍' },
     { id: 'producers', label: 'Quản lý nhà sản xuất', icon: '🏭' },
     { id: 'transactions', label: 'Giao dịch', icon: '💳' },
@@ -67,7 +69,7 @@ export default function AdminPage() {
   ], [])
 
   const roleTabMap = useMemo<Record<string, TabType[]>>(() => ({
-    systemadmin: ['dashboard', 'enterprise-approval', 'enterprise-management', 'ocop-approval', 'product-management', 'categories', 'images', 'news-management', 'home-management', 'reports', 'locations', 'producers', 'transactions', 'user-management', 'wallet-management', 'order-management'],
+    systemadmin: ['dashboard', 'enterprise-approval', 'enterprise-management', 'ocop-approval', 'product-management', 'categories', 'images', 'news-management', 'home-management', 'reports', 'revenue-statistics', 'locations', 'producers', 'transactions', 'user-management', 'wallet-management', 'order-management'],
     enterpriseadmin: ['dashboard', 'ocop-approval'],
     customer: ['dashboard'],
   }), [])
@@ -340,6 +342,9 @@ export default function AdminPage() {
           )}
           {activeTab === 'reports' && (
             <ProvinceReportTab />
+          )}
+          {activeTab === 'revenue-statistics' && (
+            <RevenueStatisticsTab user={user} />
           )}
           {activeTab === 'locations' && (
             <LocationsTab />
