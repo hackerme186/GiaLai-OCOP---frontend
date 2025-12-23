@@ -92,8 +92,7 @@ async function request<TResponse>(
     if (shouldRetry) {
       const delay = RETRY_DELAYS[retries] || 3000;
       console.info(
-        `🔄 [API] Retry ${
-          retries + 1
+        `🔄 [API] Retry ${retries + 1
         }/${MAX_RETRIES} sau ${delay}ms (cold start?)...`
       );
 
@@ -147,7 +146,7 @@ async function request<TResponse>(
       };
       // Prevent stack trace from being captured
       if (Error.captureStackTrace) {
-        Error.captureStackTrace(silentError, () => {});
+        Error.captureStackTrace(silentError, () => { });
       }
       throw silentError;
     }
@@ -176,17 +175,60 @@ async function request<TResponse>(
   }
 
   if (!response.ok) {
-    let bodyMessage =
-      (isJson && data && typeof data === "object" && (data as any).message) ||
-      "";
-    let bodyDetails =
-      (isJson && data && typeof data === "object" && (data as any).details) ||
-      "";
-    let bodyError =
-      (isJson && data && typeof data === "object" && (data as any).error) || "";
+    // Enhanced error message extraction - try multiple formats
+    let bodyMessage = "";
+    let bodyDetails = "";
+    let bodyError: string | object | null = null;
 
-    if (!bodyMessage && !isJson && typeof data === "string") {
+    if (isJson && data && typeof data === "object") {
+      const dataObj = data as any;
+      // Try various common error message fields
+      bodyMessage =
+        dataObj.message ||
+        dataObj.Message ||
+        dataObj.error?.message ||
+        dataObj.error?.Message ||
+        dataObj.errorMessage ||
+        dataObj.ErrorMessage ||
+        "";
+      
+      bodyDetails =
+        dataObj.details ||
+        dataObj.Details ||
+        dataObj.error?.details ||
+        dataObj.error?.Details ||
+        "";
+      
+      // Get error - can be string or object
+      bodyError = dataObj.error || dataObj.Error || null;
+      
+      // If error is an object, try to extract message from it
+      if (bodyError && typeof bodyError === "object") {
+        const errorObj = bodyError as any;
+        bodyError = errorObj.message || errorObj.Message || "";
+      } else if (bodyError && typeof bodyError !== "string") {
+        bodyError = "";
+      }
+      
+      // Ensure bodyError is string
+      if (!bodyError || typeof bodyError !== "string") {
+        bodyError = "";
+      }
+    } else if (!isJson && typeof data === "string") {
       bodyMessage = data as string;
+    }
+
+    // Log error details for debugging (especially for revenue statistics)
+    if (!options.silent) {
+      console.error(`❌ [API] Error ${response.status} ${response.statusText} for ${path}:`, {
+        url,
+        status: response.status,
+        statusText: response.statusText,
+        bodyMessage,
+        bodyDetails,
+        bodyError,
+        rawData: data,
+      });
     }
 
     // Handle 401 Unauthorized with a clear error message
@@ -211,7 +253,7 @@ async function request<TResponse>(
       if (options.silent) {
         authError.toString = () => authError.message;
         if (Error.captureStackTrace) {
-          Error.captureStackTrace(authError, () => {});
+          Error.captureStackTrace(authError, () => { });
         }
       }
 
@@ -222,10 +264,10 @@ async function request<TResponse>(
     let message = "";
 
     // Ưu tiên sử dụng message từ backend
-    if (bodyMessage) {
-      message = bodyMessage;
-    } else if (bodyError) {
-      message = bodyError;
+    if (bodyMessage && typeof bodyMessage === "string" && bodyMessage.trim()) {
+      message = bodyMessage.trim();
+    } else if (bodyError && typeof bodyError === "string" && bodyError.trim()) {
+      message = bodyError.trim();
     } else {
       // Fallback: Map HTTP status codes to user-friendly messages
       switch (response.status) {
@@ -236,7 +278,12 @@ async function request<TResponse>(
           message = "Bạn không có quyền thực hiện thao tác này.";
           break;
         case 404:
-          message = "Không tìm thấy dữ liệu. Vui lòng thử lại.";
+          // Special message for revenue statistics endpoint
+          if (path.includes("/reports/revenue")) {
+            message = "Không tìm thấy dữ liệu thống kê doanh thu. Có thể chưa có đơn hàng hoàn thành trong khoảng thời gian này.";
+          } else {
+            message = "Không tìm thấy dữ liệu. Vui lòng thử lại.";
+          }
           break;
         case 409:
           message = "Dữ liệu đã tồn tại. Vui lòng kiểm tra lại.";
@@ -245,10 +292,20 @@ async function request<TResponse>(
         case 502:
         case 503:
         case 504:
-          message = "Lỗi server. Vui lòng thử lại sau.";
+          // Special message for revenue statistics endpoint
+          if (path.includes("/reports/revenue")) {
+            message = "Lỗi server khi xử lý thống kê doanh thu. Vui lòng thử lại sau hoặc liên hệ quản trị viên.";
+          } else {
+            message = "Lỗi server. Vui lòng thử lại sau.";
+          }
           break;
         default:
-          message = "Đã xảy ra lỗi. Vui lòng thử lại.";
+          // Special message for revenue statistics endpoint
+          if (path.includes("/reports/revenue")) {
+            message = `Không thể tải thống kê doanh thu (Lỗi ${response.status}). Vui lòng thử lại sau.`;
+          } else {
+            message = "Đã xảy ra lỗi. Vui lòng thử lại.";
+          }
       }
     }
 
@@ -278,7 +335,7 @@ async function request<TResponse>(
       error.toString = () => errorMessage;
       // Prevent stack trace from being captured
       if (Error.captureStackTrace) {
-        Error.captureStackTrace(error, () => {});
+        Error.captureStackTrace(error, () => { });
       }
     }
 
@@ -408,11 +465,12 @@ export interface Product {
   name: string;
   description: string;
   price: number;
+  unit: string; // [NEW] Đơn vị tính (kg, l, hộp...)
   enterpriseId?: number;
   imageUrl?: string;
   ocopRating?: number; // 3, 4, 5 sao
   stockStatus: string; // "InStock" | "LowStock" | "OutOfStock"
-  stockQuantity?: number; // Số lượng tồn kho thực tế (nếu backend có)
+  stockQuantity?: number; // Số lượng tồn kho thực tế (có thể là decimal)
   averageRating?: number;
   status: string; // "PendingApproval" | "Approved" | "Rejected"
   categoryId?: number;
@@ -426,6 +484,7 @@ export interface CreateProductDto {
   name: string;
   description: string;
   price: number;
+  unit: string; // [NEW]
   imageUrl?: string;
   ocopRating?: number;
   stockStatus?: string;
@@ -610,12 +669,12 @@ export interface CreateOrderDto {
 
 export interface UpdateOrderStatusDto {
   status:
-    | "Pending"
-    | "Processing"
-    | "Shipped"
-    | "Completed"
-    | "Cancelled"
-    | "PendingCompletion";
+  | "Pending"
+  | "Processing"
+  | "Shipped"
+  | "Completed"
+  | "Cancelled"
+  | "PendingCompletion";
   shippingAddress?: string;
 }
 
@@ -813,6 +872,38 @@ export interface RevenueByMonth {
   year: number;
   month: number;
   amount: number;
+}
+
+// Revenue Statistics
+export interface RevenueStatisticsRequest {
+  type?: "week" | "month" | "year";
+  date?: string; // Format: yyyy-MM-dd
+  enterpriseId?: number; // Only for SystemAdmin
+}
+
+export interface RevenueStatisticsFilter {
+  type: string;
+  date: string;
+  enterpriseId?: number;
+  enterpriseName?: string;
+}
+
+export interface RevenueStatisticsSummary {
+  totalRevenue: number;
+  totalOrders: number;
+  averageOrderValue: number;
+}
+
+export interface RevenueStatisticsChart {
+  label: string;
+  revenue: number;
+}
+
+export interface RevenueStatisticsResponse {
+  success: boolean;
+  filter: RevenueStatisticsFilter;
+  summary: RevenueStatisticsSummary;
+  chart: RevenueStatisticsChart[];
 }
 
 // ========================================
@@ -1250,11 +1341,11 @@ export async function getProducts(params?: {
       const resultCount = Array.isArray(response)
         ? response.length
         : response && typeof response === "object"
-        ? (response as any).products?.length ||
+          ? (response as any).products?.length ||
           (response as any).items?.length ||
           (response as any).data?.length ||
           0
-        : 0;
+          : 0;
       console.log("✅ API Response:", {
         searchTerm: params?.search || params?.q,
         count: resultCount,
@@ -1755,11 +1846,11 @@ export async function getEnterpriseProducts(
   if (errorMsg.includes("403")) {
     throw new Error(
       "403 FORBIDDEN - Backend chưa cấu hình đúng cho EnterpriseAdmin.\n" +
-        "Backend cần:\n" +
-        "1. Thêm role 'EnterpriseAdmin' vào [Authorize] attribute\n" +
-        "2. Đảm bảo JWT token có claim 'EnterpriseId'\n" +
-        "3. Filter products theo enterpriseId của user\n" +
-        "Xem chi tiết: TROUBLESHOOTING_403.md"
+      "Backend cần:\n" +
+      "1. Thêm role 'EnterpriseAdmin' vào [Authorize] attribute\n" +
+      "2. Đảm bảo JWT token có claim 'EnterpriseId'\n" +
+      "3. Filter products theo enterpriseId của user\n" +
+      "Xem chi tiết: TROUBLESHOOTING_403.md"
     );
   }
 
@@ -1783,6 +1874,61 @@ export async function getReportRevenueByMonth(): Promise<RevenueByMonth[]> {
   return request<RevenueByMonth[]>("/reports/revenue-by-month", {
     method: "GET",
   });
+}
+
+export async function getRevenueStatistics(
+  params: RevenueStatisticsRequest = {}
+): Promise<RevenueStatisticsResponse> {
+  const queryParams = new URLSearchParams();
+  
+  if (params.type) queryParams.set("type", params.type);
+  if (params.date) queryParams.set("date", params.date);
+  if (params.enterpriseId !== undefined) {
+    queryParams.set("enterpriseId", params.enterpriseId.toString());
+  }
+  
+  const query = queryParams.toString();
+  const url = `/reports/revenue${query ? `?${query}` : ""}`;
+  
+  try {
+    const response = await request<RevenueStatisticsResponse>(url, {
+      method: "GET",
+    });
+    
+    // Validate response structure
+    if (!response || typeof response !== "object") {
+      console.error("❌ [API] Invalid revenue statistics response format:", response);
+      throw new Error("Dữ liệu thống kê không hợp lệ. Vui lòng thử lại.");
+    }
+    
+    // Ensure required fields exist
+    if (!response.summary || !response.chart || !response.filter) {
+      console.warn("⚠️ [API] Revenue statistics response missing some fields:", {
+        hasSummary: !!response.summary,
+        hasChart: !!response.chart,
+        hasFilter: !!response.filter,
+        response,
+      });
+    }
+    
+    return response;
+  } catch (error) {
+    // Re-throw with more context for revenue statistics errors
+    if (error instanceof Error) {
+      const errorAny = error as any;
+      // Add more context to the error
+      if (!errorAny.isNetworkError && !errorAny.isAuthError) {
+        console.error("❌ [API] Revenue statistics error details:", {
+          url: `${API_BASE_URL}${url}`,
+          params,
+          error: error.message,
+          status: errorAny.status,
+          response: errorAny.response,
+        });
+      }
+    }
+    throw error;
+  }
 }
 
 // ------ SHIPPERS (EnterpriseAdmin/SystemAdmin) ------
@@ -2000,9 +2146,8 @@ export async function uploadImage(
     headers["Authorization"] = `Bearer ${token}`;
   }
 
-  const url = `${API_BASE_URL}/fileupload/image${
-    folder ? `?folder=${encodeURIComponent(folder)}` : ""
-  }`;
+  const url = `${API_BASE_URL}/fileupload/image${folder ? `?folder=${encodeURIComponent(folder)}` : ""
+    }`;
   const response = await fetch(url, {
     method: "POST",
     headers,

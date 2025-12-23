@@ -17,7 +17,7 @@ import {
 import ProductManagementTab from "@/components/enterprise/ProductManagementTab"
 import OrderManagementTab from "@/components/enterprise/OrderManagementTab"
 import OcopStatusTab from "@/components/enterprise/OcopStatusTab"
-import ReportsTab from "@/components/enterprise/ReportsTab"
+import RevenueStatisticsTab from "@/components/enterprise/RevenueStatisticsTab"
 import EnterpriseProfileTab from "@/components/enterprise/EnterpriseProfileTab"
 import InventoryTab from "@/components/enterprise/InventoryTab"
 import SettingsTab from "@/components/enterprise/SettingsTab"
@@ -447,7 +447,7 @@ function EnterpriseAdminPageContent() {
           {activeTab === "inventory" && <InventoryTab user={user} />}
           {activeTab === "profile" && <EnterpriseProfileTab user={user} />}
           {activeTab === "ocop-status" && <OcopStatusTab user={user} />}
-          {activeTab === "reports" && <ReportsTab user={user} />}
+          {activeTab === "reports" && <RevenueStatisticsTab user={user} />}
           {activeTab === "wallet" && <WalletTab user={user} />}
           {activeTab === "notifications" && (
             <NotificationsTab 

@@ -160,6 +160,7 @@ export default function EnterpriseApprovalTab() {
             name: application.productName,
             description: application.productDescription || "",
             price: 0, // Giá mặc định, có thể cập nhật sau
+            unit: "cái", // Đơn vị mặc định, có thể cập nhật sau
             imageUrl: productImageUrl,
             stockStatus: "InStock",
             categoryId: categoryId,

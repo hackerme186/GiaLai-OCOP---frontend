@@ -6,7 +6,7 @@ import { useState, useEffect, useMemo } from "react"
 import { logout } from "@/lib/auth"
 import { getCurrentUser, getPendingWalletRequestsCount } from "@/lib/api"
 
-export type TabType = 'dashboard' | 'enterprise-approval' | 'enterprise-management' | 'ocop-approval' | 'product-management' | 'categories' | 'images' | 'news-management' | 'home-management' | 'reports' | 'locations' | 'producers' | 'transactions' | 'user-management' | 'wallet-management' | 'order-management'
+export type TabType = 'dashboard' | 'enterprise-approval' | 'enterprise-management' | 'ocop-approval' | 'product-management' | 'categories' | 'images' | 'news-management' | 'home-management' | 'reports' | 'revenue-statistics' | 'locations' | 'producers' | 'transactions' | 'user-management' | 'wallet-management' | 'order-management'
 
 interface AdminHeaderProps {
   activeTab: TabType
@@ -22,7 +22,7 @@ export default function AdminHeader({ activeTab, onTabChange }: AdminHeaderProps
 
   useEffect(() => {
     let interval: NodeJS.Timeout | null = null
-    
+
     const loadUserInfo = async () => {
       try {
         const me = await getCurrentUser()
@@ -30,9 +30,9 @@ export default function AdminHeader({ activeTab, onTabChange }: AdminHeaderProps
         setUserName((me.name || me.fullName || me.username || "Quản trị viên").toString())
         setUserEmail((me.email || "").toString())
         setUserRole((me.role || "").toString())
-        
+
         console.log("AdminHeader - User role:", role)
-        
+
         // Load pending wallet requests count if SystemAdmin
         if (role === "systemadmin" || role === "admin" || role === "sysadmin") {
           console.log("AdminHeader - Loading pending requests count...")
@@ -49,9 +49,9 @@ export default function AdminHeader({ activeTab, onTabChange }: AdminHeaderProps
         console.error("Failed to load user info:", err)
       }
     }
-    
+
     loadUserInfo()
-    
+
     return () => {
       if (interval) {
         clearInterval(interval)
@@ -97,6 +97,7 @@ export default function AdminHeader({ activeTab, onTabChange }: AdminHeaderProps
     { id: 'news-management', label: 'Quản lý tin tức', icon: '📰' },
     { id: 'home-management', label: 'Quản lý trang chủ', icon: '🏠' },
     { id: 'reports', label: 'Báo cáo toàn tỉnh', icon: '📉' },
+    { id: 'revenue-statistics', label: 'Phân tích doanh thu', icon: '💰' },
     { id: 'locations', label: 'Quản lý địa điểm', icon: '📍' },
     { id: 'producers', label: 'Quản lý nhà sản xuất', icon: '🏭' },
     { id: 'transactions', label: 'Giao dịch', icon: '💳' },
@@ -108,7 +109,7 @@ export default function AdminHeader({ activeTab, onTabChange }: AdminHeaderProps
   const roleNormalized = (userRole || "").toLowerCase()
 
   const roleTabMap: Record<string, TabType[]> = {
-    systemadmin: ['dashboard', 'enterprise-approval', 'enterprise-management', 'ocop-approval', 'product-management', 'categories', 'images', 'news-management', 'home-management', 'reports', 'locations', 'producers', 'transactions', 'user-management', 'wallet-management', 'order-management'],
+    systemadmin: ['dashboard', 'enterprise-approval', 'enterprise-management', 'ocop-approval', 'product-management', 'categories', 'images', 'news-management', 'home-management', 'reports', 'revenue-statistics', 'locations', 'producers', 'transactions', 'user-management', 'wallet-management', 'order-management'],
     enterpriseadmin: ['dashboard', 'ocop-approval'],
     customer: ['dashboard'],
   }
@@ -168,11 +169,10 @@ export default function AdminHeader({ activeTab, onTabChange }: AdminHeaderProps
             <button
               key={tab.id}
               onClick={() => onTabChange(tab.id)}
-              className={`w-full flex items-center justify-between px-3 py-2.5 mb-1 rounded-lg transition-all relative ${
-                activeTab === tab.id
-                  ? 'bg-blue-600 text-white shadow-md'
-                  : 'text-gray-700 hover:bg-gray-200'
-              }`}
+              className={`w-full flex items-center justify-between px-3 py-2.5 mb-1 rounded-lg transition-all relative ${activeTab === tab.id
+                ? 'bg-blue-600 text-white shadow-md'
+                : 'text-gray-700 hover:bg-gray-200'
+                }`}
             >
               <div className="flex items-center gap-3">
                 <span className="text-lg">{tab.icon}</span>
@@ -180,11 +180,10 @@ export default function AdminHeader({ activeTab, onTabChange }: AdminHeaderProps
               </div>
               <div className="flex items-center gap-2">
                 {tab.id === 'wallet-management' && pendingWalletRequestsCount > 0 && (
-                  <span className={`px-2 py-0.5 rounded-full text-xs font-bold ${
-                    activeTab === tab.id 
-                      ? 'bg-white text-red-600' 
-                      : 'bg-red-600 text-white'
-                  }`}>
+                  <span className={`px-2 py-0.5 rounded-full text-xs font-bold ${activeTab === tab.id
+                    ? 'bg-white text-red-600'
+                    : 'bg-red-600 text-white'
+                    }`}>
                     {pendingWalletRequestsCount}
                   </span>
                 )}

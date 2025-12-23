@@ -204,11 +204,10 @@ export default function ProductDetailPage() {
                   <button
                     key={index}
                     onClick={() => setSelectedImage(index)}
-                    className={`aspect-square bg-white rounded-lg overflow-hidden border-2 transition-colors ${
-                      selectedImage === index
-                        ? "border-indigo-500"
-                        : "border-gray-200 hover:border-gray-300"
-                    }`}
+                    className={`aspect-square bg-white rounded-lg overflow-hidden border-2 transition-colors ${selectedImage === index
+                      ? "border-indigo-500"
+                      : "border-gray-200 hover:border-gray-300"
+                      }`}
                   >
                     <Image
                       src={
@@ -270,11 +269,10 @@ export default function ProductDetailPage() {
                       return (
                         <svg
                           key={i}
-                          className={`h-5 w-5 ${
-                            i < Math.floor(rating)
-                              ? "text-yellow-400"
-                              : "text-gray-300"
-                          }`}
+                          className={`h-5 w-5 ${i < Math.floor(rating)
+                            ? "text-yellow-400"
+                            : "text-gray-300"
+                            }`}
                           fill="currentColor"
                           viewBox="0 0 20 20"
                         >
@@ -300,7 +298,7 @@ export default function ProductDetailPage() {
               <div className="flex items-baseline space-x-3">
                 {product.price && (
                   <span className="text-3xl font-black text-gray-900">
-                    {product.price.toLocaleString("vi-VN")} ₫
+                    {product.price.toLocaleString("vi-VN")} ₫ {product.unit ? `/ ${product.unit}` : ''}
                   </span>
                 )}
                 <span className="text-sm font-medium text-gray-600">
@@ -329,30 +327,53 @@ export default function ProductDetailPage() {
                   Số lượng:
                 </label>
                 <div className="flex items-center border-2 border-gray-400 rounded-lg bg-white">
-                  <button
-                    onClick={() => setQuantity(Math.max(1, quantity - 1))}
-                    className="px-3 py-2 text-gray-700 hover:text-gray-900 font-bold transform-none transition-colors"
-                    style={{ transform: "none" }}
-                  >
-                    -
-                  </button>
-                  <input
-                    id="quantity"
-                    type="number"
-                    min="1"
-                    value={quantity}
-                    onChange={(e) =>
-                      setQuantity(Math.max(1, parseInt(e.target.value) || 1))
-                    }
-                    className="w-16 text-center border-0 focus:ring-0 font-bold text-gray-900 bg-gray-50"
-                  />
-                  <button
-                    onClick={() => setQuantity(quantity + 1)}
-                    className="px-3 py-2 text-gray-700 hover:text-gray-900 font-bold transform-none transition-colors"
-                    style={{ transform: "none" }}
-                  >
-                    +
-                  </button>
+                  {(() => {
+                    const isDiscrete = ["cái", "hộp", "chai", "lo", "lọ", "lon", "gói", "viên"].includes((product.unit || "").toLowerCase());
+                    const step = isDiscrete ? 1 : 0.5;
+                    const min = isDiscrete ? 1 : 0.5;
+
+                    return (
+                      <>
+                        <button
+                          onClick={() => {
+                            const newQty = Math.max(min, Number((quantity - step).toFixed(1)));
+                            setQuantity(newQty);
+                          }}
+                          className="px-3 py-2 text-gray-700 hover:text-gray-900 font-bold transform-none transition-colors"
+                          style={{ transform: "none" }}
+                        >
+                          -
+                        </button>
+                        <input
+                          id="quantity"
+                          type="number"
+                          min={min}
+                          step={step}
+                          max={product.stockQuantity || 100}
+                          value={quantity}
+                          onChange={(e) => {
+                            const val = parseFloat(e.target.value);
+                            if (isNaN(val) || val < min) setQuantity(min);
+                            else if (product.stockQuantity && val > product.stockQuantity) setQuantity(product.stockQuantity);
+                            else setQuantity(val);
+                          }}
+                          className="w-20 text-center border-0 focus:ring-0 font-bold text-gray-900 bg-gray-50"
+                        />
+                        <button
+                          onClick={() => {
+                            const newQty = Number((quantity + step).toFixed(1));
+                            if (product.stockQuantity && newQty > product.stockQuantity) return;
+                            setQuantity(newQty);
+                          }}
+                          disabled={!!(product.stockQuantity && quantity >= product.stockQuantity)}
+                          className="px-3 py-2 text-gray-700 hover:text-gray-900 font-bold transform-none transition-colors disabled:opacity-30"
+                          style={{ transform: "none" }}
+                        >
+                          +
+                        </button>
+                      </>
+                    );
+                  })()}
                 </div>
               </div>
 
@@ -360,7 +381,7 @@ export default function ProductDetailPage() {
               <div className="flex flex-col sm:flex-row gap-4">
                 <button
                   onClick={handleAddToCart}
-                  disabled={isAddingToCart}
+                  disabled={isAddingToCart || product.stockQuantity === 0 || product.stockStatus === 'OutOfStock'}
                   className="flex-1 bg-indigo-600 text-white px-6 py-3 rounded-lg font-semibold hover:bg-indigo-700 active:bg-indigo-800 transform-none transition-colors flex items-center justify-center disabled:opacity-50 disabled:cursor-not-allowed"
                   style={{ transform: "none" }}
                 >
@@ -379,6 +400,7 @@ export default function ProductDetailPage() {
                           r="10"
                           stroke="currentColor"
                           strokeWidth="4"
+                          strokeLinecap="round"
                         ></circle>
                         <path
                           className="opacity-75"
@@ -403,7 +425,9 @@ export default function ProductDetailPage() {
                           d="M3 3h2l.4 2M7 13h10l4-8H5.4m0 0L7 13m0 0l-2.5 5M7 13l2.5 5m0 0h8"
                         />
                       </svg>
-                      Thêm vào giỏ hàng
+                      {(product.stockQuantity === 0 || product.stockStatus === 'OutOfStock')
+                        ? 'Hết hàng'
+                        : `Thêm vào giỏ hàng`}
                       {product && getItemQuantity(product.id) > 0 && (
                         <span className="ml-2 bg-indigo-700 px-2 py-1 rounded-full text-xs font-semibold">
                           {getItemQuantity(product.id)} trong giỏ
@@ -414,7 +438,7 @@ export default function ProductDetailPage() {
                 </button>
                 <button
                   onClick={handleBuyNow}
-                  disabled={isBuyingNow}
+                  disabled={isBuyingNow || product.stockQuantity === 0 || product.stockStatus === 'OutOfStock'}
                   className="flex-1 bg-green-600 text-white px-6 py-3 rounded-lg font-semibold hover:bg-green-700 active:bg-green-800 transform-none transition-colors flex items-center justify-center disabled:opacity-50 disabled:cursor-not-allowed"
                   style={{ transform: "none" }}
                 >
@@ -433,6 +457,7 @@ export default function ProductDetailPage() {
                           r="10"
                           stroke="currentColor"
                           strokeWidth="4"
+                          strokeLinecap="round"
                         ></circle>
                         <path
                           className="opacity-75"
@@ -508,21 +533,20 @@ export default function ProductDetailPage() {
                       Tình trạng:
                     </span>
                     <span
-                      className={`font-bold ${
-                        !product.stockStatus ||
+                      className={`font-bold ${!product.stockStatus ||
                         product.stockStatus === "" ||
                         product.stockStatus === "InStock"
-                          ? "text-green-600"
-                          : "text-red-600"
-                      }`}
+                        ? "text-green-600"
+                        : "text-red-600"
+                        }`}
                     >
                       {!product.stockStatus ||
-                      product.stockStatus === "" ||
-                      product.stockStatus === "InStock"
-                        ? "Còn hàng"
-                        : product.stockStatus === "OutOfStock"
-                        ? "Hết hàng"
-                        : product.stockStatus}
+                        product.stockStatus === "" ||
+                        product.stockStatus === "InStock"
+                        ? `Còn hàng ${product.stockQuantity !== undefined ? `(${product.stockQuantity} ${product.unit || ''})` : ''}`
+                        : product.stockStatus === "OutOfStock" || product.stockQuantity === 0
+                          ? "Hết hàng"
+                          : product.stockStatus}
                     </span>
                   </div>
                   <div className="flex justify-between">
