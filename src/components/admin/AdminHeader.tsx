@@ -170,8 +170,8 @@ export default function AdminHeader({ activeTab, onTabChange }: AdminHeaderProps
               key={tab.id}
               onClick={() => onTabChange(tab.id)}
               className={`w-full flex items-center justify-between px-3 py-2.5 mb-1 rounded-lg transition-all relative ${activeTab === tab.id
-                  ? 'bg-blue-600 text-white shadow-md'
-                  : 'text-gray-700 hover:bg-gray-200'
+                ? 'bg-blue-600 text-white shadow-md'
+                : 'text-gray-700 hover:bg-gray-200'
                 }`}
             >
               <div className="flex items-center gap-3">
@@ -181,8 +181,8 @@ export default function AdminHeader({ activeTab, onTabChange }: AdminHeaderProps
               <div className="flex items-center gap-2">
                 {tab.id === 'wallet-management' && pendingWalletRequestsCount > 0 && (
                   <span className={`px-2 py-0.5 rounded-full text-xs font-bold ${activeTab === tab.id
-                      ? 'bg-white text-red-600'
-                      : 'bg-red-600 text-white'
+                    ? 'bg-white text-red-600'
+                    : 'bg-red-600 text-white'
                     }`}>
                     {pendingWalletRequestsCount}
                   </span>
