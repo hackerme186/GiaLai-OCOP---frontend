@@ -568,8 +568,8 @@ export default function RevenueStatisticsTab({ user }: RevenueStatisticsTabProps
                                     }}
                                 />
                                 <Tooltip
-                                    formatter={(value: number | undefined) => [
-                                        value ? formatCurrency(value) : "0₫",
+                                    formatter={(value: any) => [
+                                        value && typeof value === 'number' ? formatCurrency(value) : "0₫",
                                         "Doanh thu"
                                     ]}
                                     labelFormatter={(label) => `Tháng: ${label}`}
@@ -603,8 +603,8 @@ export default function RevenueStatisticsTab({ user }: RevenueStatisticsTabProps
                                     }}
                                 />
                                 <Tooltip
-                                    formatter={(value: number | undefined) => [
-                                        value ? formatCurrency(value) : "0₫",
+                                    formatter={(value: any) => [
+                                        value && typeof value === 'number' ? formatCurrency(value) : "0₫",
                                         "Doanh thu"
                                     ]}
                                     labelFormatter={(label) => {

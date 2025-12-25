@@ -488,6 +488,7 @@ export interface CreateProductDto {
   imageUrl?: string;
   ocopRating?: number;
   stockStatus?: string;
+  stockQuantity?: number; // [NEW] Số lượng tồn kho
   categoryId?: number;
   enterpriseId?: number; // Optional: để SystemAdmin có thể tạo product cho enterprise khác
 }

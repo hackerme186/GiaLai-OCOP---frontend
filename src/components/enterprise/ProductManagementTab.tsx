@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react"
 import Image from "next/image"
-import { getProducts, getCategories, createProduct, updateProduct, deleteProduct, getCurrentUser, type Product, type Category, type User } from "@/lib/api"
+import { getProducts, getCategories, createProduct, updateProduct, deleteProduct, getCurrentUser, type Product, type Category, type User, type CreateProductDto } from "@/lib/api"
 import ImageUploader from "@/components/upload/ImageUploader"
 import ProductImagesManager from "./ProductImagesManager"
 import { useRouter } from "next/navigation"
@@ -195,6 +195,7 @@ export default function ProductManagementTab({ user }: ProductManagementTabProps
       imageUrl: product.imageUrl || "",
       stockStatus: (product.stockStatus || "InStock") as "InStock" | "OutOfStock" | "",
       unit: product.unit || "cái", // 🔹 Populate unit
+      stockQuantity: product.stockQuantity ?? 0, // 🔹 Populate stock quantity
     })
     setImageFile(null)
     setImagePreview(product.imageUrl || null)
@@ -279,9 +280,12 @@ export default function ProductManagementTab({ user }: ProductManagementTabProps
       }
 
       // Prepare payload with validated price and default imageUrl if empty
-      const payload = {
-        ...formData,
+      const payload: CreateProductDto = {
+        name: formData.name.trim(),
+        description: formData.description.trim(),
         price: typeof formData.price === 'string' ? parseFloat(formData.price) : formData.price,
+        categoryId: formData.categoryId,
+        unit: formData.unit.trim(),
         stockQuantity: typeof formData.stockQuantity === 'string' 
           ? parseFloat(formData.stockQuantity) 
           : (formData.stockQuantity ?? 0),
