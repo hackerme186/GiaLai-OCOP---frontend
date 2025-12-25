@@ -34,6 +34,7 @@ export default function ProductManagementTab({ user }: ProductManagementTabProps
     imageUrl: "",
     stockStatus: "InStock" as "InStock" | "OutOfStock" | "",
     unit: "", // 🔹 Add unit
+    stockQuantity: "" as string | number, // 🔹 Add stock quantity
   })
   const [imageFile, setImageFile] = useState<File | null>(null)
   const [imagePreview, setImagePreview] = useState<string | null>(null)
@@ -177,6 +178,7 @@ export default function ProductManagementTab({ user }: ProductManagementTabProps
       imageUrl: "",
       stockStatus: "InStock", // Default: Còn hàng
       unit: "cái", // 🔹 Default unit
+      stockQuantity: 0, // 🔹 Default stock quantity
     })
     setImageFile(null)
     setImagePreview(null)
@@ -247,6 +249,15 @@ export default function ProductManagementTab({ user }: ProductManagementTabProps
     }
     if (!formData.unit.trim()) {
       setError("Vui lòng nhập đơn vị tính")
+      return
+    }
+    
+    // Validate stock quantity
+    const stockQuantity = typeof formData.stockQuantity === 'string' 
+      ? parseFloat(formData.stockQuantity) 
+      : formData.stockQuantity
+    if (stockQuantity === undefined || stockQuantity === null || stockQuantity < 0) {
+      setError("Vui lòng nhập số lượng tồn kho hợp lệ (>= 0)")
       return
     }
 
