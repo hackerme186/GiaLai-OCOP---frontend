@@ -2,6 +2,7 @@
 import { useState, useEffect } from 'react'
 import Image from 'next/image'
 import { getProducts, Product } from '@/lib/api'
+import { getImageAttributes, isValidImageUrl, getImageUrl } from '@/lib/imageUtils'
 
 const STORAGE_KEY = "ocop_home_content"
 
@@ -24,9 +25,11 @@ const FeaturedProducts = () => {
         console.log('🔄 Fetching products from API...')
         
         // ✅ FIX: Request only Approved products from backend
+        // Use silent mode to reduce console errors when backend is unavailable
         const data = await getProducts({
           pageSize: 100, // Get all products
           status: "Approved", // ✅ Only get approved products from backend
+          silent: true, // Silent mode - don't spam console with errors
         })
         
         console.log('📦 Raw API response:', data)
@@ -55,14 +58,20 @@ const FeaturedProducts = () => {
         setProducts(approvedProducts.slice(0, 8))
         setLoading(false)
       } catch (err) {
-        console.error('❌ Failed to fetch products from API:', err)
-        console.error('❌ Error details:', {
-          message: err instanceof Error ? err.message : 'Unknown error',
-          stack: err instanceof Error ? err.stack : undefined,
-          raw: err
-        })
-        setError('Không thể tải sản phẩm từ server')
-        setProducts([]) // Don't fallback to mock - show empty
+        // Only log error if not in silent mode
+        const isSilent = (err as any)?.silent
+        if (!isSilent) {
+          console.error('❌ Failed to fetch products from API:', err)
+        }
+        
+        // Check if it's a network error (backend not available)
+        const isNetworkError = (err as any)?.isNetworkError || (err as any)?.status === 0
+        const errorMessage = isNetworkError 
+          ? 'Backend đang khởi động. Vui lòng đợi vài giây rồi tải lại trang.'
+          : 'Không thể tải sản phẩm từ server'
+        
+        setError(errorMessage)
+        setProducts([]) // Show empty state
         setLoading(false)
       }
     }
@@ -159,10 +168,20 @@ const FeaturedProducts = () => {
                   </div>
                 )}
                 <Image
-                  src={product.imageUrl || '/hero.jpg'}
+                  src={isValidImageUrl(product.imageUrl) ? getImageUrl(product.imageUrl, '/hero.jpg') : '/hero.jpg'}
                   alt={product.name}
                   fill
                   className="object-cover"
+                  {...getImageAttributes(product.imageUrl)}
+                  onError={(e) => {
+                    // Fallback to hero.jpg if image fails to load
+                    const target = e.target as HTMLImageElement
+                    const currentSrc = target.src
+                    const fallbackSrc = '/hero.jpg'
+                    if (!currentSrc.includes('hero.jpg')) {
+                      target.src = fallbackSrc
+                    }
+                  }}
                 />
               </div>
               <div className="p-4">

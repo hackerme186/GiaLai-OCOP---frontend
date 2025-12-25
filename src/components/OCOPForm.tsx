@@ -11,6 +11,9 @@ interface OCOPFormProps {
 export default function OCOPForm({ onSubmit }: OCOPFormProps) {
   const [step, setStep] = useState(1)
   const totalSteps = 3
+  
+  // Add confirmation state for final step
+  const [isConfirmed, setIsConfirmed] = useState(false)
 
   const [name, setName] = useState("")
   const [address, setAddress] = useState("")
@@ -58,6 +61,13 @@ export default function OCOPForm({ onSubmit }: OCOPFormProps) {
   useEffect(() => {
     loadCategories()
   }, [])
+  
+  // Reset confirmation when step changes
+  useEffect(() => {
+    if (step !== totalSteps) {
+      setIsConfirmed(false)
+    }
+  }, [step])
 
   const loadCategories = async () => {
     try {
@@ -124,6 +134,22 @@ export default function OCOPForm({ onSubmit }: OCOPFormProps) {
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault()
+    
+    // Check confirmation checkbox
+    if (!isConfirmed) {
+      alert('Vui lòng xác nhận thông tin trước khi gửi đăng ký.')
+      return
+    }
+    
+    // Add final confirmation dialog
+    const confirmed = window.confirm(
+      "Bạn có chắc chắn muốn gửi đăng ký OCOP?\n\n" +
+      "Sau khi gửi, bạn sẽ không thể chỉnh sửa thông tin."
+    )
+    
+    if (!confirmed) {
+      return
+    }
 
     // --- PRE-SUBMIT VALIDATION ---
     const trimmedEmail = email.trim()
@@ -224,7 +250,22 @@ export default function OCOPForm({ onSubmit }: OCOPFormProps) {
   }
 
   return (
-    <form onSubmit={handleSubmit} className="bg-white rounded-lg shadow-lg p-8">
+    <form 
+      onSubmit={handleSubmit}
+      onKeyDown={(e) => {
+        // Prevent Enter key from accidentally submitting the form
+        if (e.key === 'Enter') {
+          e.preventDefault()
+          
+          if (step < totalSteps) {
+            console.log('⚠️ Use "Tiếp theo" button to advance to next step')
+          } else {
+            console.log('⚠️ Please click "GỬI ĐĂNG KÝ" button to submit')
+          }
+        }
+      }}
+      className="bg-white rounded-lg shadow-lg p-8"
+    >
       <div className="mb-8">
         <div className="flex items-center justify-between mb-4">
           {Array.from({ length: totalSteps }, (_, i) => i + 1).map(s => (
@@ -335,7 +376,7 @@ export default function OCOPForm({ onSubmit }: OCOPFormProps) {
               </div>
               <div>
                 <label className="block text-sm font-medium text-gray-900 mb-2">Số lao động</label>
-                <input type="number" value={numberOfEmployees} onChange={e => setNumberOfEmployees(e.target.value)} className="w-full rounded-lg border border-gray-300 px-3 py-2 bg-white text-gray-900 placeholder:text-gray-500 focus:border-indigo-500 focus:outline-none focus:ring-indigo-500" placeholder="Nhập số lao động" />
+                <input type="text" value={numberOfEmployees} onChange={e => setNumberOfEmployees(e.target.value)} className="w-full rounded-lg border border-gray-300 px-3 py-2 bg-white text-gray-900 placeholder:text-gray-500 focus:border-indigo-500 focus:outline-none focus:ring-indigo-500" placeholder="VD: 15 hoặc 10-20 người" />
               </div>
               <div>
                 <label className="block text-sm font-medium text-gray-900 mb-2">Lĩnh vực kinh doanh *</label>
@@ -515,6 +556,22 @@ export default function OCOPForm({ onSubmit }: OCOPFormProps) {
                 <p className="text-gray-700">Ghi chú bổ sung: {additionalNotes || '(chưa nhập)'}</p>
               </div>
             </div>
+            
+            {/* Confirmation Checkbox */}
+            <div className="mt-6 p-4 bg-yellow-50 border-l-4 border-yellow-400 rounded">
+              <label className="flex items-start gap-3 cursor-pointer">
+                <input 
+                  type="checkbox" 
+                  checked={isConfirmed}
+                  onChange={(e) => setIsConfirmed(e.target.checked)}
+                  className="mt-1 w-4 h-4 text-green-600 border-gray-300 rounded focus:ring-green-500"
+                />
+                <span className="text-sm text-gray-700">
+                  <strong>Tôi xác nhận</strong> rằng tất cả thông tin trên là chính xác và đầy đủ. 
+                  Tôi hiểu rằng việc cung cấp thông tin sai lệch có thể dẫn đến từ chối đơn đăng ký.
+                </span>
+              </label>
+            </div>
           </div>
         )}
       </div>
@@ -525,15 +582,36 @@ export default function OCOPForm({ onSubmit }: OCOPFormProps) {
           <button
             type="button"
             onClick={() => {
-              const ok = step === 1 ? validateStep1() : step === 2 ? validateStep2() : true
-              if (ok) setStep(Math.min(totalSteps, step + 1))
+              // Validate step hiện tại trước khi chuyển
+              const isValid = step === 1 ? validateStep1() : step === 2 ? validateStep2() : true
+              
+              // Chỉ chuyển bước khi validation thành công và user click nút "Tiếp theo"
+              // Không tự động chuyển bước sau khi validate
+              if (isValid) {
+                // Chỉ chuyển sang bước tiếp theo khi click nút
+                const nextStep = step + 1
+                if (nextStep <= totalSteps) {
+                  setStep(nextStep)
+                }
+              }
             }}
             className="px-6 py-2 bg-indigo-600 text-white rounded-lg font-medium hover:bg-indigo-700"
           >
             Tiếp theo
           </button>
         ) : (
-          <button type="submit" className="px-6 py-2 bg-green-600 text-white rounded-lg font-medium hover:bg-green-700">GỬI ĐĂNG KÝ</button>
+          <button 
+            type="submit"
+            disabled={!isConfirmed}
+            className={`px-6 py-2 rounded-lg font-medium transition-all ${
+              isConfirmed 
+                ? 'bg-green-600 text-white hover:bg-green-700 cursor-pointer' 
+                : 'bg-gray-300 text-gray-500 cursor-not-allowed'
+            }`}
+            title={!isConfirmed ? 'Vui lòng xác nhận thông tin trước' : 'Gửi đăng ký OCOP'}
+          >
+            {isConfirmed ? 'GỬI ĐĂNG KÝ ✓' : 'GỬI ĐĂNG KÝ'}
+          </button>
         )}
       </div>
     </form>

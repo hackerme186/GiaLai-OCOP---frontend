@@ -88,7 +88,7 @@ const ProductVus = () => {
     <section className="py-16 bg-white">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <h2 className="text-3xl font-bold text-gray-900 mb-8">Sản phẩm nổi bật</h2>
-        
+
         <div className="relative">
           <div className="flex overflow-hidden">
             <div
@@ -102,7 +102,7 @@ const ProductVus = () => {
                   key={product.id}
                   className="w-full sm:w-1/2 md:w-1/3 lg:w-1/4 flex-shrink-0 px-4"
                 >
-                    <div className="bg-white rounded-lg shadow-md overflow-hidden hover:shadow-xl transition-shadow">
+                  <div className="bg-white rounded-lg shadow-md overflow-hidden hover:shadow-xl transition-shadow h-full flex flex-col">
                     <div className="relative h-56">
                       <Image
                         src={product.imageUrl || '/placeholder-product.jpg'}
@@ -110,17 +110,34 @@ const ProductVus = () => {
                         fill
                         className="object-cover"
                       />
+                      {/* Stock Badge */}
+                      {(product.stockQuantity === 0 || product.stockStatus === 'OutOfStock') && (
+                        <div className="absolute top-2 right-2 bg-red-600 text-white text-xs font-bold px-2 py-1 rounded">
+                          Hết hàng
+                        </div>
+                      )}
+                      {(product.stockQuantity !== undefined && product.stockQuantity > 0 && product.stockQuantity <= 10) && (
+                        <div className="absolute top-2 right-2 bg-yellow-500 text-white text-xs font-bold px-2 py-1 rounded">
+                          Sắp hết
+                        </div>
+                      )}
                     </div>
-                    <div className="p-4">
-                      <h3 className="text-lg font-semibold text-gray-900 mb-2">
+                    <div className="p-4 flex flex-col flex-grow">
+                      <h3 className="text-lg font-semibold text-gray-900 mb-2 line-clamp-1">
                         {product.name}
                       </h3>
-                      <p className="text-gray-600 text-sm mb-4">
+                      <p className="text-gray-600 text-sm mb-4 line-clamp-2 flex-grow">
                         {product.description}
                       </p>
-                      <button className="text-green-600 font-medium hover:text-green-700">
-                        Xem chi tiết →
-                      </button>
+                      <div className="flex items-center justify-between mt-auto">
+                        <span className="text-lg font-bold text-green-600">
+                          {new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(product.price)}
+                          {product.unit ? <span className="text-sm font-normal text-gray-500 ml-1">/{product.unit}</span> : ''}
+                        </span>
+                        <button className="text-green-600 font-medium hover:text-green-700">
+                          Xem chi tiết →
+                        </button>
+                      </div>
                     </div>
                   </div>
                 </div>

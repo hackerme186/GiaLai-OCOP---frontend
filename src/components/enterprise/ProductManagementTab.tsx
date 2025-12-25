@@ -2,15 +2,17 @@
 
 import { useEffect, useState } from "react"
 import Image from "next/image"
-import { getProducts, getCategories, createProduct, updateProduct, deleteProduct, type Product, type Category, type User } from "@/lib/api"
+import { getProducts, getCategories, createProduct, updateProduct, deleteProduct, getCurrentUser, type Product, type Category, type User } from "@/lib/api"
 import ImageUploader from "@/components/upload/ImageUploader"
 import ProductImagesManager from "./ProductImagesManager"
+import { useRouter } from "next/navigation"
 
 interface ProductManagementTabProps {
   user: User | null
 }
 
 export default function ProductManagementTab({ user }: ProductManagementTabProps) {
+  const router = useRouter()
   const [products, setProducts] = useState<Product[]>([])
   const [categories, setCategories] = useState<Category[]>([])
   const [loading, setLoading] = useState(true)
@@ -21,6 +23,7 @@ export default function ProductManagementTab({ user }: ProductManagementTabProps
   const [success, setSuccess] = useState<string | null>(null)
   const [showImagesManager, setShowImagesManager] = useState(false)
   const [selectedProductForImages, setSelectedProductForImages] = useState<Product | null>(null)
+  const [refreshingUser, setRefreshingUser] = useState(false)
 
   // Form state
   const [formData, setFormData] = useState({
@@ -30,6 +33,8 @@ export default function ProductManagementTab({ user }: ProductManagementTabProps
     categoryId: 0,
     imageUrl: "",
     stockStatus: "InStock" as "InStock" | "OutOfStock" | "",
+    unit: "", // 🔹 Add unit
+    stockQuantity: "" as string | number, // 🔹 Add stock quantity
   })
   const [imageFile, setImageFile] = useState<File | null>(null)
   const [imagePreview, setImagePreview] = useState<string | null>(null)
@@ -38,15 +43,45 @@ export default function ProductManagementTab({ user }: ProductManagementTabProps
     loadData()
   }, [])
 
+  const refreshUserInfo = async (): Promise<boolean> => {
+    try {
+      setRefreshingUser(true)
+      const refreshedUser = await getCurrentUser()
+      if (refreshedUser.enterpriseId) {
+        // User info đã được cập nhật, reload trang để nhận user mới
+        window.location.reload()
+        return true
+      }
+      return false
+    } catch (err) {
+      console.error("Failed to refresh user info:", err)
+      return false
+    } finally {
+      setRefreshingUser(false)
+    }
+  }
+
   const loadData = async () => {
     try {
       setLoading(true)
       setError(null)
 
       if (!user?.enterpriseId) {
-        setError("Tài khoản chưa được liên kết với doanh nghiệp. Vui lòng liên hệ quản trị viên.")
-        setLoading(false)
-        return
+        // Thử refresh user info một lần trước khi báo lỗi
+        console.log("⚠️ User chưa có enterpriseId, đang thử refresh user info...")
+        const refreshed = await refreshUserInfo()
+        if (!refreshed) {
+          setError(
+            "Tài khoản chưa được liên kết với doanh nghiệp.\n\n" +
+            "💡 Nếu SystemAdmin vừa duyệt đơn đăng ký OCOP của bạn, vui lòng:\n" +
+            "1. Đăng xuất và đăng nhập lại để nhận token mới\n" +
+            "2. Hoặc nhấn nút 'Làm mới thông tin' bên dưới\n\n" +
+            "Nếu vẫn không được, vui lòng liên hệ quản trị viên."
+          )
+          setLoading(false)
+          return
+        }
+        // Nếu refresh thành công, trang sẽ reload, không cần return
       }
 
       // Load products - backend auto-filters by EnterpriseId from token
@@ -59,15 +94,15 @@ export default function ProductManagementTab({ user }: ProductManagementTabProps
       // Load categories - with fallback for 403 error (EnterpriseAdmin can't access categories endpoint)
       try {
         const categoriesData = await getCategories()
-        
+
         // ✨ FILTER: Only show active categories (IsActive = true)
         const activeCategories = categoriesData.filter(cat => cat.isActive !== false)
-        
+
         console.log(`📋 Loaded ${categoriesData.length} categories, ${activeCategories.length} active`)
         setCategories(activeCategories)
       } catch (catError) {
         console.warn("❌ Cannot load categories from API (403 - permission denied). Extracting from existing products.")
-        
+
         // Fallback: Extract categories from existing products (these are already filtered by backend)
         const uniqueCategories: Category[] = []
         const categoryMap = new Map<number, string>()
@@ -125,14 +160,14 @@ export default function ProductManagementTab({ user }: ProductManagementTabProps
 
   const handleCreate = () => {
     setEditingProduct(null)
-    
+
     // Warn if no active categories available
     if (categories.length === 0) {
       console.warn('⚠️ No active categories available.')
       alert('⚠️ Không có danh mục nào khả dụng.\n\nVui lòng liên hệ SystemAdmin để kích hoạt danh mục sản phẩm.')
       return
     }
-    
+
     // Auto-select first active category
     const defaultCategoryId = categories[0].id
     setFormData({
@@ -142,11 +177,13 @@ export default function ProductManagementTab({ user }: ProductManagementTabProps
       categoryId: defaultCategoryId,
       imageUrl: "",
       stockStatus: "InStock", // Default: Còn hàng
+      unit: "cái", // 🔹 Default unit
+      stockQuantity: 0, // 🔹 Default stock quantity
     })
     setImageFile(null)
     setImagePreview(null)
     setShowModal(true)
-    
+
     console.log(`📝 Creating new product with default category: ${categories[0].name} (ID: ${defaultCategoryId})`)
   }
 
@@ -159,6 +196,7 @@ export default function ProductManagementTab({ user }: ProductManagementTabProps
       categoryId: product.categoryId || 0,
       imageUrl: product.imageUrl || "",
       stockStatus: (product.stockStatus || "InStock") as "InStock" | "OutOfStock" | "",
+      unit: product.unit || "cái", // 🔹 Populate unit
     })
     setImageFile(null)
     setImagePreview(product.imageUrl || null)
@@ -208,7 +246,20 @@ export default function ProductManagementTab({ user }: ProductManagementTabProps
       setError("Vui lòng chọn danh mục sản phẩm")
       return
     }
+    if (!formData.unit.trim()) {
+      setError("Vui lòng nhập đơn vị tính")
+      return
+    }
     
+    // Validate stock quantity
+    const stockQuantity = typeof formData.stockQuantity === 'string' 
+      ? parseFloat(formData.stockQuantity) 
+      : formData.stockQuantity
+    if (stockQuantity === undefined || stockQuantity === null || stockQuantity < 0) {
+      setError("Vui lòng nhập số lượng tồn kho hợp lệ (>= 0)")
+      return
+    }
+
     // Verify selected category is still active
     const selectedCategory = categories.find(cat => cat.id === formData.categoryId)
     if (!selectedCategory) {
@@ -220,7 +271,7 @@ export default function ProductManagementTab({ user }: ProductManagementTabProps
     try {
       // Handle image: use uploaded file (base64) or existing URL
       let finalImageUrl = formData.imageUrl.trim()
-      
+
       if (imageFile) {
         // Convert file to base64
         const base64Image = await new Promise<string>((resolve, reject) => {
@@ -237,15 +288,18 @@ export default function ProductManagementTab({ user }: ProductManagementTabProps
         // If editing and no new file/URL selected, keep existing image
         finalImageUrl = editingProduct.imageUrl
       }
-      
+
       // Prepare payload with validated price and default imageUrl if empty
       const payload = {
         ...formData,
         price: typeof formData.price === 'string' ? parseFloat(formData.price) : formData.price,
+        stockQuantity: typeof formData.stockQuantity === 'string' 
+          ? parseFloat(formData.stockQuantity) 
+          : (formData.stockQuantity ?? 0),
         imageUrl: finalImageUrl || '/hero.jpg', // Use default if empty
         stockStatus: formData.stockStatus || "InStock" // Default to InStock if empty
       }
-      
+
       console.log('📤 Sending product payload:', payload)
       console.log('📸 ImageUrl:', payload.imageUrl)
       console.log('📦 StockStatus:', payload.stockStatus)
@@ -279,11 +333,11 @@ export default function ProductManagementTab({ user }: ProductManagementTabProps
       await loadData() // Reload to get latest data
     } catch (err) {
       console.error('❌ Error creating/updating product:', err)
-      
+
       let errorMessage = "Có lỗi xảy ra"
       if (err instanceof Error) {
         errorMessage = err.message
-        
+
         // Parse backend validation errors (400 Bad Request)
         if (errorMessage.includes("400")) {
           // Try to extract more specific error info
@@ -298,7 +352,7 @@ export default function ProductManagementTab({ user }: ProductManagementTabProps
           }
         }
       }
-      
+
       setError(errorMessage)
       setTimeout(() => setError(null), 8000)
     }
@@ -344,24 +398,67 @@ export default function ProductManagementTab({ user }: ProductManagementTabProps
       )}
 
       {error && (
-        <div className="bg-red-50 border-2 border-red-200 text-red-800 rounded-lg p-4 flex items-center gap-3">
-          <svg className="w-5 h-5 text-red-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-          </svg>
-          <span className="font-medium">{error}</span>
+        <div className="bg-red-50 border-2 border-red-200 text-red-800 rounded-lg p-6">
+          <div className="flex items-start gap-3 mb-4">
+            <svg className="w-6 h-6 text-red-600 flex-shrink-0 mt-0.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+            </svg>
+            <div className="flex-1">
+              <h3 className="font-bold text-red-900 mb-2">Không thể tải dữ liệu</h3>
+              <pre className="text-sm whitespace-pre-wrap font-sans">{error}</pre>
+            </div>
+          </div>
+          {error.includes("chưa được liên kết với doanh nghiệp") && (
+            <div className="flex gap-3 mt-4">
+              <button
+                onClick={refreshUserInfo}
+                disabled={refreshingUser}
+                className="px-4 py-2 bg-blue-600 text-white rounded-lg font-medium hover:bg-blue-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
+              >
+                {refreshingUser ? (
+                  <>
+                    <div className="animate-spin rounded-full h-4 w-4 border-2 border-white border-t-transparent"></div>
+                    <span>Đang làm mới...</span>
+                  </>
+                ) : (
+                  <>
+                    <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+                    </svg>
+                    <span>Làm mới thông tin</span>
+                  </>
+                )}
+              </button>
+              <button
+                onClick={() => {
+                  if (confirm("Bạn sẽ được chuyển đến trang đăng nhập. Sau khi đăng nhập lại, bạn sẽ có thể tạo sản phẩm.")) {
+                    router.push("/login?redirect=/enterprise-admin?tab=products")
+                  }
+                }}
+                className="px-4 py-2 bg-green-600 text-white rounded-lg font-medium hover:bg-green-700 transition-colors flex items-center gap-2"
+              >
+                <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />
+                </svg>
+                <span>Đăng nhập lại</span>
+              </button>
+            </div>
+          )}
         </div>
       )}
 
-      {/* Header Section */}
+
+      {/* Header */}
       <div className="bg-gradient-to-r from-green-600 via-emerald-600 to-teal-600 rounded-2xl shadow-xl p-8 text-white">
-        <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
+        <div className="flex items-center justify-between mb-6">
           <div>
             <h2 className="text-3xl font-bold mb-2 drop-shadow-lg">📦 Quản lý sản phẩm</h2>
-            <p className="text-white/90 text-lg">Tạo, chỉnh sửa và quản lý sản phẩm của doanh nghiệp</p>
+            <p className="text-green-100 text-lg">Tạo, chỉnh sửa và quản lý sản phẩm của doanh nghiệp</p>
           </div>
           <button
             onClick={handleCreate}
-            className="inline-flex items-center gap-2 px-6 py-3 bg-white/20 backdrop-blur-sm text-white rounded-xl hover:bg-white/30 transition-all shadow-lg hover:shadow-xl transform hover:-translate-y-0.5 font-semibold"
+            className="px-6 py-3 bg-white/20 backdrop-blur-sm text-white rounded-xl font-semibold hover:bg-white/30 transition-all shadow-lg hover:shadow-xl transform hover:-translate-y-0.5 flex items-center gap-2"
+
           >
             <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
@@ -373,7 +470,7 @@ export default function ProductManagementTab({ user }: ProductManagementTabProps
 
       {/* Filter Tabs */}
       <div className="bg-white rounded-xl shadow-lg p-6">
-        <div className="flex gap-2 border-b border-gray-200">
+        <div className="flex gap-2 flex-wrap">
           {[
             { id: "all" as const, label: "Tất cả" },
             { id: "Approved" as const, label: "Đã duyệt" },
@@ -383,9 +480,9 @@ export default function ProductManagementTab({ user }: ProductManagementTabProps
             <button
               key={tab.id}
               onClick={() => setFilter(tab.id)}
-              className={`px-4 py-2 font-medium text-sm border-b-2 transition-colors ${filter === tab.id
-                  ? "border-green-600 text-green-600"
-                  : "border-transparent text-gray-500 hover:text-gray-700"
+              className={`px-5 py-2.5 font-medium text-sm rounded-lg transition-all ${filter === tab.id
+                ? "bg-green-600 text-white shadow-lg"
+                : "bg-gray-100 text-gray-700 hover:bg-gray-200"
                 }`}
             >
               {tab.label} ({tab.id === "all" ? products.length : products.filter(p => p.status === tab.id).length})
@@ -421,21 +518,24 @@ export default function ProductManagementTab({ user }: ProductManagementTabProps
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
           {filteredProducts.map((product) => (
-            <div key={product.id} className="bg-white rounded-2xl shadow-lg overflow-hidden hover:shadow-2xl transition-all duration-300 transform hover:-translate-y-2 border-2 border-gray-200">
+
+            <div key={product.id} className="bg-white rounded-2xl shadow-lg overflow-hidden hover:shadow-2xl transition-all duration-300 transform hover:-translate-y-2 border border-gray-100 group">
+
               {/* Product Image */}
-              <div className="relative h-48 bg-gray-200">
+              <div className="relative h-48 bg-gradient-to-br from-gray-100 to-gray-200 overflow-hidden">
                 <Image
                   src={product.imageUrl || "/hero.jpg"}
                   alt={product.name}
                   fill
-                  className="object-cover"
+                  className="object-cover group-hover:scale-110 transition-transform duration-300"
                 />
+                <div className="absolute inset-0 bg-gradient-to-t from-black/20 to-transparent opacity-0 group-hover:opacity-100 transition-opacity"></div>
                 <div className="absolute top-3 right-3">
                   {getStatusBadge(product.status || "PendingApproval")}
                 </div>
                 {product.ocopRating && (
                   <div className="absolute top-3 left-3">
-                    <span className="px-2 py-1 bg-yellow-500 text-white text-xs font-bold rounded-full flex items-center gap-1">
+                    <span className="px-3 py-1.5 bg-gradient-to-r from-yellow-400 to-yellow-500 text-white text-xs font-bold rounded-full flex items-center gap-1 shadow-lg">
                       ⭐ {product.ocopRating}
                     </span>
                   </div>
@@ -443,16 +543,16 @@ export default function ProductManagementTab({ user }: ProductManagementTabProps
               </div>
 
               {/* Product Info */}
-              <div className="p-5">
-                <h3 className="text-lg font-bold text-gray-900 mb-2 line-clamp-2">{product.name}</h3>
-                <p className="text-gray-600 text-sm mb-3 line-clamp-2">{product.description}</p>
+              <div className="p-6">
+                <h3 className="text-lg font-bold text-gray-900 mb-2 line-clamp-2 group-hover:text-green-600 transition-colors">{product.name}</h3>
+                <p className="text-gray-600 text-sm mb-4 line-clamp-2">{product.description}</p>
 
-                <div className="flex items-center justify-between mb-4">
-                  <span className="text-xl font-bold text-green-600">
-                    {product.price.toLocaleString("vi-VN")}₫
+                <div className="flex items-center justify-between mb-4 pb-4 border-b border-gray-100">
+                  <span className="text-2xl font-bold bg-gradient-to-r from-green-600 to-emerald-600 bg-clip-text text-transparent">
+                    {product.price.toLocaleString("vi-VN")}₫/{product.unit || 'cái'}
                   </span>
                   {product.categoryName && (
-                    <span className="text-xs text-gray-500 bg-gray-100 px-2 py-1 rounded">
+                    <span className="text-xs text-gray-600 bg-gray-100 px-3 py-1.5 rounded-full font-medium">
                       {product.categoryName}
                     </span>
                   )}
@@ -462,7 +562,7 @@ export default function ProductManagementTab({ user }: ProductManagementTabProps
                 <div className="flex gap-2">
                   <button
                     onClick={() => handleEdit(product)}
-                    className="flex-1 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors text-sm font-medium flex items-center justify-center gap-2"
+                    className="flex-1 px-4 py-2.5 bg-gradient-to-r from-blue-500 to-blue-600 text-white rounded-lg hover:from-blue-600 hover:to-blue-700 transition-all shadow-md hover:shadow-lg text-sm font-medium flex items-center justify-center gap-2"
                   >
                     <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
@@ -474,7 +574,7 @@ export default function ProductManagementTab({ user }: ProductManagementTabProps
                       setSelectedProductForImages(product)
                       setShowImagesManager(true)
                     }}
-                    className="px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition-colors text-sm font-medium flex items-center justify-center"
+                    className="px-4 py-2.5 bg-gradient-to-r from-indigo-500 to-indigo-600 text-white rounded-lg hover:from-indigo-600 hover:to-indigo-700 transition-all shadow-md hover:shadow-lg text-sm font-medium flex items-center justify-center"
                     title="Quản lý ảnh"
                   >
                     <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -483,7 +583,7 @@ export default function ProductManagementTab({ user }: ProductManagementTabProps
                   </button>
                   <button
                     onClick={() => handleDelete(product.id)}
-                    className="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors text-sm font-medium flex items-center justify-center"
+                    className="px-4 py-2.5 bg-gradient-to-r from-red-500 to-red-600 text-white rounded-lg hover:from-red-600 hover:to-red-700 transition-all shadow-md hover:shadow-lg text-sm font-medium flex items-center justify-center"
                   >
                     <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
@@ -548,8 +648,8 @@ export default function ProductManagementTab({ user }: ProductManagementTabProps
                 />
               </div>
 
-              {/* Price & Category */}
-              <div className="grid grid-cols-2 gap-4">
+              {/* Price & Unit & Category */}
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
                 <div>
                   <label className="block text-sm font-semibold text-gray-900 mb-2">
                     Giá (VNĐ) <span className="text-red-500">*</span>
@@ -559,11 +659,35 @@ export default function ProductManagementTab({ user }: ProductManagementTabProps
                     value={formData.price}
                     onChange={(e) => setFormData({ ...formData, price: e.target.value })}
                     className="w-full px-4 py-3 border-2 border-gray-200 rounded-lg focus:border-green-500 focus:ring-2 focus:ring-green-200 transition-all"
-                    placeholder="Nhập giá sản phẩm"
+                    placeholder="Nhập giá"
                     min="0"
                     step="1000"
                     required
                   />
+                </div>
+
+                {/* 🔹 Unit Input */}
+                <div>
+                  <label className="block text-sm font-semibold text-gray-900 mb-2">
+                    Đơn vị tính <span className="text-red-500">*</span>
+                  </label>
+                  <input
+                    type="text"
+                    value={formData.unit}
+                    onChange={(e) => setFormData({ ...formData, unit: e.target.value })}
+                    className="w-full px-4 py-3 border-2 border-gray-200 rounded-lg focus:border-green-500 focus:ring-2 focus:ring-green-200 transition-all"
+                    placeholder="VD: cái, kg, hộp"
+                    required
+                    list="units"
+                  />
+                  <datalist id="units">
+                    <option value="cái" />
+                    <option value="kg" />
+                    <option value="lít" />
+                    <option value="hộp" />
+                    <option value="gói" />
+                    <option value="chai" />
+                  </datalist>
                 </div>
 
                 <div>
@@ -576,30 +700,31 @@ export default function ProductManagementTab({ user }: ProductManagementTabProps
                     className="w-full px-4 py-3 border-2 border-gray-200 rounded-lg focus:border-green-500 focus:ring-2 focus:ring-green-200 transition-all"
                     required
                   >
-                    <option value={0} disabled>-- Chọn danh mục --</option>
+                    <option value={0} disabled>-- Chọn --</option>
                     {categories.map((cat) => (
                       <option key={cat.id} value={cat.id}>
                         {cat.name}
                       </option>
                     ))}
                   </select>
-                  {categories.length === 0 && (
-                    <p className="text-xs text-red-600 mt-1">
-                      ⚠️ Không có danh mục khả dụng. Vui lòng liên hệ quản trị viên.
-                    </p>
-                  )}
-                  <p className="text-xs text-gray-500 mt-1">
-                    💡 Chỉ hiển thị danh mục đã được SystemAdmin kích hoạt
-                  </p>
                 </div>
               </div>
+              {categories.length === 0 && (
+                <p className="text-xs text-red-600 mt-1">
+                  ⚠️ Không có danh mục khả dụng. Vui lòng liên hệ quản trị viên.
+                </p>
+              )}
+              <p className="text-xs text-gray-500 mt-1">
+                💡 Chỉ hiển thị danh mục đã được SystemAdmin kích hoạt
+              </p>
+
 
               {/* Image Upload */}
               <div>
                 <label className="block text-sm font-semibold text-gray-900 mb-2">
                   Hình ảnh sản phẩm
                 </label>
-                
+
                 {/* Image Preview */}
                 {(imagePreview || (editingProduct && editingProduct.imageUrl)) && (
                   <div className="mb-3">
@@ -627,7 +752,7 @@ export default function ProductManagementTab({ user }: ProductManagementTabProps
                     </div>
                   </div>
                 )}
-                
+
                 {/* File Input */}
                 <div className="relative">
                   <input
@@ -636,14 +761,14 @@ export default function ProductManagementTab({ user }: ProductManagementTabProps
                     onChange={(e) => {
                       const file = e.target.files?.[0]
                       if (!file) return
-                      
+
                       // Validate file type
                       if (!file.type.match(/^image\//)) {
                         setError("Vui lòng chọn file ảnh hợp lệ (JPG, PNG, GIF, etc.)")
                         setTimeout(() => setError(null), 5000)
                         return
                       }
-                      
+
                       // Validate file size (5 MB)
                       const maxSize = 5 * 1024 * 1024 // 5 MB
                       if (file.size > maxSize) {
@@ -651,7 +776,7 @@ export default function ProductManagementTab({ user }: ProductManagementTabProps
                         setTimeout(() => setError(null), 5000)
                         return
                       }
-                      
+
                       // Create preview
                       const reader = new FileReader()
                       reader.onloadend = () => {
@@ -686,7 +811,7 @@ export default function ProductManagementTab({ user }: ProductManagementTabProps
                     </div>
                   </label>
                 </div>
-                
+
                 {/* Alternative: URL Input (optional) */}
                 <div className="mt-3">
                   <details className="group">
@@ -710,30 +835,54 @@ export default function ProductManagementTab({ user }: ProductManagementTabProps
                     </div>
                   </details>
                 </div>
-                
+
                 <p className="text-xs text-gray-500 mt-2">
                   📸 Để trống nếu không có ảnh, hệ thống sẽ dùng ảnh mặc định
                 </p>
               </div>
 
-              {/* Stock Status */}
-              <div>
-                <label className="block text-sm font-semibold text-gray-900 mb-2">
-                  Tình trạng kho <span className="text-red-500">*</span>
-                </label>
-                <select
-                  value={formData.stockStatus}
-                  onChange={(e) => setFormData({ ...formData, stockStatus: e.target.value as "InStock" | "OutOfStock" | "" })}
-                  className="w-full px-4 py-3 border-2 border-gray-200 rounded-lg focus:border-green-500 focus:ring-2 focus:ring-green-200 transition-all"
-                  required
-                >
-                  <option value="">Không xác định</option>
-                  <option value="InStock">Còn hàng</option>
-                  <option value="OutOfStock">Hết hàng</option>
-                </select>
-                <p className="text-xs text-gray-500 mt-1">
-                  📦 Cập nhật trạng thái tồn kho của sản phẩm
-                </p>
+              {/* Stock Status & Stock Quantity */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-sm font-semibold text-gray-900 mb-2">
+                    Tình trạng kho <span className="text-red-500">*</span>
+                  </label>
+                  <select
+                    value={formData.stockStatus}
+                    onChange={(e) => setFormData({ ...formData, stockStatus: e.target.value as "InStock" | "OutOfStock" | "" })}
+                    className="w-full px-4 py-3 border-2 border-gray-200 rounded-lg focus:border-green-500 focus:ring-2 focus:ring-green-200 transition-all"
+                    required
+                  >
+                    <option value="">Không xác định</option>
+                    <option value="InStock">Còn hàng</option>
+                    <option value="OutOfStock">Hết hàng</option>
+                  </select>
+                  <p className="text-xs text-gray-500 mt-1">
+                    📦 Trạng thái tồn kho
+                  </p>
+                </div>
+                
+                <div>
+                  <label className="block text-sm font-semibold text-gray-900 mb-2">
+                    Số lượng tồn kho <span className="text-red-500">*</span>
+                  </label>
+                  <input
+                    type="number"
+                    value={formData.stockQuantity}
+                    onChange={(e) => {
+                      const value = e.target.value === '' ? '' : parseFloat(e.target.value)
+                      setFormData({ ...formData, stockQuantity: value })
+                    }}
+                    className="w-full px-4 py-3 border-2 border-gray-200 rounded-lg focus:border-green-500 focus:ring-2 focus:ring-green-200 transition-all"
+                    placeholder="Nhập số lượng"
+                    min="0"
+                    step="0.01"
+                    required
+                  />
+                  <p className="text-xs text-gray-500 mt-1">
+                    📊 Số lượng hàng tồn kho hiện có
+                  </p>
+                </div>
               </div>
 
               {/* Notice */}
@@ -772,22 +921,25 @@ export default function ProductManagementTab({ user }: ProductManagementTabProps
                 </button>
               </div>
             </form>
-          </div>
-        </div>
-      )}
+          </div >
+        </div >
+      )
+      }
 
       {/* Product Images Manager Modal */}
-      {showImagesManager && selectedProductForImages && (
-        <ProductImagesManager
-          productId={selectedProductForImages.id}
-          productName={selectedProductForImages.name}
-          onClose={() => {
-            setShowImagesManager(false)
-            setSelectedProductForImages(null)
-          }}
-        />
-      )}
-    </div>
+      {
+        showImagesManager && selectedProductForImages && (
+          <ProductImagesManager
+            productId={selectedProductForImages.id}
+            productName={selectedProductForImages.name}
+            onClose={() => {
+              setShowImagesManager(false)
+              setSelectedProductForImages(null)
+            }}
+          />
+        )
+      }
+    </div >
   )
 }
 

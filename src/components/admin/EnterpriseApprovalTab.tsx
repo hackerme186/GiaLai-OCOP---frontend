@@ -5,7 +5,12 @@ import {
   EnterpriseApplication,
   approveEnterpriseApplication,
   getEnterpriseApplications,
-  rejectEnterpriseApplication
+  rejectEnterpriseApplication,
+  createProductForEnterprise,
+  getUser,
+  getCategories,
+  type Category,
+  type CreateProductDto
 } from "@/lib/api"
 
 const PAGE_SIZE = 10
@@ -91,11 +96,120 @@ export default function EnterpriseApprovalTab() {
 
   const handleApprove = async (id: number) => {
     if (!confirm("Bạn có chắc chắn muốn duyệt hồ sơ này?")) return
+    
+    // Tìm application data trước khi approve
+    const application = applications.find(app => app.id === id)
+    if (!application) {
+      alert("Không tìm thấy thông tin đơn đăng ký")
+      return
+    }
+
     try {
+      // Bước 1: Duyệt đơn đăng ký OCOP
       await approveEnterpriseApplication(id)
-      alert("Đã duyệt thành công!")
+      console.log("✅ Đã duyệt đơn đăng ký OCOP:", id)
+
+      // Bước 2: Lấy thông tin user để lấy enterpriseId
+      let enterpriseId: number | undefined
+      try {
+        const user = await getUser(application.userId)
+        enterpriseId = user.enterpriseId
+        console.log("✅ Lấy được enterpriseId:", enterpriseId)
+      } catch (userErr) {
+        console.warn("⚠️ Không thể lấy enterpriseId từ user:", userErr)
+        // Có thể backend chưa tạo enterprise ngay, đợi một chút
+        await new Promise(resolve => setTimeout(resolve, 1000))
+        try {
+          const user = await getUser(application.userId)
+          enterpriseId = user.enterpriseId
+          console.log("✅ Lấy được enterpriseId sau khi đợi:", enterpriseId)
+        } catch (retryErr) {
+          console.error("❌ Vẫn không lấy được enterpriseId:", retryErr)
+        }
+      }
+
+      // Bước 3: Tạo sản phẩm từ thông tin trong application
+      if (application.productName && enterpriseId) {
+        try {
+          // Tìm categoryId từ productCategory name
+          let categoryId: number | undefined
+          if (application.productCategory) {
+            try {
+              const categories = await getCategories(true) // Chỉ lấy active categories
+              const category = categories.find(
+                cat => cat.name.toLowerCase().trim() === application.productCategory.toLowerCase().trim()
+              )
+              if (category) {
+                categoryId = category.id
+                console.log("✅ Tìm thấy categoryId:", categoryId, "cho category:", application.productCategory)
+              } else {
+                console.warn("⚠️ Không tìm thấy category với tên:", application.productCategory)
+              }
+            } catch (catErr) {
+              console.warn("⚠️ Không thể load categories:", catErr)
+            }
+          }
+
+          // Lấy hình ảnh đầu tiên từ productImages (comma-separated)
+          const productImageUrl = application.productImages 
+            ? application.productImages.split(',')[0].trim() 
+            : undefined
+
+          // Tạo sản phẩm với status "PendingApproval" để SystemAdmin có thể duyệt
+          const productData: CreateProductDto = {
+            name: application.productName,
+            description: application.productDescription || "",
+            price: 0, // Giá mặc định, có thể cập nhật sau
+            unit: "cái", // Đơn vị mặc định, có thể cập nhật sau
+            imageUrl: productImageUrl,
+            stockStatus: "InStock",
+            categoryId: categoryId,
+            enterpriseId: enterpriseId, // Gán enterpriseId để sản phẩm thuộc về enterprise đã được duyệt
+            // Không set ocopRating ở đây, để SystemAdmin quyết định khi duyệt
+          }
+
+          console.log("📤 Tạo sản phẩm từ đơn đăng ký OCOP:", {
+            ...productData,
+            enterpriseId: enterpriseId,
+          })
+          
+          // Tạo sản phẩm sử dụng API dành cho SystemAdmin
+          // API: POST /api/products/enterprise/{enterpriseId}
+          const createdProduct = await createProductForEnterprise(enterpriseId, productData)
+          console.log("✅ Đã tạo sản phẩm:", createdProduct)
+
+          // Kiểm tra xem sản phẩm đã có enterpriseId chưa
+          if (createdProduct && createdProduct.enterpriseId) {
+            console.log("✅ Sản phẩm đã được gán enterpriseId:", createdProduct.enterpriseId)
+          } else {
+            console.warn("⚠️ Sản phẩm chưa có enterpriseId. Backend có thể cần xử lý để gán enterpriseId cho sản phẩm này.")
+            console.warn("⚠️ EnterpriseId cần gán:", enterpriseId)
+          }
+
+          alert("Đã duyệt thành công và tạo sản phẩm! Sản phẩm đã được chuyển vào phần duyệt sản phẩm.")
+        } catch (productErr) {
+          console.error("❌ Lỗi khi tạo sản phẩm:", productErr)
+          // Vẫn báo thành công duyệt đơn, nhưng cảnh báo về sản phẩm
+          alert(
+            "Đã duyệt thành công!\n\n" +
+            "⚠️ Lưu ý: Không thể tự động tạo sản phẩm. " +
+            "Vui lòng tạo sản phẩm thủ công hoặc kiểm tra lại thông tin đơn đăng ký.\n\n" +
+            "Lỗi: " + (productErr instanceof Error ? productErr.message : "Lỗi không xác định")
+          )
+        }
+      } else {
+        if (!application.productName) {
+          console.warn("⚠️ Đơn đăng ký không có thông tin sản phẩm")
+        }
+        if (!enterpriseId) {
+          console.warn("⚠️ Không lấy được enterpriseId, không thể tạo sản phẩm")
+        }
+        alert("Đã duyệt thành công!\n\n⚠️ Lưu ý: Không thể tự động tạo sản phẩm do thiếu thông tin.")
+      }
+
       await loadApplications()
     } catch (err) {
+      console.error("❌ Lỗi khi duyệt đơn đăng ký:", err)
       alert(
         "Duyệt thất bại: " + (err instanceof Error ? err.message : "Lỗi không xác định")
       )
@@ -375,13 +489,41 @@ export default function EnterpriseApprovalTab() {
 
                   {/* Product Info */}
                   {item.productName && (
-                    <div className="flex items-start gap-3">
-                      <svg className="w-5 h-5 text-gray-400 mt-0.5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4" />
-                      </svg>
-                      <div className="flex-1">
-                        <p className="text-sm font-semibold text-gray-700 mb-1">Sản phẩm OCOP</p>
-                        <p className="text-sm text-gray-600 line-clamp-2">{item.productName}</p>
+                    <div className="bg-gradient-to-r from-green-50 to-emerald-50 border border-green-200 rounded-xl p-4">
+                      <div className="flex items-center gap-2 mb-3">
+                        <svg className="w-5 h-5 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4" />
+                        </svg>
+                        <p className="text-sm font-bold text-green-800">Sản phẩm đại diện</p>
+                      </div>
+                      <div className="space-y-2">
+                        <p className="text-sm font-semibold text-gray-900">{item.productName}</p>
+                        {item.productCategory && (
+                          <span className="inline-block px-2 py-1 bg-green-100 text-green-700 rounded-lg text-xs font-medium">
+                            {item.productCategory}
+                          </span>
+                        )}
+                        {item.productDescription && (
+                          <p className="text-xs text-gray-600 line-clamp-2">{item.productDescription}</p>
+                        )}
+                        {item.productImages && (
+                          <div className="flex gap-2 mt-2">
+                            {item.productImages.split(',').slice(0, 3).map((url, idx) => (
+                              <img
+                                key={idx}
+                                src={url.trim()}
+                                alt={`Product ${idx + 1}`}
+                                className="w-16 h-16 object-cover rounded-lg border border-green-200"
+                                onError={(e) => { (e.target as HTMLImageElement).style.display = 'none' }}
+                              />
+                            ))}
+                            {item.productImages.split(',').length > 3 && (
+                              <div className="w-16 h-16 bg-green-100 rounded-lg flex items-center justify-center text-green-700 text-xs font-semibold">
+                                +{item.productImages.split(',').length - 3}
+                              </div>
+                            )}
+                          </div>
+                        )}
                       </div>
                     </div>
                   )}

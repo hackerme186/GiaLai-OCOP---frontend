@@ -1,6 +1,7 @@
 "use client"
 import { useState, useEffect } from 'react'
 import Image from 'next/image'
+import Link from 'next/link'
 import { isValidImageUrl, getImageUrl, getImageAttributes } from '@/lib/imageUtils'
 
 interface HeroSlide {
@@ -20,7 +21,7 @@ const defaultSlides: HeroSlide[] = [
     title: 'Cà Phê Gia Lai',
     subtitle: 'Tinh hoa đất Tây Nguyên',
     description: 'Khám phá ngay',
-    image: '/coffee gia lai.jpg',
+    image: '/coffee-gia-lai.jpg',
     textPosition: 'left'
   },
   {
@@ -28,7 +29,7 @@ const defaultSlides: HeroSlide[] = [
     title: 'Đặc sản Bình Định',
     subtitle: 'Nem chợ Huyện - Bánh tráng An Thái',
     description: 'Xem thêm',
-    image: '/nem chua cho huyen.png',
+    image: '/nem-chua-cho-huyen.png',
     textPosition: 'right'
   },
   {
@@ -36,7 +37,7 @@ const defaultSlides: HeroSlide[] = [
     title: 'Hạt điều - Tiêu Gia Lai',
     subtitle: 'Vị ngon đậm đà',
     description: 'Mua ngay',
-    image: '/hat dieu - tieu.png',
+    image: '/hat-dieu-tieu.png',
     textPosition: 'left'
   }
 ]
@@ -89,36 +90,46 @@ const HeroSlider = () => {
       {slides.map((slide, index) => (
         <div
           key={slide.id}
-          className={`absolute inset-0 transition-opacity duration-1000 ${
-            index === currentSlide ? 'opacity-100' : 'opacity-0'
-          }`}
+          className={`absolute inset-0 transition-opacity duration-1000 ${index === currentSlide ? 'opacity-100' : 'opacity-0'
+            }`}
         >
-          <Image
-            src={isValidImageUrl(slide.image) ? getImageUrl(slide.image) : '/hero.jpg'}
-            alt={slide.title}
-            fill
-            className="object-cover"
-            priority={index === 0}
-            {...getImageAttributes(slide.image)}
-            unoptimized
-            sizes="100vw"
-            onError={(e) => {
-              const target = e.target as HTMLImageElement
-              if (!target.src.includes('hero.jpg')) {
-                target.src = '/hero.jpg'
-              }
-            }}
-          />
+          {(() => {
+            const imageAttrs = getImageAttributes(slide.image)
+            // Remove 'loading' if priority is set, as they conflict
+            const { loading, ...restAttrs } = imageAttrs
+            const finalAttrs = index === 0 ? restAttrs : imageAttrs
+
+            return (
+              <Image
+                src={isValidImageUrl(slide.image) ? getImageUrl(slide.image) : '/hero.jpg'}
+                alt={slide.title}
+                fill
+                className="object-cover"
+                priority={index === 0}
+                {...finalAttrs}
+                unoptimized
+                sizes="100vw"
+                onError={(e) => {
+                  const target = e.target as HTMLImageElement
+                  if (!target.src.includes('hero.jpg')) {
+                    target.src = '/hero.jpg'
+                  }
+                }}
+              />
+            )
+          })()}
           <div className="absolute inset-0 bg-gradient-to-r from-black/50 to-transparent" />
-          <div className={`absolute inset-0 flex items-center ${
-            slide.textPosition === 'right' ? 'justify-end pr-12' : 'justify-start pl-12'
-          } p-12`}>
+          <div className={`absolute inset-0 flex items-center ${slide.textPosition === 'right' ? 'justify-end pr-12' : 'justify-start pl-12'
+            } p-12`}>
             <div className="text-white max-w-xl">
               <h1 className="text-5xl font-bold mb-2">{slide.title}</h1>
               <h2 className="text-4xl font-semibold mb-6">{slide.subtitle}</h2>
-              <button className="bg-green-600 text-white px-8 py-4 rounded-md text-lg font-medium hover:bg-green-700 transition-colors">
+              <Link
+                href="/products"
+                className="inline-block bg-green-600 text-white px-8 py-4 rounded-md text-lg font-medium hover:bg-green-700 transition-colors"
+              >
                 {slide.description}
-              </button>
+              </Link>
             </div>
           </div>
         </div>
@@ -129,9 +140,8 @@ const HeroSlider = () => {
         {slides.map((_, index) => (
           <button
             key={index}
-            className={`w-4 h-4 rounded-full transition-colors ${
-              index === currentSlide ? 'bg-white' : 'bg-white/50'
-            }`}
+            className={`w-4 h-4 rounded-full transition-colors ${index === currentSlide ? 'bg-white' : 'bg-white/50'
+              }`}
             onClick={() => setCurrentSlide(index)}
           />
         ))}
