@@ -402,18 +402,30 @@ export default function OcopApprovalTab() {
                     </div>
                   )}
 
-                  {/* Stock Status */}
-                  {item.stockStatus && (
-                    <div className="flex items-center gap-2">
-                      <span className={`px-3 py-1 rounded-full text-xs font-semibold ${
-                        item.stockStatus === "InStock"
-                          ? "bg-green-100 text-green-800 border border-green-300"
-                          : "bg-red-100 text-red-800 border border-red-300"
-                      }`}>
-                        {item.stockStatus === "InStock" ? "✓ Còn hàng" : "✗ Hết hàng"}
-                      </span>
-                    </div>
-                  )}
+                  {/* Stock Status & Stock Quantity */}
+                  <div className="space-y-2">
+                    {item.stockStatus && (
+                      <div className="flex items-center gap-2">
+                        <span className={`px-3 py-1 rounded-full text-xs font-semibold ${
+                          item.stockStatus === "InStock"
+                            ? "bg-green-100 text-green-800 border border-green-300"
+                            : "bg-red-100 text-red-800 border border-red-300"
+                        }`}>
+                          {item.stockStatus === "InStock" ? "✓ Còn hàng" : "✗ Hết hàng"}
+                        </span>
+                      </div>
+                    )}
+                    {item.stockQuantity !== undefined && item.stockQuantity !== null && (
+                      <div className="flex items-center gap-2">
+                        <svg className="w-4 h-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4" />
+                        </svg>
+                        <span className="text-sm text-gray-700 font-medium">
+                          Số lượng tồn kho: <span className="font-bold text-gray-900">{item.stockQuantity}</span> {item.unit || 'cái'}
+                        </span>
+                      </div>
+                    )}
+                  </div>
 
                   {/* Actions */}
                   <div className="pt-4 border-t border-gray-200">
@@ -631,6 +643,19 @@ export default function OcopApprovalTab() {
                         ? "✗ Hết hàng"
                         : selectedProduct.stockStatus || "Không xác định"}
                     </span>
+                  </div>
+
+                  <div className="bg-gradient-to-br from-blue-50 to-indigo-50 rounded-xl p-4 border-2 border-blue-200 shadow-sm">
+                    <label className="block text-xs font-bold text-gray-500 uppercase tracking-wide mb-2">
+                      Số lượng hàng tồn kho
+                    </label>
+                    {selectedProduct.stockQuantity !== undefined && selectedProduct.stockQuantity !== null ? (
+                      <p className="text-xl text-blue-600 font-bold">
+                        {selectedProduct.stockQuantity} {selectedProduct.unit || 'cái'}
+                      </p>
+                    ) : (
+                      <p className="text-base text-gray-500 italic">Chưa cập nhật</p>
+                    )}
                   </div>
 
                   <div className="bg-gradient-to-br from-yellow-50 to-amber-50 rounded-xl p-4 border-2 border-yellow-200 shadow-sm">

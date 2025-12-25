@@ -282,6 +282,9 @@ export default function ProductManagementTab({ user }: ProductManagementTabProps
       const payload = {
         ...formData,
         price: typeof formData.price === 'string' ? parseFloat(formData.price) : formData.price,
+        stockQuantity: typeof formData.stockQuantity === 'string' 
+          ? parseFloat(formData.stockQuantity) 
+          : (formData.stockQuantity ?? 0),
         imageUrl: finalImageUrl || '/hero.jpg', // Use default if empty
         stockStatus: formData.stockStatus || "InStock" // Default to InStock if empty
       }
@@ -827,24 +830,48 @@ export default function ProductManagementTab({ user }: ProductManagementTabProps
                 </p>
               </div>
 
-              {/* Stock Status */}
-              <div>
-                <label className="block text-sm font-semibold text-gray-900 mb-2">
-                  Tình trạng kho <span className="text-red-500">*</span>
-                </label>
-                <select
-                  value={formData.stockStatus}
-                  onChange={(e) => setFormData({ ...formData, stockStatus: e.target.value as "InStock" | "OutOfStock" | "" })}
-                  className="w-full px-4 py-3 border-2 border-gray-200 rounded-lg focus:border-green-500 focus:ring-2 focus:ring-green-200 transition-all"
-                  required
-                >
-                  <option value="">Không xác định</option>
-                  <option value="InStock">Còn hàng</option>
-                  <option value="OutOfStock">Hết hàng</option>
-                </select>
-                <p className="text-xs text-gray-500 mt-1">
-                  📦 Cập nhật trạng thái tồn kho của sản phẩm
-                </p>
+              {/* Stock Status & Stock Quantity */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-sm font-semibold text-gray-900 mb-2">
+                    Tình trạng kho <span className="text-red-500">*</span>
+                  </label>
+                  <select
+                    value={formData.stockStatus}
+                    onChange={(e) => setFormData({ ...formData, stockStatus: e.target.value as "InStock" | "OutOfStock" | "" })}
+                    className="w-full px-4 py-3 border-2 border-gray-200 rounded-lg focus:border-green-500 focus:ring-2 focus:ring-green-200 transition-all"
+                    required
+                  >
+                    <option value="">Không xác định</option>
+                    <option value="InStock">Còn hàng</option>
+                    <option value="OutOfStock">Hết hàng</option>
+                  </select>
+                  <p className="text-xs text-gray-500 mt-1">
+                    📦 Trạng thái tồn kho
+                  </p>
+                </div>
+                
+                <div>
+                  <label className="block text-sm font-semibold text-gray-900 mb-2">
+                    Số lượng tồn kho <span className="text-red-500">*</span>
+                  </label>
+                  <input
+                    type="number"
+                    value={formData.stockQuantity}
+                    onChange={(e) => {
+                      const value = e.target.value === '' ? '' : parseFloat(e.target.value)
+                      setFormData({ ...formData, stockQuantity: value })
+                    }}
+                    className="w-full px-4 py-3 border-2 border-gray-200 rounded-lg focus:border-green-500 focus:ring-2 focus:ring-green-200 transition-all"
+                    placeholder="Nhập số lượng"
+                    min="0"
+                    step="0.01"
+                    required
+                  />
+                  <p className="text-xs text-gray-500 mt-1">
+                    📊 Số lượng hàng tồn kho hiện có
+                  </p>
+                </div>
               </div>
 
               {/* Notice */}
