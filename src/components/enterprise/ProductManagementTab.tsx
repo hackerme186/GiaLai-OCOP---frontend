@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react"
 import Image from "next/image"
-import { getProducts, getCategories, createProduct, updateProduct, deleteProduct, getCurrentUser, type Product, type Category, type User } from "@/lib/api"
+import { getProducts, getCategories, createProduct, updateProduct, deleteProduct, getCurrentUser, type Product, type Category, type User, type CreateProductDto } from "@/lib/api"
 import ImageUploader from "@/components/upload/ImageUploader"
 import ProductImagesManager from "./ProductImagesManager"
 import { useRouter } from "next/navigation"
@@ -34,6 +34,7 @@ export default function ProductManagementTab({ user }: ProductManagementTabProps
     imageUrl: "",
     stockStatus: "InStock" as "InStock" | "OutOfStock" | "",
     unit: "", // 🔹 Add unit
+    stockQuantity: "" as string | number, // 🔹 Add stock quantity
   })
   const [imageFile, setImageFile] = useState<File | null>(null)
   const [imagePreview, setImagePreview] = useState<string | null>(null)
@@ -177,6 +178,7 @@ export default function ProductManagementTab({ user }: ProductManagementTabProps
       imageUrl: "",
       stockStatus: "InStock", // Default: Còn hàng
       unit: "cái", // 🔹 Default unit
+      stockQuantity: 0, // 🔹 Default stock quantity
     })
     setImageFile(null)
     setImagePreview(null)
@@ -195,6 +197,7 @@ export default function ProductManagementTab({ user }: ProductManagementTabProps
       imageUrl: product.imageUrl || "",
       stockStatus: (product.stockStatus || "InStock") as "InStock" | "OutOfStock" | "",
       unit: product.unit || "cái", // 🔹 Populate unit
+      stockQuantity: product.stockQuantity ?? 0, // 🔹 Populate stock quantity
     })
     setImageFile(null)
     setImagePreview(product.imageUrl || null)
@@ -248,6 +251,15 @@ export default function ProductManagementTab({ user }: ProductManagementTabProps
       setError("Vui lòng nhập đơn vị tính")
       return
     }
+    
+    // Validate stock quantity
+    const stockQuantity = typeof formData.stockQuantity === 'string' 
+      ? parseFloat(formData.stockQuantity) 
+      : formData.stockQuantity
+    if (stockQuantity === undefined || stockQuantity === null || stockQuantity < 0) {
+      setError("Vui lòng nhập số lượng tồn kho hợp lệ (>= 0)")
+      return
+    }
 
     // Verify selected category is still active
     const selectedCategory = categories.find(cat => cat.id === formData.categoryId)
@@ -279,9 +291,12 @@ export default function ProductManagementTab({ user }: ProductManagementTabProps
       }
 
       // Prepare payload with validated price and default imageUrl if empty
-      const payload = {
-        ...formData,
+      const payload: CreateProductDto = {
+        name: formData.name.trim(),
+        description: formData.description.trim(),
         price: typeof formData.price === 'string' ? parseFloat(formData.price) : formData.price,
+        categoryId: formData.categoryId,
+        unit: formData.unit.trim(),
         stockQuantity: typeof formData.stockQuantity === 'string' 
           ? parseFloat(formData.stockQuantity) 
           : (formData.stockQuantity ?? 0),
